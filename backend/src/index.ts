@@ -14,6 +14,7 @@ import dotenv from 'dotenv';
 import { testConnection, closePool } from './config/database.js';
 import { initializePassport } from './config/passport.js';
 import authRoutes from './routes/authRoutes.js';
+import requestRoutes from './routes/requestRoutes.js';
 import { ApiResponse } from './types/auth.js';
 
 // Load environment variables
@@ -67,7 +68,7 @@ app.use(initializePassport());
 /**
  * Health Check Route
  */
-app.get('/health', (req: Request, res: Response<ApiResponse>) => {
+app.get('/health', (_req: Request, res: Response<ApiResponse>) => {
   res.status(200).json({
     success: true,
     message: 'PHTS API is running',
@@ -83,6 +84,7 @@ app.get('/health', (req: Request, res: Response<ApiResponse>) => {
  * API Routes
  */
 app.use('/api/auth', authRoutes);
+app.use('/api/requests', requestRoutes);
 
 /**
  * 404 Handler - Route Not Found
@@ -101,9 +103,9 @@ app.use((req: Request, res: Response<ApiResponse>) => {
 app.use(
   (
     err: Error,
-    req: Request,
+    _req: Request,
     res: Response<ApiResponse>,
-    next: NextFunction
+    _next: NextFunction
   ) => {
     console.error('Error:', err.stack);
 

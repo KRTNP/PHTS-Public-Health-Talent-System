@@ -7,6 +7,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import '../types/express.js';
 import passport from 'passport';
 import { UserRole, ApiResponse } from '../types/auth.js';
 
@@ -112,7 +113,7 @@ export function optionalAuth(
   passport.authenticate(
     'jwt',
     { session: false },
-    (err: any, user: any, info: any) => {
+    (err: any, user: any, _info: any) => {
       // If authentication succeeded, attach user
       if (!err && user) {
         req.user = user;

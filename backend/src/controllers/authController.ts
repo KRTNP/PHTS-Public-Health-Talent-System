@@ -7,6 +7,7 @@
  */
 
 import { Request, Response } from 'express';
+import '../types/express.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -119,14 +120,11 @@ export async function login(
       role: user.role,
     };
 
-    const token = jwt.sign(
-      jwtPayload,
-      process.env.JWT_SECRET || 'default_secret_key_change_in_production',
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || '24h',
-        algorithm: 'HS256',
-      }
-    );
+    const jwtSecret = process.env.JWT_SECRET || 'default_secret_key_change_in_production';
+
+    const token = jwt.sign(jwtPayload, jwtSecret, {
+      expiresIn: '24h',
+    });
 
     // Prepare user profile (exclude sensitive data)
     const userProfile: UserProfile = {
@@ -174,7 +172,7 @@ export async function getCurrentUser(
       return;
     }
 
-    const { userId, citizenId, role } = req.user;
+    const { userId } = req.user;
 
     // Fetch latest user data from database
     const users = await query<User[]>(
@@ -223,7 +221,7 @@ export async function getCurrentUser(
  * @access Protected
  */
 export async function logout(
-  req: Request,
+  _req: Request,
   res: Response<ApiResponse>
 ): Promise<void> {
   try {

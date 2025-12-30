@@ -11,12 +11,11 @@ import { JwtPayload } from './auth.js';
 declare global {
   namespace Express {
     /**
-     * Extend Express Request interface to include user from JWT token
+     * Override Passport's User type with our JwtPayload
      * This allows TypeScript to recognize req.user in protected routes
      */
-    interface Request {
-      user?: JwtPayload;
-    }
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
+    interface User extends JwtPayload {}
   }
 }
 
