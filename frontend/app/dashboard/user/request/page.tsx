@@ -9,11 +9,12 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Snackbar, Alert } from '@mui/material';
+import { Box, Snackbar, Alert, Button } from '@mui/material';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import RequestForm from '@/components/requests/RequestForm';
 import { CreateRequestDTO } from '@/types/request.types';
 import * as requestApi from '@/lib/api/requestApi';
+import { ArrowBack } from '@mui/icons-material';
 
 export default function UserRequestPage() {
   const router = useRouter();
@@ -110,6 +111,16 @@ export default function UserRequestPage() {
           },
         }}
       >
+        <Box mb={2}>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBack />}
+            onClick={() => router.push('/dashboard/user')}
+            sx={{ borderRadius: 2, fontWeight: 600 }}
+          >
+            Back to dashboard
+          </Button>
+        </Box>
         <RequestForm
           onSubmit={handleSubmit}
           onSaveDraft={handleSaveDraft}

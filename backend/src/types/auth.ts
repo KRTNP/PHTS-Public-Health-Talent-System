@@ -69,6 +69,9 @@ export interface UserProfile {
   position?: string;
   position_number?: string;
   department?: string;
+   employee_type?: string;
+   mission_group?: string;
+   start_current_position?: string;
 }
 
 /**

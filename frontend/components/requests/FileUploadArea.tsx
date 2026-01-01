@@ -6,7 +6,7 @@
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useId, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -44,6 +44,8 @@ export default function FileUploadArea({
 }: FileUploadAreaProps) {
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const inputId = useId();
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const validateFile = useCallback(
     (file: File): string | null => {
@@ -157,17 +159,18 @@ export default function FileUploadArea({
         }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => document.getElementById('file-input')?.click()}
-      >
-        <input
-          id="file-input"
-          type="file"
-          multiple
-          accept=".pdf,.jpg,.jpeg,.png"
-          style={{ display: 'none' }}
-          onChange={(e) => handleFileSelect(e.target.files)}
-        />
+      onDrop={handleDrop}
+      onClick={() => inputRef.current?.click()}
+    >
+      <input
+        id={inputId}
+        type="file"
+        multiple
+        accept=".pdf,.jpg,.jpeg,.png"
+        style={{ display: 'none' }}
+        ref={inputRef}
+        onChange={(e) => handleFileSelect(e.target.files)}
+      />
         <CloudUpload sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
         <Typography variant="body1" fontWeight={500} gutterBottom>
           คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่

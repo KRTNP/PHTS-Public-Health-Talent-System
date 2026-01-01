@@ -123,24 +123,24 @@ export async function createRequest(
     };
 
     // Get uploaded files (documents) and optional signature upload
-    let documentFiles: Express.Multer.File[] | undefined;
-    let licenseFile: Express.Multer.File | undefined;
+    let documentFiles: Express.Multer.File[] = [];
     let signatureFile: Express.Multer.File | undefined;
     if (req.files) {
       const uploadedFiles = req.files as { [fieldname: string]: Express.Multer.File[] };
-      documentFiles = uploadedFiles['files'];
-      licenseFile = uploadedFiles['license_file']?.[0];
+      if (uploadedFiles['files']) {
+        documentFiles = [...documentFiles, ...uploadedFiles['files']];
+      }
+      if (uploadedFiles['license_file']) {
+        documentFiles = [...documentFiles, ...uploadedFiles['license_file']];
+      }
       signatureFile = uploadedFiles['applicant_signature']?.[0];
     }
-
-    const allFiles = [...(documentFiles || [])];
-    if (licenseFile) allFiles.push(licenseFile);
 
     // Create request
     const request = await requestService.createRequest(
       req.user.userId,
       requestData,
-      allFiles,
+      documentFiles,
       signatureFile
     );
 

@@ -30,6 +30,22 @@ interface FinalizeResult {
   licenseUpdated: boolean;
 }
 
+// Common select/join fragments for requester info
+const REQUESTER_FIELDS = `
+  r.*,
+  u.citizen_id AS requester_citizen_id,
+  u.role AS requester_role,
+  COALESCE(e.first_name, s.first_name) AS req_first_name,
+  COALESCE(e.last_name, s.last_name) AS req_last_name,
+  COALESCE(e.position_name, s.position_name) AS req_position
+`;
+
+const REQUESTER_JOINS = `
+  JOIN users u ON r.user_id = u.user_id
+  LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
+  LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+`;
+
 /**
  * Generate a lightweight running request number.
  * (Format: REQ-YY-XXXXXX; collisions are highly unlikely for single-node usage)
@@ -291,9 +307,9 @@ export async function getPendingForApprover(userRole: string): Promise<RequestWi
   }
 
   const requests = await query<RowDataPacket[]>(
-    `SELECT r.*, u.citizen_id as requester_citizen_id, u.role as requester_role
+    `SELECT ${REQUESTER_FIELDS}
      FROM pts_requests r
-     JOIN users u ON r.user_id = u.user_id
+     ${REQUESTER_JOINS}
      WHERE r.status = ? AND r.current_step = ?
      ORDER BY r.created_at ASC`,
     [RequestStatus.PENDING, stepNo]
@@ -307,6 +323,9 @@ export async function getPendingForApprover(userRole: string): Promise<RequestWi
     details.requester = {
       citizen_id: request.requester_citizen_id,
       role: request.requester_role,
+      first_name: request.req_first_name,
+      last_name: request.req_last_name,
+      position: request.req_position,
     };
     requestsWithDetails.push(details);
   }
@@ -323,9 +342,9 @@ export async function getRequestById(
   userRole: string
 ): Promise<RequestWithDetails> {
   const requests = await query<RowDataPacket[]>(
-    `SELECT r.*, u.citizen_id as requester_citizen_id, u.role as requester_role
+    `SELECT ${REQUESTER_FIELDS}
      FROM pts_requests r
-     JOIN users u ON r.user_id = u.user_id
+     ${REQUESTER_JOINS}
      WHERE r.request_id = ?`,
     [requestId]
   );
@@ -351,6 +370,9 @@ export async function getRequestById(
   details.requester = {
     citizen_id: request.requester_citizen_id,
     role: request.requester_role,
+    first_name: request.req_first_name,
+    last_name: request.req_last_name,
+    position: request.req_position,
   };
 
   return details;
@@ -780,9 +802,15 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
   );
 
   const actions = await query<RowDataPacket[]>(
-    `SELECT a.*, u.citizen_id as actor_citizen_id, u.role as actor_role
+    `SELECT a.*, 
+            u.citizen_id as actor_citizen_id, 
+            u.role as actor_role,
+            COALESCE(e.first_name, s.first_name) as actor_first_name,
+            COALESCE(e.last_name, s.last_name) as actor_last_name
      FROM pts_request_actions a
      JOIN users u ON a.actor_id = u.user_id
+     LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
+     LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
      WHERE a.request_id = ?
      ORDER BY a.action_date ASC`,
     [requestId]
@@ -804,6 +832,8 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
     actor: {
       citizen_id: action.actor_citizen_id,
       role: action.actor_role,
+      first_name: action.actor_first_name,
+      last_name: action.actor_last_name,
     },
   }));
 

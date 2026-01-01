@@ -79,7 +79,7 @@ export default function DashboardLayout({
         position="static"
         elevation={2}
         sx={{
-          background: 'linear-gradient(135deg, #00695f 0%, #004d40 100%)',
+          background: 'linear-gradient(135deg, #1976D2 0%, #0D47A1 100%)',
         }}
       >
         <Toolbar>
@@ -102,7 +102,7 @@ export default function DashboardLayout({
             size="small"
             sx={{
               mr: 2,
-              backgroundColor: 'rgba(255,255,255,0.2)',
+              backgroundColor: 'rgba(255,255,255,0.18)',
               color: 'white',
               fontWeight: 500,
             }}
@@ -122,7 +122,7 @@ export default function DashboardLayout({
               sx={{
                 width: 36,
                 height: 36,
-                backgroundColor: 'rgba(255,255,255,0.2)',
+                backgroundColor: 'rgba(255,255,255,0.22)',
               }}
             >
               <AccountCircle />

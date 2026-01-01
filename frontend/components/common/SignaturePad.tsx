@@ -264,6 +264,7 @@ export default function SignaturePad({
     setHasSignature(false);
     setIsSaved(false);
     setStoredSignature(null);
+    setMode('draw');
     onChange?.(null);
     onSignatureChange?.(false);
     onDataUrlChange?.(null);

@@ -130,22 +130,33 @@ export default function RequestForm({
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acceptLegal, setAcceptLegal] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const user = AuthService.getCurrentUser() as (UserProfile & {
-          first_name?: string;
-          last_name?: string;
-          department?: string;
-          position?: string;
-        }) | null;
+        const user = AuthService.getCurrentUser();
         const defaultPersonnel = Object.keys(PERSONNEL_TYPE_LABELS)[0] as PersonnelType;
         const defaultRequest = Object.keys(REQUEST_TYPE_LABELS)[0] as RequestType;
         if (user) {
           setUserInfo(user);
           if (user.department) setDepartmentGroup(user.department);
-          if (!personnelType) setPersonnelType(defaultPersonnel);
+          if (user.position_number) setPositionNumber(user.position_number);
+          if (user.mission_group) setMainDuty(user.mission_group);
+          if (user.start_current_position) setEffectiveDate(user.start_current_position);
+
+          if (!personnelType) {
+            const emp = (user.employee_type || '').toLowerCase();
+            if (emp.includes('ราชการ') && !emp.includes('กระทรวงสาธารณสุข')) {
+              setPersonnelType(PersonnelType.CIVIL_SERVANT);
+            } else if (emp.includes('พนักงานราชการ')) {
+              setPersonnelType(PersonnelType.GOV_EMPLOYEE);
+            } else if (emp.includes('กระทรวงสาธารณสุข') || emp.includes('พกส')) {
+              setPersonnelType(PersonnelType.PH_EMPLOYEE);
+            } else {
+              setPersonnelType(PersonnelType.TEMP_EMPLOYEE);
+            }
+          }
           if (!requestType) setRequestType(defaultRequest);
         }
       } catch (err) {
@@ -158,7 +169,6 @@ export default function RequestForm({
   }, []);
 
   const handleWorkAttributeChange = (key: keyof WorkAttributes) => {
-    if (!isEditMode) return;
     setWorkAttributes((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -339,9 +349,15 @@ export default function RequestForm({
                             personnelType === key ? `2px solid ${theme.palette.primary.main}` : '1px solid #9e9e9e',
                           bgcolor: personnelType === key ? 'primary.50' : 'transparent',
                           opacity: !isEditMode && personnelType !== key ? 0.6 : 1,
+                          position: 'relative',
+                          transition: 'all 0.2s ease',
+                          boxShadow: personnelType === key ? '0 4px 12px rgba(25, 118, 210, 0.15)' : 'none',
                         }}
                         onClick={() => isEditMode && setPersonnelType(key as PersonnelType)}
                       >
+                        {personnelType === key && (
+                          <CheckCircleOutline color="primary" sx={{ position: 'absolute', top: 10, right: 10 }} />
+                        )}
                         <FormControlLabel
                           value={key}
                           control={<Radio sx={{ display: 'none' }} />}
@@ -359,7 +375,7 @@ export default function RequestForm({
               <Typography variant="h6" gutterBottom fontWeight={600} color="primary.main">
                 1.2 วัตถุประสงค์การยื่นคำขอ
               </Typography>
-              <FormControl component="fieldset" disabled={!isEditMode}>
+              <FormControl component="fieldset">
                 <RadioGroup value={requestType} onChange={(e) => setRequestType(e.target.value as RequestType)}>
                   <Stack spacing={2}>
                     {Object.entries(REQUEST_TYPE_LABELS).map(([key, label]) => (
@@ -372,7 +388,7 @@ export default function RequestForm({
                           border:
                             requestType === key ? `2px solid ${theme.palette.primary.main}` : '1px solid #9e9e9e',
                           bgcolor: requestType === key ? 'primary.50' : 'transparent',
-                          opacity: !isEditMode && requestType !== key ? 0.6 : 1,
+                          opacity: requestType !== key ? 0.6 : 1,
                         }}
                       >
                         <FormControlLabel
@@ -415,6 +431,7 @@ export default function RequestForm({
                 value={positionNumber}
                 onChange={(e) => setPositionNumber(e.target.value)}
                 disabled={!isEditMode}
+                sx={{ '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#000000', color: '#000000' } }}
                 InputLabelProps={{ shrink: true }}
                 placeholder="เช่น 95635"
               />
@@ -426,6 +443,7 @@ export default function RequestForm({
                 value={departmentGroup}
                 onChange={(e) => setDepartmentGroup(e.target.value)}
                 disabled={!isEditMode}
+                sx={{ '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#000000', color: '#000000' } }}
                 InputLabelProps={{ shrink: true }}
               />
               <TextField
@@ -436,6 +454,7 @@ export default function RequestForm({
                 value={mainDuty}
                 onChange={(e) => setMainDuty(e.target.value)}
                 disabled={!isEditMode}
+                sx={{ '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#000000', color: '#000000' } }}
                 InputLabelProps={{ shrink: true }}
               />
             </Box>
@@ -462,7 +481,7 @@ export default function RequestForm({
                         ? `2px solid ${theme.palette.primary.main}`
                         : '1px solid #9e9e9e',
                       bgcolor: workAttributes[key as keyof WorkAttributes] ? 'primary.50' : 'transparent',
-                      opacity: !isEditMode ? 0.8 : 1,
+                      opacity: 1,
                     }}
                   >
                     <FormControlLabel
@@ -470,7 +489,6 @@ export default function RequestForm({
                         <Checkbox
                           checked={workAttributes[key as keyof WorkAttributes]}
                           onChange={() => handleWorkAttributeChange(key as keyof WorkAttributes)}
-                          disabled={!isEditMode}
                         />
                       }
                       label={<Typography fontWeight={500}>{label}</Typography>}
@@ -500,7 +518,7 @@ export default function RequestForm({
               required
               disabled={!isEditMode}
               fullWidth
-              sx={{ maxWidth: 500 }}
+              sx={{ maxWidth: 500, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#000000', color: '#000000' } }}
               InputProps={{
                 startAdornment: <InputAdornment position="start">฿</InputAdornment>,
                 style: { fontSize: '1.25rem', fontWeight: 'bold' },
@@ -514,7 +532,7 @@ export default function RequestForm({
               required
               disabled={!isEditMode}
               fullWidth
-              sx={{ maxWidth: 500 }}
+              sx={{ maxWidth: 500, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#000000', color: '#000000' } }}
               InputLabelProps={{ shrink: true }}
             />
           </Stack>
@@ -549,7 +567,7 @@ export default function RequestForm({
               <Typography variant="subtitle2" gutterBottom fontWeight={600} color="text.secondary">
                 2. เอกสารอื่นๆ (คำสั่ง, วุฒิบัตร ฯลฯ)
               </Typography>
-              <Alert severity="info" sx={{ mb: 2 }}>
+              <Alert severity="warning" sx={{ mb: 2, fontWeight: 600 }}>
                 สามารถแนบไฟล์ภาพ หรือ PDF (ขนาดไม่เกิน 5MB)
               </Alert>
               <FileUploadArea files={files} onChange={setFiles} maxFiles={5} maxSizeMB={5} showList={false} />
@@ -575,6 +593,18 @@ export default function RequestForm({
 
             <Divider />
 
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={acceptLegal}
+                  onChange={(e) => setAcceptLegal(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="ข้าพเจ้าตรวจสอบข้อมูลและยินยอมลงนามอิเล็กทรอนิกส์"
+              sx={{ alignItems: 'flex-start' }}
+            />
+
             <Box display="flex" flexDirection="column" alignItems="center">
               <Typography variant="h6" gutterBottom fontWeight={600}>
                 ลงชื่อผู้ขอรับเงิน
@@ -587,6 +617,8 @@ export default function RequestForm({
                   width: '100%',
                   maxWidth: 500,
                   bgcolor: '#fafafa',
+                  pointerEvents: acceptLegal ? 'auto' : 'none',
+                  opacity: acceptLegal ? 1 : 0.6,
                 }}
               >
                 <SignaturePad

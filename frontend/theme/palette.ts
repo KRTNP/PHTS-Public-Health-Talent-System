@@ -10,48 +10,70 @@
 
 import { PaletteOptions } from '@mui/material/styles';
 
+// New medical/enterprise blue palette
+const primary = {
+  lighter: '#D1E9FC',
+  light: '#76B0F1',
+  main: '#1976D2',
+  dark: '#0D47A1',
+  darker: '#082A66',
+  contrastText: '#FFFFFF',
+};
+
+const secondary = {
+  lighter: '#D6E4FF',
+  light: '#84A9FF',
+  main: '#3366FF',
+  dark: '#1939B7',
+  darker: '#091A7A',
+  contrastText: '#FFFFFF',
+};
+
+const error = {
+  lighter: '#FFE7D9',
+  light: '#FFA48D',
+  main: '#FF4842',
+  dark: '#B72136',
+  darker: '#7A0C2E',
+  contrastText: '#FFFFFF',
+};
+
+const success = {
+  lighter: '#E9FCD4',
+  light: '#AAF27F',
+  main: '#54D62C',
+  dark: '#229A16',
+  darker: '#08660D',
+  contrastText: '#212B36',
+};
+
+const grey = {
+  0: '#FFFFFF',
+  100: '#F9FAFB',
+  200: '#F4F6F8',
+  300: '#DFE3E8',
+  400: '#C4CDD5',
+  500: '#919EAB',
+  600: '#637381',
+  700: '#454F5B',
+  800: '#212B36',
+  900: '#161C24',
+};
+
 export const palette: PaletteOptions = {
-  mode: 'light',
-  primary: {
-    main: '#00695f', // Deep Teal - Medical professionalism
-    light: '#439889', // Lighter teal for hover states
-    dark: '#003d33', // Darker teal for active states
-    contrastText: '#ffffff',
-  },
-  secondary: {
-    main: '#455a64', // Blue Gray - Complementary accent
-    light: '#718792',
-    dark: '#1c313a',
-    contrastText: '#ffffff',
-  },
-  error: {
-    main: '#d32f2f', // Accessible red
-    light: '#ef5350',
-    dark: '#c62828',
-  },
-  warning: {
-    main: '#ed6c02',
-    light: '#ff9800',
-    dark: '#e65100',
-  },
-  info: {
-    main: '#0288d1',
-    light: '#03a9f4',
-    dark: '#01579b',
-  },
-  success: {
-    main: '#2e7d32', // Medical green
-    light: '#4caf50',
-    dark: '#1b5e20',
+  primary,
+  secondary,
+  error,
+  success,
+  grey,
+  text: {
+    primary: grey[800],
+    secondary: grey[700],
+    disabled: grey[500],
   },
   background: {
-    default: '#F4F6F8', // Clean neutral background
-    paper: '#FFFFFF', // Pure white for cards/dialogs
+    default: '#F4F6F8',
+    paper: '#FFFFFF',
   },
-  text: {
-    primary: '#1a1a2e', // Near-black for maximum readability
-    secondary: '#546e7a', // Muted for supporting text
-    disabled: '#9e9e9e',
-  },
-  divider: 'rgba(0, 0, 0, 0.12)',
+  divider: grey[300],
 };

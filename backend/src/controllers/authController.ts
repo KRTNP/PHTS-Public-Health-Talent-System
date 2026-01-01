@@ -51,14 +51,14 @@ async function getUserWithProfile(userId: number): Promise<UserProfile | null> {
   const user = users[0];
 
   let employeeDetails = await query<any[]>(
-    `SELECT first_name, last_name, position_name as position, department, position_number 
+    `SELECT first_name, last_name, position_name as position, department, position_number, employee_type, mission_group, start_current_position
      FROM pts_employees WHERE citizen_id = ? LIMIT 1`,
     [user.citizen_id]
   );
 
   if (!employeeDetails || employeeDetails.length === 0) {
     employeeDetails = await query<any[]>(
-      `SELECT first_name, last_name, position_name as position, department, position_number 
+      `SELECT first_name, last_name, position_name as position, department, position_number, employee_type, mission_group, start_current_position
        FROM pts_support_employees WHERE citizen_id = ? LIMIT 1`,
       [user.citizen_id]
     );
@@ -77,6 +77,9 @@ async function getUserWithProfile(userId: number): Promise<UserProfile | null> {
     position: detail?.position,
     position_number: detail?.position_number,
     department: detail?.department,
+    employee_type: detail?.employee_type,
+    mission_group: detail?.mission_group,
+    start_current_position: detail?.start_current_position,
   };
 }
 

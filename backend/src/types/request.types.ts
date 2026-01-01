@@ -168,6 +168,9 @@ export interface RequestWithDetails extends PTSRequest {
   requester?: {
     citizen_id: string;
     role: string;
+    first_name?: string;
+    last_name?: string;
+    position?: string;
   };
 }
 
@@ -178,6 +181,8 @@ export interface RequestActionWithActor extends RequestAction {
   actor?: {
     citizen_id: string;
     role: string;
+    first_name?: string;
+    last_name?: string;
   };
 }
 

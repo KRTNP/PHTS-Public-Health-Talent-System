@@ -1,7 +1,7 @@
 /**
  * FilePreviewList
  *
- * Reusable list with preview/remove actions for File objects.
+ * Reusable list with preview/remove actions for File or file-like objects.
  */
 'use client';
 
@@ -24,14 +24,17 @@ import {
 } from '@mui/material';
 import { Visibility, InsertDriveFile, DeleteOutline } from '@mui/icons-material';
 
+type FileLike = File | { name: string; size?: number; type?: string; url?: string };
+
 interface FilePreviewListProps {
-  files: File[];
-  onPreview?: (file: File) => void;
+  files: FileLike[];
+  onPreview?: (file: FileLike) => void;
   onRemove?: (index: number) => void;
+  readOnly?: boolean;
 }
 
-export default function FilePreviewList({ files, onPreview, onRemove }: FilePreviewListProps) {
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
+export default function FilePreviewList({ files, onPreview, onRemove, readOnly }: FilePreviewListProps) {
+  const [previewFile, setPreviewFile] = useState<FileLike | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,14 +43,20 @@ export default function FilePreviewList({ files, onPreview, onRemove }: FilePrev
     };
   }, [previewUrl]);
 
-  const handlePreview = (file: File) => {
+  const handlePreview = (file: FileLike) => {
     if (onPreview) {
       onPreview(file);
       return;
     }
-    const url = URL.createObjectURL(file);
-    setPreviewFile(file);
-    setPreviewUrl(url);
+    if ((file as any).url) {
+      window.open((file as any).url, '_blank');
+      return;
+    }
+    if (file instanceof File || (typeof Blob !== 'undefined' && file instanceof Blob)) {
+      const url = URL.createObjectURL(file as File);
+      setPreviewFile(file);
+      setPreviewUrl(url);
+    }
   };
 
   const handleClose = () => {
@@ -58,17 +67,13 @@ export default function FilePreviewList({ files, onPreview, onRemove }: FilePrev
 
   const renderPreviewContent = () => {
     if (!previewFile || !previewUrl) return null;
-    if (previewFile.type.startsWith('image/')) {
+    const fileType = (previewFile as any).type || '';
+    if (fileType.startsWith('image/')) {
       return (
-        <Box
-          component="img"
-          src={previewUrl}
-          alt={previewFile.name}
-          sx={{ maxWidth: '100%', height: 'auto', borderRadius: 1 }}
-        />
+        <Box component="img" src={previewUrl} alt={previewFile.name} sx={{ maxWidth: '100%', height: 'auto', borderRadius: 1 }} />
       );
     }
-    if (previewFile.type === 'application/pdf') {
+    if (fileType === 'application/pdf') {
       return (
         <Box
           component="object"
@@ -77,14 +82,14 @@ export default function FilePreviewList({ files, onPreview, onRemove }: FilePrev
           sx={{ width: '100%', height: { xs: 360, md: 520 }, borderRadius: 1 }}
         >
           <Typography variant="body2" color="text.secondary">
-            ไม่สามารถแสดงตัวอย่าง PDF ได้ โปรดกด "เปิดไฟล์ในแท็บใหม่"
+            ไม่สามารถพรีวิวไฟล์ PDF ได้ในเบราเซอร์นี้ โปรดกด "เปิดในแท็บใหม่"
           </Typography>
         </Box>
       );
     }
     return (
       <Typography variant="body2" color="text.secondary">
-        ไม่รองรับพรีวิวไฟล์ประเภทนี้ โปรดกด "เปิดไฟล์ในแท็บใหม่"
+        ไม่รองรับการพรีวิวไฟล์ประเภทนี้ กด "เปิดในแท็บใหม่" เพื่อดาวน์โหลด/ดูไฟล์
       </Typography>
     );
   };
@@ -101,16 +106,22 @@ export default function FilePreviewList({ files, onPreview, onRemove }: FilePrev
             </ListItemIcon>
             <ListItemText
               primary={file.name}
-              secondary={`${(file.size / 1024 / 1024).toFixed(2)} MB`}
+              secondary={
+                typeof (file as any).size === 'number'
+                  ? `${(((file as any).size as number) / 1024 / 1024).toFixed(2)} MB`
+                  : undefined
+              }
               primaryTypographyProps={{ noWrap: true }}
             />
             <ListItemSecondaryAction>
-              <Tooltip title="ดูไฟล์">
-                <IconButton edge="end" onClick={() => handlePreview(file)} sx={{ mr: onRemove ? 1 : 0 }}>
-                  <Visibility />
-                </IconButton>
-              </Tooltip>
-              {onRemove && (
+              {!readOnly && (
+                <Tooltip title="พรีวิว">
+                  <IconButton edge="end" onClick={() => handlePreview(file)} sx={{ mr: onRemove ? 1 : 0 }}>
+                    <Visibility />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {onRemove && !readOnly && (
                 <Tooltip title="ลบ">
                   <IconButton edge="end" color="error" onClick={() => onRemove(index)}>
                     <DeleteOutline />
@@ -123,12 +134,12 @@ export default function FilePreviewList({ files, onPreview, onRemove }: FilePrev
       </List>
 
       <Dialog open={Boolean(previewFile)} onClose={handleClose} fullWidth maxWidth="md">
-        <DialogTitle>{previewFile?.name || 'ตัวอย่างไฟล์'}</DialogTitle>
+        <DialogTitle>{previewFile?.name || 'พรีวิวไฟล์'}</DialogTitle>
         <DialogContent dividers>{renderPreviewContent()}</DialogContent>
         <DialogActions>
           {previewUrl && (
-            <Button onClick={() => window.open(previewUrl, '_blank')} startIcon={<Visibility />}>
-              เปิดไฟล์ในแท็บใหม่
+            <Button onClick={() => window.open(previewUrl as string, '_blank')} startIcon={<Visibility />}>
+              เปิดในแท็บใหม่
             </Button>
           )}
           <Button onClick={handleClose}>ปิด</Button>

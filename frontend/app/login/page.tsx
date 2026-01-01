@@ -1,116 +1,89 @@
-/**
- * PHTS System - Login Page
- *
- * Professional login interface with glassmorphism design
- * Features: Citizen ID validation, password visibility toggle, role-based routing
- */
-
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Box,
-  Card,
-  CardContent,
-  TextField,
   Button,
+  TextField,
   Typography,
-  Alert,
+  Paper,
+  Container,
   InputAdornment,
   IconButton,
+  Alert,
   CircularProgress,
   Stack,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   Visibility,
   VisibilityOff,
-  LocalHospital,
   Person,
   Lock,
+  Login as LoginIcon,
+  LocalHospital,
 } from '@mui/icons-material';
 import { AuthService } from '@/lib/api/authApi';
-import { LoginCredentials } from '@/types/auth';
+import { UserRole } from '@/types/auth';
 
 export default function LoginPage() {
-  const [credentials, setCredentials] = useState<LoginCredentials>({
-    citizen_id: '',
-    password: '',
-  });
+  const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState({
-    citizen_id: '',
-    password: '',
-  });
 
-  // Validate Citizen ID (13 digits, numeric only)
-  const validateCitizenId = (value: string): string => {
-    if (!value) return 'กรุณากรอกเลขบัตรประชาชน';
-    if (!/^\d+$/.test(value)) return 'กรุณากรอกตัวเลขเท่านั้น';
-    if (value.length !== 13) return 'เลขบัตรประชาชนต้องมี 13 หลัก';
-    return '';
-  };
-
-  // Validate Password
-  const validatePassword = (value: string): string => {
-    if (!value) return 'กรุณากรอกรหัสผ่าน';
-    return '';
-  };
-
-  // Handle input change with validation
-  const handleInputChange = (field: keyof LoginCredentials, value: string) => {
-    // For citizen_id, only allow numeric input
-    if (field === 'citizen_id') {
-      // Remove non-numeric characters
-      value = value.replace(/\D/g, '');
-      // Limit to 13 digits
-      if (value.length > 13) return;
-    }
-
-    setCredentials((prev) => ({ ...prev, [field]: value }));
-    setError(null);
-
-    // Validate on blur (will be triggered by form validation)
-    if (field === 'citizen_id') {
-      setFieldErrors((prev) => ({
-        ...prev,
-        citizen_id: value ? validateCitizenId(value) : '',
-      }));
-    }
-  };
-
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Validate all fields
-    const citizenIdError = validateCitizenId(credentials.citizen_id);
-    const passwordError = validatePassword(credentials.password);
-
-    setFieldErrors({
-      citizen_id: citizenIdError,
-      password: passwordError,
-    });
-
-    if (citizenIdError || passwordError) {
-      return;
-    }
-
-    setLoading(true);
     setError(null);
+    setLoading(true);
 
     try {
-      const response = await AuthService.login(credentials);
+      const response = await AuthService.login({ citizen_id: username, password });
+      const userRole: UserRole = response.user.role;
 
-      if (response.success) {
-        // Redirect to role-based dashboard
-        AuthService.redirectToDashboard(response.user);
+      let targetPath = '/dashboard/user';
+      switch (userRole) {
+        case UserRole.ADMIN:
+          targetPath = '/dashboard/admin';
+          break;
+        case UserRole.HEAD_DEPT:
+          targetPath = '/dashboard/approver';
+          break;
+        case UserRole.PTS_OFFICER:
+          targetPath = '/dashboard/officer';
+          break;
+        case UserRole.HEAD_HR:
+          targetPath = '/dashboard/hr-head';
+          break;
+        case UserRole.HEAD_FINANCE:
+          targetPath = '/dashboard/finance-head';
+          break;
+        case UserRole.DIRECTOR:
+          targetPath = '/dashboard/director';
+          break;
+        case UserRole.USER:
+        default:
+          targetPath = '/dashboard/user';
+          break;
       }
+
+      router.replace(targetPath);
     } catch (err: any) {
-      setError(
-        err.message || 'เลขบัตรประชาชนหรือรหัสผ่านไม่ถูกต้อง'
-      );
+      console.error('Login failed:', err);
+      if (err.response?.status === 401) {
+        setError('ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง');
+      } else if (err.response?.status === 403) {
+        setError('บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
+      } else {
+        setError('เกิดข้อผิดพลาดในการเชื่อมต่อระบบ กรุณาลองใหม่อีกครั้ง');
+      }
     } finally {
       setLoading(false);
     }
@@ -118,166 +91,181 @@ export default function LoginPage() {
 
   return (
     <Box
+      component="main"
       sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #00695f 0%, #004d40 100%)',
-        padding: 2,
+        height: '100vh',
+        overflow: 'hidden',
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: '7fr 5fr' },
       }}
     >
-      <Card
-        elevation={8}
+      <Box
         sx={{
-          maxWidth: 440,
-          width: '100%',
-          backdropFilter: 'blur(10px)',
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: 3,
-          overflow: 'visible',
+          display: { xs: 'none', md: 'block' },
+          backgroundImage:
+            'url(https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=2000&auto=format&fit=crop)',
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: (t) => (t.palette.mode === 'light' ? t.palette.grey[50] : t.palette.grey[900]),
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          position: 'relative',
         }}
       >
-        <CardContent sx={{ padding: 4 }}>
-          {/* Header */}
-          <Stack spacing={2} alignItems="center" sx={{ mb: 4 }}>
-            <Box
-              sx={{
-                width: 80,
-                height: 80,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #00695f 0%, #004d40 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 8px 24px rgba(0,105,95,0.3)',
-              }}
-            >
-              <LocalHospital sx={{ fontSize: 48, color: 'white' }} />
-            </Box>
-            <Typography
-              variant="h4"
-              component="h1"
-              fontWeight={600}
-              color="primary"
-              textAlign="center"
-            >
-              PHTS System
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              textAlign="center"
-            >
-              ระบบจัดการค่าตอบแทนกำลังคนด้านสาธารณสุข
-            </Typography>
-          </Stack>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(25, 118, 210, 0.85)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            color: 'white',
+            p: 4,
+            textAlign: 'center',
+          }}
+        >
+          <LocalHospital sx={{ fontSize: 80, mb: 2, opacity: 0.9 }} />
+          <Typography variant="h3" component="h1" fontWeight="700" gutterBottom>
+            PHTS System
+          </Typography>
+          <Typography variant="h5" sx={{ opacity: 0.9, fontWeight: 300 }}>
+            ระบบสารสนเทศเพื่อการบริหารจัดการ
+          </Typography>
+          <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 300, mt: 1 }}>
+            ค่าตอบแทนกำลังคนด้านสาธารณสุข
+          </Typography>
+        </Box>
+      </Box>
 
-          {/* Error Alert */}
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
+      <Paper elevation={6} square>
+        <Box
+          sx={{
+            my: 8,
+            mx: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            height: '100%',
+            justifyContent: 'center',
+          }}
+        >
+          {isMobile && (
+            <>
+              <LocalHospital color="primary" sx={{ fontSize: 50, mb: 1 }} />
+              <Typography component="h1" variant="h5" fontWeight="700" color="primary" gutterBottom>
+                PHTS Login
+              </Typography>
+            </>
           )}
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit}>
-            <Stack spacing={3}>
-              {/* Citizen ID Field */}
-              <TextField
-                fullWidth
-                label="เลขบัตรประชาชน (Citizen ID)"
-                placeholder="1234567890123"
-                value={credentials.citizen_id}
-                onChange={(e) =>
-                  handleInputChange('citizen_id', e.target.value)
-                }
-                error={!!fieldErrors.citizen_id}
-                helperText={
-                  fieldErrors.citizen_id ||
-                  'กรอกเลขบัตรประชาชน 13 หลัก'
-                }
-                inputMode="numeric"
-                autoComplete="username"
-                autoFocus
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Person color="action" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+          {!isMobile && (
+            <>
+              <Typography component="h1" variant="h5" fontWeight="600" sx={{ mb: 1 }}>
+                เข้าสู่ระบบ
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                กรุณากรอกเลขบัตรประชาชนและรหัสผ่าน
+              </Typography>
+            </>
+          )}
 
-              {/* Password Field */}
-              <TextField
-                fullWidth
-                type={showPassword ? 'text' : 'password'}
-                label="รหัสผ่าน (Password)"
-                placeholder="DDMMYYYY"
-                value={credentials.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                error={!!fieldErrors.password}
-                helperText={
-                  fieldErrors.password ||
-                  'รหัสผ่านเริ่มต้น: วันเกิด (DDMMYYYY)'
-                }
-                autoComplete="current-password"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock color="action" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
+          <Box component="form" onSubmit={handleLogin} sx={{ mt: 1, width: '100%', maxWidth: 400 }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                {error}
+              </Alert>
+            )}
 
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                variant="contained"
-                size="large"
-                fullWidth
-                disabled={loading}
-                sx={{
-                  py: 1.5,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  position: 'relative',
-                }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} sx={{ color: 'white' }} />
-                ) : (
-                  'เข้าสู่ระบบ (Login)'
-                )}
-              </Button>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="username"
+              label="เลขบัตรประชาชน / Username"
+              name="username"
+              autoComplete="username"
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Person color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+            />
+
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="รหัสผ่าน"
+              type={showPassword ? 'text' : 'password'}
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Lock color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
+              sx={{
+                mt: 4,
+                mb: 2,
+                py: 1.5,
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                borderRadius: 2,
+                textTransform: 'none',
+                boxShadow: theme.shadows[4],
+              }}
+            >
+              {loading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
+            </Button>
+
+            <Stack direction="row" justifyContent="center" mt={2}>
+              <Typography variant="body2" color="text.secondary">
+                ติดปัญหาการใช้งาน?{' '}
+                <Box component="span" sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 600 }}>
+                  ติดต่อฝ่าย IT
+                </Box>
+              </Typography>
             </Stack>
-          </form>
 
-          {/* Footer Note */}
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            textAlign="center"
-            display="block"
-            sx={{ mt: 3 }}
-          >
-            หากพบปัญหาการเข้าใช้งาน กรุณาติดต่อฝ่าย IT
-          </Typography>
-        </CardContent>
-      </Card>
+            <Typography variant="caption" display="block" align="center" color="text.disabled" sx={{ mt: 8 }}>
+              PHTS System v2.0 © 2025 Uttaradit Hospital
+            </Typography>
+          </Box>
+        </Box>
+      </Paper>
     </Box>
   );
 }
