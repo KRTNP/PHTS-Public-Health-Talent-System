@@ -28,11 +28,16 @@ export default function UserRequestPage() {
     severity: 'success',
   });
 
-  const handleSubmit = async (data: CreateRequestDTO, files: File[], signatureFile?: File) => {
+  const handleSubmit = async (
+    data: CreateRequestDTO,
+    files: File[],
+    signatureFile?: File,
+    licenseFile?: File
+  ) => {
     setIsSubmitting(true);
     try {
       // Create request with signature (keep signature separate from attachments)
-      const request = await requestApi.createRequest(data, files, signatureFile);
+      const request = await requestApi.createRequest(data, files, signatureFile, licenseFile);
 
       // Automatically submit the request (move from DRAFT to PENDING)
       await requestApi.submitRequest(request.request_id);

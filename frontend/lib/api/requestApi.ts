@@ -19,7 +19,8 @@ const extractErrorMessage = (error: unknown, fallbackMessage: string) => {
 const buildRequestFormData = (
   data: CreateRequestDTO,
   files: File[] = [],
-  signatureFile?: File
+  signatureFile?: File,
+  licenseFile?: File
 ) => {
   const formData = new FormData();
 
@@ -38,6 +39,10 @@ const buildRequestFormData = (
     formData.append('effective_date', data.effective_date);
   }
 
+  if (licenseFile) {
+    formData.append('license_file', licenseFile);
+  }
+
   files.forEach((file) => formData.append('files', file));
   if (signatureFile) {
     formData.append('applicant_signature', signatureFile);
@@ -52,10 +57,11 @@ const buildRequestFormData = (
 export async function createRequest(
   data: CreateRequestDTO,
   files: File[] = [],
-  signatureFile?: File
+  signatureFile?: File,
+  licenseFile?: File
 ): Promise<RequestWithDetails> {
   try {
-    const formData = buildRequestFormData(data, files, signatureFile);
+    const formData = buildRequestFormData(data, files, signatureFile, licenseFile);
 
     const response = await apiClient.post<ApiResponse<RequestWithDetails>>(
       '/api/requests',

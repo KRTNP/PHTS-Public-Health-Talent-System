@@ -1,13 +1,14 @@
 /**
- * PHTS System - Request Service Layer
+ * PHTS System - Request Service Layer (V2.0)
  *
- * Business logic for PTS request management and workflow.
- * Includes "The Bridge" - post-approval logic that feeds Part 3 Calculation Master Data.
- *
- * Date: 2025-12-31
+ * Aligns request workflow with Database V2.0:
+ * - Uses applicant_signature_id from pts_user_signatures
+ * - Stores approver signature snapshots as BLOB
+ * - Finalization writes pts_rate_adjustments with request_id FK + adjustment_type
  */
 
 import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
+import { readFile } from 'fs/promises';
 import { query, getConnection } from '../config/database.js';
 import {
   RequestStatus,
@@ -23,64 +24,150 @@ import {
   BatchApproveParams,
   BatchApproveResult,
 } from '../types/request.types.js';
-import * as signatureService from './signatureService.js';
 
-/**
- * Result type for finalization operation
- */
 interface FinalizeResult {
   rateAdjustmentId: number | null;
   licenseUpdated: boolean;
 }
 
 /**
- * Create a new request in DRAFT status
- *
- * @param userId - ID of the user creating the request
- * @param data - Request data including all P.T.S. form fields
- * @param files - Uploaded file attachments
- * @param signaturePath - Path to uploaded signature image
- * @returns Created request with attachments
+ * Generate a lightweight running request number.
+ * (Format: REQ-YY-XXXXXX; collisions are highly unlikely for single-node usage)
+ */
+function generateRequestNo(): string {
+  const year = new Date().getFullYear().toString().slice(-2);
+  const random = Math.floor(Math.random() * 1_000_000)
+    .toString()
+    .padStart(6, '0');
+  return `REQ-${year}-${random}`;
+}
+
+/**
+ * Safely parse a JSON column.
+ */
+function parseJsonField<T = any>(value: any): T | null {
+  if (!value) return null;
+  if (typeof value === 'object') return value as T;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Normalize DB row to API shape (keeps backward-compatible fields).
+ */
+function mapRequestRow(row: any): PTSRequest & {
+  request_no?: string;
+  applicant_signature_id?: number | null;
+} {
+  const submissionData = parseJsonField(row.submission_data);
+  const workAttributes = parseJsonField(row.work_attributes);
+  const mainDuty = row.main_duty ?? submissionData?.main_duty ?? null;
+
+  return {
+    request_id: row.request_id,
+    user_id: row.user_id,
+    request_no: row.request_no,
+    personnel_type: row.personnel_type,
+    position_number: row.current_position_number ?? row.position_number ?? null,
+    department_group: row.current_department ?? row.department_group ?? null,
+    main_duty: mainDuty,
+    work_attributes: workAttributes,
+    applicant_signature: null,
+    applicant_signature_id: row.applicant_signature_id ?? null,
+    request_type: row.request_type,
+    requested_amount: row.requested_amount,
+    effective_date: row.effective_date,
+    status: row.status,
+    current_step: row.current_step,
+    submission_data: submissionData,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    submitted_at: row.submitted_at ?? null,
+  } as any;
+}
+
+/**
+ * Create a new request (DRAFT)
  */
 export async function createRequest(
   userId: number,
   data: CreateRequestDTO,
   files?: Express.Multer.File[],
-  signaturePath?: string
+  signatureFile?: Express.Multer.File
 ): Promise<RequestWithDetails> {
   const connection = await getConnection();
 
   try {
     await connection.beginTransaction();
 
-    // Prepare work_attributes JSON
-    const workAttributesJson = data.work_attributes
-      ? JSON.stringify(data.work_attributes)
-      : null;
+    // 1) Handle signature: if a new file is uploaded, upsert; otherwise use existing
+    let signatureId: number | null = null;
+    if (signatureFile) {
+      const sigBuffer =
+        signatureFile.buffer && signatureFile.buffer.length > 0
+          ? signatureFile.buffer
+          : await readFile(signatureFile.path);
 
-    // Prepare submission_data JSON (for backward compatibility)
+      await connection.query(
+        `
+        INSERT INTO pts_user_signatures (user_id, signature_image, updated_at)
+        VALUES (?, ?, NOW())
+        ON DUPLICATE KEY UPDATE
+          signature_image = VALUES(signature_image),
+          updated_at = NOW()
+      `,
+        [userId, sigBuffer]
+      );
+    }
+
+    const [sigs] = await connection.query<RowDataPacket[]>(
+      'SELECT signature_id FROM pts_user_signatures WHERE user_id = ?',
+      [userId]
+    );
+    signatureId = sigs.length ? (sigs[0] as any).signature_id : null;
+
+    if (!signatureId) {
+      throw new Error('ไม่พบข้อมูลลายเซ็น กรุณาเซ็นชื่อก่อนยื่นคำขอ');
+    }
+
+    // 2) Serialize JSON payloads
+    const workAttributesJson = data.work_attributes ? JSON.stringify(data.work_attributes) : null;
     const submissionDataJson = data.submission_data
-      ? JSON.stringify(data.submission_data)
+      ? JSON.stringify({ ...data.submission_data, main_duty: data.main_duty ?? null })
+      : data.main_duty
+      ? JSON.stringify({ main_duty: data.main_duty })
       : null;
 
-    // Insert request with DRAFT status, all new fields, and signature
+    // Basic guard rails for NOT NULL fields
+    if (data.requested_amount === undefined || data.requested_amount === null) {
+      throw new Error('requested_amount is required');
+    }
+    if (!data.effective_date) {
+      throw new Error('effective_date is required');
+    }
+
+    // 3) Insert request (V2 schema)
+    const requestNo = generateRequestNo();
     const [result] = await connection.execute<ResultSetHeader>(
       `INSERT INTO pts_requests
-       (user_id, personnel_type, position_number, department_group,
-        main_duty, work_attributes, applicant_signature, request_type, requested_amount,
+       (user_id, request_no, personnel_type, current_position_number, current_department,
+        work_attributes, applicant_signature_id, request_type, requested_amount,
         effective_date, status, current_step, submission_data)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
+        requestNo,
         data.personnel_type,
         data.position_number || null,
         data.department_group || null,
-        data.main_duty || null,
         workAttributesJson,
-        signaturePath || null, // Add signature path
+        signatureId,
         data.request_type,
-        data.requested_amount || null,
-        data.effective_date || null,
+        data.requested_amount,
+        data.effective_date,
         RequestStatus.DRAFT,
         1,
         submissionDataJson,
@@ -89,56 +176,24 @@ export async function createRequest(
 
     const requestId = result.insertId;
 
-    // Insert file attachments if provided
-    const attachments: RequestAttachment[] = [];
+    // 4) Insert attachments
     if (files && files.length > 0) {
       for (const file of files) {
-        const [attachResult] = await connection.execute<ResultSetHeader>(
+        let fileType = FileType.OTHER;
+        if (file.fieldname === 'license_file') fileType = FileType.LICENSE;
+
+        await connection.execute<ResultSetHeader>(
           `INSERT INTO pts_attachments
            (request_id, file_type, file_path, original_filename, file_size, mime_type)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            requestId,
-            FileType.OTHER, // Default type, can be enhanced later
-            file.path,
-            file.originalname,
-            file.size,
-            file.mimetype,
-          ]
+          [requestId, fileType, file.path, file.originalname, file.size, file.mimetype]
         );
-
-        attachments.push({
-          attachment_id: attachResult.insertId,
-          request_id: requestId,
-          file_type: FileType.OTHER,
-          file_path: file.path,
-          original_filename: file.originalname,
-          file_size: file.size,
-          mime_type: file.mimetype,
-          uploaded_at: new Date(),
-        });
       }
     }
 
     await connection.commit();
 
-    // Fetch and return the created request
-    const [requests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ?',
-      [requestId]
-    );
-
-    const request = requests[0] as any;
-
-    // Parse work_attributes back to object if it's a JSON string
-    if (request.work_attributes && typeof request.work_attributes === 'string') {
-      request.work_attributes = JSON.parse(request.work_attributes);
-    }
-
-    return {
-      ...request,
-      attachments,
-    };
+    return await getRequestDetails(requestId);
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -148,22 +203,14 @@ export async function createRequest(
 }
 
 /**
- * Submit a draft request to start the approval workflow
- *
- * @param requestId - Request ID to submit
- * @param userId - User ID submitting the request
- * @returns Updated request
+ * Submit a draft request
  */
-export async function submitRequest(
-  requestId: number,
-  userId: number
-): Promise<PTSRequest> {
+export async function submitRequest(requestId: number, userId: number): Promise<PTSRequest> {
   const connection = await getConnection();
 
   try {
     await connection.beginTransaction();
 
-    // Get current request
     const [requests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ? AND user_id = ?',
       [requestId, userId]
@@ -173,14 +220,12 @@ export async function submitRequest(
       throw new Error('Request not found or you do not have permission');
     }
 
-    const request = requests[0] as PTSRequest;
+    const request = mapRequestRow(requests[0]);
 
-    // Verify status is DRAFT
     if (request.status !== RequestStatus.DRAFT) {
       throw new Error(`Cannot submit request with status: ${request.status}`);
     }
 
-    // Update to PENDING and set current_step to 1
     await connection.execute(
       `UPDATE pts_requests
        SET status = ?, current_step = ?, updated_at = NOW()
@@ -188,7 +233,6 @@ export async function submitRequest(
       [RequestStatus.PENDING, 1, requestId]
     );
 
-    // Log SUBMIT action
     await connection.execute(
       `INSERT INTO pts_request_actions
        (request_id, actor_id, step_no, action, comment)
@@ -198,13 +242,12 @@ export async function submitRequest(
 
     await connection.commit();
 
-    // Fetch and return updated request
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
       [requestId]
     );
 
-    return updatedRequests[0] as PTSRequest;
+    return mapRequestRow(updatedRequests[0]) as PTSRequest;
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -215,9 +258,6 @@ export async function submitRequest(
 
 /**
  * Get all requests created by a specific user
- *
- * @param userId - User ID to filter by
- * @returns List of requests with attachments and actions
  */
 export async function getMyRequests(userId: number): Promise<RequestWithDetails[]> {
   const requests = await query<RowDataPacket[]>(
@@ -229,7 +269,7 @@ export async function getMyRequests(userId: number): Promise<RequestWithDetails[
     [userId]
   );
 
-  const requestRows = Array.isArray(requests) ? (requests as PTSRequest[]) : [];
+  const requestRows = Array.isArray(requests) ? (requests as any[]) : [];
   const requestsWithDetails: RequestWithDetails[] = [];
 
   for (const request of requestRows) {
@@ -242,12 +282,8 @@ export async function getMyRequests(userId: number): Promise<RequestWithDetails[
 
 /**
  * Get pending requests for a specific approver role
- *
- * @param userRole - Role of the approver
- * @returns List of pending requests at the approver's step
  */
 export async function getPendingForApprover(userRole: string): Promise<RequestWithDetails[]> {
-  // Map role to step number
   const stepNo = ROLE_STEP_MAP[userRole];
 
   if (!stepNo) {
@@ -280,11 +316,6 @@ export async function getPendingForApprover(userRole: string): Promise<RequestWi
 
 /**
  * Get full request details by ID with access control
- *
- * @param requestId - Request ID
- * @param userId - User ID requesting access
- * @param userRole - User role for permission checking
- * @returns Request with full details
  */
 export async function getRequestById(
   requestId: number,
@@ -305,7 +336,6 @@ export async function getRequestById(
 
   const request = requests[0] as any;
 
-  // Check access: owner OR appropriate approver OR admin
   const isOwner = request.user_id === userId;
   const isApprover =
     ROLE_STEP_MAP[userRole] !== undefined &&
@@ -327,13 +357,7 @@ export async function getRequestById(
 }
 
 /**
- * Approve a request and move it to the next step
- *
- * @param requestId - Request ID to approve
- * @param actorId - User ID of the approver
- * @param actorRole - Role of the approver
- * @param comment - Optional approval comment
- * @returns Updated request
+ * Approve a request
  */
 export async function approveRequest(
   requestId: number,
@@ -346,7 +370,6 @@ export async function approveRequest(
   try {
     await connection.beginTransaction();
 
-    // Get current request
     const [requests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
       [requestId]
@@ -356,37 +379,27 @@ export async function approveRequest(
       throw new Error('Request not found');
     }
 
-    const request = requests[0] as PTSRequest;
+    const request = mapRequestRow(requests[0]);
 
-    // Validate status is PENDING
     if (request.status !== RequestStatus.PENDING) {
       throw new Error(`Cannot approve request with status: ${request.status}`);
     }
 
-    // Validate approver role matches current step
     const expectedRole = STEP_ROLE_MAP[request.current_step];
     if (expectedRole !== actorRole) {
-      throw new Error(
-        `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`
-      );
+      throw new Error(`Invalid approver role. Expected ${expectedRole}, got ${actorRole}`);
     }
 
     const currentStep = request.current_step;
     const nextStep = currentStep + 1;
 
-    // Fetch approver's stored signature (if any)
-    let signatureSnapshot: string | null = null;
-    try {
-      const signatureDataUrl = await signatureService.getSignatureDataUrl(actorId);
-      if (signatureDataUrl) {
-        signatureSnapshot = signatureDataUrl;
-      }
-    } catch (sigError) {
-      // If signature lookup fails, continue without signature
-      console.warn(`Could not fetch signature for user ${actorId}:`, sigError);
-    }
+    // Approver signature snapshot (BLOB)
+    const [sigRows] = await connection.query<RowDataPacket[]>(
+      'SELECT signature_image FROM pts_user_signatures WHERE user_id = ? LIMIT 1',
+      [actorId]
+    );
+    const signatureSnapshot = sigRows.length ? (sigRows[0] as any).signature_image : null;
 
-    // Log APPROVE action with signature snapshot
     await connection.execute(
       `INSERT INTO pts_request_actions
        (request_id, actor_id, step_no, action, comment, signature_snapshot)
@@ -394,9 +407,7 @@ export async function approveRequest(
       [requestId, actorId, currentStep, ActionType.APPROVE, comment || null, signatureSnapshot]
     );
 
-    // Check if this is the final approval step
     if (nextStep > 5) {
-      // All approvals completed - mark as APPROVED
       await connection.execute(
         `UPDATE pts_requests
          SET status = ?, current_step = ?, updated_at = NOW()
@@ -404,28 +415,16 @@ export async function approveRequest(
         [RequestStatus.APPROVED, 6, requestId]
       );
 
-      // ========================================
-      // THE BRIDGE: Trigger post-approval logic
-      // ========================================
-      // Call finalizeRequest within the same transaction to ensure
-      // data integrity. If finalization fails, the approval rolls back.
-      // ========================================
       try {
-        const finalizeResult = await finalizeRequest(requestId, actorId, connection);
-        console.log(
-          `[approveRequest] Finalization complete for request ${requestId}:`,
-          `rateAdjustmentId=${finalizeResult.rateAdjustmentId},`,
-          `licenseUpdated=${finalizeResult.licenseUpdated}`
-        );
+        await finalizeRequest(requestId, actorId, connection);
       } catch (finalizeError) {
-        console.error(`[approveRequest] Finalization failed for request ${requestId}:`, finalizeError);
-        // Re-throw to trigger rollback
         throw new Error(
-          `Request approved but finalization failed: ${finalizeError instanceof Error ? finalizeError.message : 'Unknown error'}`
+          `Request approved but finalization failed: ${
+            finalizeError instanceof Error ? finalizeError.message : 'Unknown error'
+          }`
         );
       }
     } else {
-      // Move to next approval step
       await connection.execute(
         `UPDATE pts_requests
          SET current_step = ?, updated_at = NOW()
@@ -436,13 +435,12 @@ export async function approveRequest(
 
     await connection.commit();
 
-    // Fetch and return updated request
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
       [requestId]
     );
 
-    return updatedRequests[0] as PTSRequest;
+    return mapRequestRow(updatedRequests[0]) as PTSRequest;
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -452,13 +450,7 @@ export async function approveRequest(
 }
 
 /**
- * Reject a request and stop the workflow
- *
- * @param requestId - Request ID to reject
- * @param actorId - User ID of the rejector
- * @param actorRole - Role of the rejector
- * @param comment - Required rejection reason
- * @returns Updated request
+ * Reject a request
  */
 export async function rejectRequest(
   requestId: number,
@@ -471,7 +463,6 @@ export async function rejectRequest(
   try {
     await connection.beginTransaction();
 
-    // Get current request
     const [requests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
       [requestId]
@@ -481,29 +472,23 @@ export async function rejectRequest(
       throw new Error('Request not found');
     }
 
-    const request = requests[0] as PTSRequest;
+    const request = mapRequestRow(requests[0]);
 
-    // Validate status is PENDING
     if (request.status !== RequestStatus.PENDING) {
       throw new Error(`Cannot reject request with status: ${request.status}`);
     }
 
-    // Validate approver role matches current step
     const expectedRole = STEP_ROLE_MAP[request.current_step];
     if (expectedRole !== actorRole) {
-      throw new Error(
-        `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`
-      );
+      throw new Error(`Invalid approver role. Expected ${expectedRole}, got ${actorRole}`);
     }
 
-    // Validate comment is provided
     if (!comment || comment.trim() === '') {
       throw new Error('Rejection reason is required');
     }
 
     const currentStep = request.current_step;
 
-    // Log REJECT action
     await connection.execute(
       `INSERT INTO pts_request_actions
        (request_id, actor_id, step_no, action, comment)
@@ -511,7 +496,6 @@ export async function rejectRequest(
       [requestId, actorId, currentStep, ActionType.REJECT, comment]
     );
 
-    // Update status to REJECTED
     await connection.execute(
       `UPDATE pts_requests
        SET status = ?, updated_at = NOW()
@@ -521,13 +505,12 @@ export async function rejectRequest(
 
     await connection.commit();
 
-    // Fetch and return updated request
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
       [requestId]
     );
 
-    return updatedRequests[0] as PTSRequest;
+    return mapRequestRow(updatedRequests[0]) as PTSRequest;
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -537,13 +520,7 @@ export async function rejectRequest(
 }
 
 /**
- * Return a request to the previous step for revision
- *
- * @param requestId - Request ID to return
- * @param actorId - User ID of the returner
- * @param actorRole - Role of the returner
- * @param comment - Required reason for returning
- * @returns Updated request
+ * Return a request to the previous step
  */
 export async function returnRequest(
   requestId: number,
@@ -556,7 +533,6 @@ export async function returnRequest(
   try {
     await connection.beginTransaction();
 
-    // Get current request
     const [requests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
       [requestId]
@@ -566,27 +542,21 @@ export async function returnRequest(
       throw new Error('Request not found');
     }
 
-    const request = requests[0] as PTSRequest;
+    const request = mapRequestRow(requests[0]);
 
-    // Validate status is PENDING
     if (request.status !== RequestStatus.PENDING) {
       throw new Error(`Cannot return request with status: ${request.status}`);
     }
 
-    // Validate step > 1 (cannot return from first step)
     if (request.current_step <= 1) {
       throw new Error('Cannot return request from the first approval step');
     }
 
-    // Validate approver role matches current step
     const expectedRole = STEP_ROLE_MAP[request.current_step];
     if (expectedRole !== actorRole) {
-      throw new Error(
-        `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`
-      );
+      throw new Error(`Invalid approver role. Expected ${expectedRole}, got ${actorRole}`);
     }
 
-    // Validate comment is provided
     if (!comment || comment.trim() === '') {
       throw new Error('Return reason is required');
     }
@@ -594,7 +564,6 @@ export async function returnRequest(
     const currentStep = request.current_step;
     const previousStep = currentStep - 1;
 
-    // Log RETURN action
     await connection.execute(
       `INSERT INTO pts_request_actions
        (request_id, actor_id, step_no, action, comment)
@@ -602,7 +571,6 @@ export async function returnRequest(
       [requestId, actorId, currentStep, ActionType.RETURN, comment]
     );
 
-    // Update to RETURNED status and decrement step
     await connection.execute(
       `UPDATE pts_requests
        SET status = ?, current_step = ?, updated_at = NOW()
@@ -612,13 +580,12 @@ export async function returnRequest(
 
     await connection.commit();
 
-    // Fetch and return updated request
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
       [requestId]
     );
 
-    return updatedRequests[0] as PTSRequest;
+    return mapRequestRow(updatedRequests[0]) as PTSRequest;
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -628,16 +595,7 @@ export async function returnRequest(
 }
 
 /**
- * Batch approve multiple requests (DIRECTOR Step 4 or HEAD_FINANCE Step 5)
- *
- * Supports batch approval for:
- * - DIRECTOR at Step 4: Moves requests to Step 5 (HEAD_FINANCE)
- * - HEAD_FINANCE at Step 5: Marks requests as APPROVED and triggers finalization
- *
- * @param actorId - User ID of the approver
- * @param actorRole - Role of the approver ('DIRECTOR' or 'HEAD_FINANCE')
- * @param params - Request IDs to approve and optional comment
- * @returns Result containing successful and failed approvals
+ * Batch approve (Director or Head Finance)
  */
 export async function approveBatch(
   actorId: number,
@@ -647,7 +605,6 @@ export async function approveBatch(
   const { requestIds, comment } = params;
   const result: BatchApproveResult = { success: [], failed: [] };
 
-  // Determine expected step based on role
   const expectedStep = ROLE_STEP_MAP[actorRole];
   if (expectedStep === undefined || (expectedStep !== 4 && expectedStep !== 5)) {
     throw new Error(`Batch approval not supported for role: ${actorRole}`);
@@ -658,21 +615,14 @@ export async function approveBatch(
   try {
     await connection.beginTransaction();
 
-    // Fetch approver's stored signature once (same for all batch approvals)
-    let signatureSnapshot: string | null = null;
-    try {
-      const signatureDataUrl = await signatureService.getSignatureDataUrl(actorId);
-      if (signatureDataUrl) {
-        signatureSnapshot = signatureDataUrl;
-      }
-    } catch (sigError) {
-      // If signature lookup fails, continue without signature
-      console.warn(`Could not fetch signature for user ${actorId}:`, sigError);
-    }
+    const [sigRows] = await connection.query<RowDataPacket[]>(
+      'SELECT signature_image FROM pts_user_signatures WHERE user_id = ? LIMIT 1',
+      [actorId]
+    );
+    const signatureSnapshot = sigRows.length ? (sigRows[0] as any).signature_image : null;
 
     for (const requestId of requestIds) {
       try {
-        // Get current request with row lock
         const [rows] = await connection.query<RowDataPacket[]>(
           'SELECT * FROM pts_requests WHERE request_id = ? FOR UPDATE',
           [requestId]
@@ -683,9 +633,8 @@ export async function approveBatch(
           continue;
         }
 
-        const request = rows[0] as PTSRequest;
+        const request = mapRequestRow(rows[0]);
 
-        // Validate: must be at expected step for this role
         if (request.current_step !== expectedStep) {
           result.failed.push({
             id: requestId,
@@ -694,7 +643,6 @@ export async function approveBatch(
           continue;
         }
 
-        // Validate: must have PENDING status
         if (request.status !== RequestStatus.PENDING) {
           result.failed.push({
             id: requestId,
@@ -703,7 +651,6 @@ export async function approveBatch(
           continue;
         }
 
-        // Log APPROVE action with signature snapshot
         await connection.execute(
           `INSERT INTO pts_request_actions
            (request_id, actor_id, step_no, action, comment, signature_snapshot)
@@ -712,7 +659,6 @@ export async function approveBatch(
         );
 
         if (expectedStep === 5) {
-          // HEAD_FINANCE final approval - mark as APPROVED
           await connection.execute(
             `UPDATE pts_requests
              SET status = ?, current_step = 6, updated_at = NOW()
@@ -720,25 +666,18 @@ export async function approveBatch(
             [RequestStatus.APPROVED, requestId]
           );
 
-          // ========================================
-          // THE BRIDGE: Trigger post-approval logic
-          // ========================================
           try {
-            const finalizeResult = await finalizeRequest(requestId, actorId, connection);
-            console.log(
-              `[approveBatch] Finalization complete for request ${requestId}:`,
-              `rateAdjustmentId=${finalizeResult.rateAdjustmentId}`
-            );
+            await finalizeRequest(requestId, actorId, connection);
           } catch (finalizeError) {
-            console.error(`[approveBatch] Finalization failed for request ${requestId}:`, finalizeError);
             result.failed.push({
               id: requestId,
-              reason: `Finalization failed: ${finalizeError instanceof Error ? finalizeError.message : 'Unknown error'}`,
+              reason: `Finalization failed: ${
+                finalizeError instanceof Error ? finalizeError.message : 'Unknown error'
+              }`,
             });
-            continue; // Skip adding to success
+            continue;
           }
         } else {
-          // DIRECTOR approval - move to Step 5 (HEAD_FINANCE)
           await connection.execute(
             `UPDATE pts_requests
              SET current_step = 5, updated_at = NOW()
@@ -765,180 +704,65 @@ export async function approveBatch(
 }
 
 // ============================================
-// THE BRIDGE - Post-Approval Logic
+// Finalization ("The Bridge" V2.0)
 // ============================================
-// This section handles the data flow from Part 2 (Requests)
-// to Part 3 (Calculation Master Data) upon final approval.
-// ============================================
-
-/**
- * Finalize a request after final approval (Step 5 -> APPROVED)
- *
- * THE BRIDGE: This function connects the workflow system to calculation master data.
- * It is called automatically within the same transaction when a request reaches
- * final approval to ensure data integrity.
- *
- * Actions performed:
- * - Action A: Insert PTS rate adjustment (if requested_amount > 0 and effective_date exists)
- * - Action B: Update employee licenses (placeholder for LICENSE attachments)
- *
- * @param requestId - The request ID being finalized
- * @param finalApproverId - User ID of the final approver (HEAD_FINANCE)
- * @param connection - Active database connection (for transaction integrity)
- * @returns FinalizeResult with created IDs and status
- * @throws Error if any operation fails (triggers rollback in parent)
- */
 export async function finalizeRequest(
   requestId: number,
   finalApproverId: number,
   connection: PoolConnection
 ): Promise<FinalizeResult> {
-  const result: FinalizeResult = {
-    rateAdjustmentId: null,
-    licenseUpdated: false,
-  };
+  const result: FinalizeResult = { rateAdjustmentId: null, licenseUpdated: false };
 
-  try {
-    // Fetch the request with full details
-    const [requests] = await connection.query<RowDataPacket[]>(
-      `SELECT r.*, u.citizen_id
-       FROM pts_requests r
-       JOIN users u ON r.user_id = u.user_id
-       WHERE r.request_id = ?`,
-      [requestId]
-    );
+  const [requests] = await connection.query<RowDataPacket[]>(
+    `SELECT r.*, u.citizen_id
+     FROM pts_requests r
+     JOIN users u ON r.user_id = u.user_id
+     WHERE r.request_id = ?`,
+    [requestId]
+  );
 
-    if (requests.length === 0) {
-      throw new Error(`Request ${requestId} not found during finalization`);
-    }
-
-    const request = requests[0] as PTSRequest & { citizen_id: string };
-
-    // Verify the request is in APPROVED status
-    if (request.status !== RequestStatus.APPROVED) {
-      throw new Error(
-        `Cannot finalize request ${requestId}: status is ${request.status}, expected APPROVED`
-      );
-    }
-
-    console.log(`[finalizeRequest] Processing request ${requestId} for citizen ${request.citizen_id}`);
-
-    // ========================================
-    // ACTION A: Rate Adjustment
-    // ========================================
-    // Insert into pts_rate_adjustments if:
-    // - requested_amount exists and is > 0
-    // - effective_date exists
-    // ========================================
-    if (
-      request.requested_amount !== null &&
-      request.requested_amount > 0 &&
-      request.effective_date !== null
-    ) {
-      // Determine adjustment type based on request type
-      let adjustmentType: string;
-      switch (request.request_type) {
-        case RequestType.NEW_ENTRY:
-          adjustmentType = 'NEW_ENTRY';
-          break;
-        case RequestType.EDIT_INFO_NEW_RATE:
-          adjustmentType = 'RATE_CHANGE';
-          break;
-        case RequestType.EDIT_INFO_SAME_RATE:
-          // For same rate edits, we might still want to record it as a correction
-          adjustmentType = 'CORRECTION';
-          break;
-        default:
-          adjustmentType = 'RATE_CHANGE';
-      }
-
-      const [insertResult] = await connection.execute<ResultSetHeader>(
-        `INSERT INTO pts_rate_adjustments
-         (citizen_id, pts_rate, effective_date, source_ref, note)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          request.citizen_id,
-          request.requested_amount,
-          request.effective_date,
-          `REQ-${requestId}`, // store request reference as string
-          JSON.stringify({
-            type: adjustmentType,
-            desc: `Auto-generated from approved request #${requestId}`,
-            approvedBy: finalApproverId,
-          }),
-        ]
-      );
-
-      result.rateAdjustmentId = insertResult.insertId;
-      console.log(
-        `[finalizeRequest] Created rate adjustment #${result.rateAdjustmentId} ` +
-          `for citizen ${request.citizen_id}: ${request.requested_amount} THB, ` +
-          `effective ${request.effective_date}`
-      );
-    } else {
-      console.log(
-        `[finalizeRequest] Skipping rate adjustment: ` +
-          `amount=${request.requested_amount}, date=${request.effective_date}`
-      );
-    }
-
-    // ========================================
-    // ACTION B: License Update (Placeholder)
-    // ========================================
-    // TODO: If the request has attachments of type 'LICENSE',
-    // we should logically update the employee_licenses table.
-    // This requires additional metadata (license_type, license_number, expiry_date)
-    // to be captured in the request form or attachment metadata.
-    //
-    // For now, we log a placeholder message if LICENSE attachments exist.
-    // ========================================
-    const [licenseAttachments] = await connection.query<RowDataPacket[]>(
-      `SELECT attachment_id, original_filename
-       FROM pts_attachments
-       WHERE request_id = ? AND file_type = ?`,
-      [requestId, FileType.LICENSE]
-    );
-
-    if (licenseAttachments.length > 0) {
-      // TODO: Implement actual license update logic when schema supports it
-      // This would require:
-      // 1. Parsing license metadata from attachment or form data
-      // 2. INSERT/UPDATE into employee_licenses view/table
-      // Example:
-      // await connection.execute(
-      //   `INSERT INTO employee_licenses (citizen_id, license_type, license_number, issue_date, expiry_date)
-      //    VALUES (?, ?, ?, ?, ?)
-      //    ON DUPLICATE KEY UPDATE ...`,
-      //   [request.citizen_id, licenseType, licenseNumber, issueDate, expiryDate]
-      // );
-
-      console.log(
-        `[finalizeRequest] Found ${licenseAttachments.length} LICENSE attachment(s) for request ${requestId}. ` +
-          `License update logic is a TODO - requires metadata schema extension.`
-      );
-
-      // Mark as "updated" for audit trail (even though it's a placeholder)
-      result.licenseUpdated = false; // Set to true when implemented
-    }
-
-    console.log(`[finalizeRequest] Completed finalization for request ${requestId}`);
-    return result;
-
-  } catch (error) {
-    console.error(`[finalizeRequest] Error finalizing request ${requestId}:`, error);
-    // Re-throw to trigger rollback in parent transaction
-    throw error;
+  if (!requests.length) {
+    throw new Error(`Request ${requestId} not found during finalization`);
   }
+
+  const request = mapRequestRow(requests[0]) as PTSRequest & { citizen_id: string };
+
+  if (request.requested_amount && request.requested_amount > 0) {
+    let adjustmentType: 'NEW' | 'ADJUST' | 'BACKPAY' = 'ADJUST';
+    if (request.request_type === RequestType.NEW_ENTRY) adjustmentType = 'NEW';
+
+    if (request.effective_date) {
+      const eff = new Date(request.effective_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (eff < today) {
+        adjustmentType = 'BACKPAY';
+      }
+    }
+
+    const [res] = await connection.execute<ResultSetHeader>(
+      `INSERT INTO pts_rate_adjustments
+       (citizen_id, pts_rate, effective_date, request_id, adjustment_type, is_active, note)
+       VALUES (?, ?, ?, ?, ?, 1, ?)`,
+      [
+        (requests[0] as any).citizen_id,
+        request.requested_amount,
+        request.effective_date,
+        requestId,
+        adjustmentType,
+        JSON.stringify({ approvedBy: finalApproverId }),
+      ]
+    );
+    result.rateAdjustmentId = res.insertId;
+  }
+
+  return result;
 }
 
 /**
- * Helper function to get request details including attachments and actions
- *
- * @param requestId - Request ID
- * @returns Request with full details
+ * Helper: request details with attachments & actions
  */
 async function getRequestDetails(requestId: number): Promise<RequestWithDetails> {
-  // Get request
   const requests = await query<RowDataPacket[]>(
     'SELECT * FROM pts_requests WHERE request_id = ?',
     [requestId]
@@ -948,20 +772,13 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
     throw new Error('Request not found');
   }
 
-  const request = requests[0] as any;
+  const request = mapRequestRow(requests[0]);
 
-  // Parse work_attributes from JSON string to object if needed
-  if (request.work_attributes && typeof request.work_attributes === 'string') {
-    request.work_attributes = JSON.parse(request.work_attributes);
-  }
-
-  // Get attachments
   const attachments = await query<RowDataPacket[]>(
     'SELECT * FROM pts_attachments WHERE request_id = ? ORDER BY uploaded_at DESC',
     [requestId]
   );
 
-  // Get actions with actor info
   const actions = await query<RowDataPacket[]>(
     `SELECT a.*, u.citizen_id as actor_citizen_id, u.role as actor_role
      FROM pts_request_actions a
@@ -976,13 +793,14 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
     request_id: action.request_id,
     actor_id: action.actor_id,
     action: action.action,
-    action_type: action.action, // alias for frontend
+    action_type: action.action,
     step_no: action.step_no,
     from_step: action.step_no,
     to_step: action.step_no,
     comment: action.comment,
     action_date: action.action_date,
     created_at: action.action_date,
+    signature_snapshot: action.signature_snapshot,
     actor: {
       citizen_id: action.actor_citizen_id,
       role: action.actor_role,
@@ -997,7 +815,7 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
       file_type: att.file_type,
       file_path: att.file_path,
       original_filename: att.original_filename,
-      file_name: att.original_filename, // alias for frontend
+      file_name: att.original_filename,
       file_size: att.file_size,
       mime_type: att.mime_type,
       uploaded_at: att.uploaded_at,
@@ -1005,3 +823,6 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
     actions: actionsWithActor,
   };
 }
+
+// Export helper for other modules
+export { getRequestDetails };

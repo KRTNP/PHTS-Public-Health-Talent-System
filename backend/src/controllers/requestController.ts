@@ -122,26 +122,26 @@ export async function createRequest(
       submission_data: parsedSubmissionData,
     };
 
-    // Get uploaded files - now handles both 'files' and 'applicant_signature' fields
+    // Get uploaded files (documents) and optional signature upload
     let documentFiles: Express.Multer.File[] | undefined;
+    let licenseFile: Express.Multer.File | undefined;
     let signatureFile: Express.Multer.File | undefined;
-
     if (req.files) {
-      // When using fields(), req.files is an object with field names as keys
       const uploadedFiles = req.files as { [fieldname: string]: Express.Multer.File[] };
       documentFiles = uploadedFiles['files'];
+      licenseFile = uploadedFiles['license_file']?.[0];
       signatureFile = uploadedFiles['applicant_signature']?.[0];
     }
 
-    // Get signature path if uploaded
-    const signaturePath = signatureFile ? `uploads/signatures/${signatureFile.filename}` : undefined;
+    const allFiles = [...(documentFiles || [])];
+    if (licenseFile) allFiles.push(licenseFile);
 
     // Create request
     const request = await requestService.createRequest(
       req.user.userId,
       requestData,
-      documentFiles,
-      signaturePath
+      allFiles,
+      signatureFile
     );
 
     res.status(201).json({

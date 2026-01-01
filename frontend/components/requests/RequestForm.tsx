@@ -84,7 +84,12 @@ const STEPS = [
 ];
 
 interface RequestFormProps {
-  onSubmit: (data: CreateRequestDTO, files: File[], signatureFile?: File) => Promise<void>;
+  onSubmit: (
+    data: CreateRequestDTO,
+    files: File[],
+    signatureFile?: File,
+    licenseFile?: File
+  ) => Promise<void>;
   onSaveDraft?: (data: CreateRequestDTO, files: File[]) => Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
@@ -121,6 +126,7 @@ export default function RequestForm({
   const [requestedAmount, setRequestedAmount] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -241,7 +247,7 @@ export default function RequestForm({
         requested_amount: parseFloat(requestedAmount),
         effective_date: effectiveDate,
       };
-      await onSubmit(formData, files, signatureFile || undefined);
+      await onSubmit(formData, files, signatureFile || undefined, licenseFile || undefined);
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
     }
@@ -294,10 +300,10 @@ export default function RequestForm({
         mb: 1,
       }}
     >
-      <Typography variant="body2" color="text.secondary">
+      <Typography component="div" variant="body2" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="body2" fontWeight={600} color="text.primary">
+      <Typography component="div" variant="body2" fontWeight={600} color="text.primary">
         {value}
       </Typography>
     </Box>
@@ -520,14 +526,38 @@ export default function RequestForm({
             <Typography variant="h6" gutterBottom fontWeight={600}>
               เอกสารประกอบการพิจารณา
             </Typography>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              สามารถแนบไฟล์ภาพ หรือ PDF (ขนาดไม่เกิน 5MB)
-            </Alert>
-            <FileUploadArea files={files} onChange={setFiles} maxFiles={5} maxSizeMB={5} showList={false} />
-            <FilePreviewList
-              files={files}
-              onRemove={(index) => setFiles((prev) => prev.filter((_, i) => i !== index))}
-            />
+
+            <Box mb={3}>
+              <Typography variant="subtitle2" gutterBottom fontWeight={600} color="text.secondary">
+                1. ใบประกอบวิชาชีพ (ถ้ามี)
+              </Typography>
+              <FileUploadArea
+                files={licenseFile ? [licenseFile] : []}
+                onChange={(newFiles) => setLicenseFile(newFiles[0] || null)}
+                maxFiles={1}
+                maxSizeMB={5}
+                showList={false}
+              />
+              {licenseFile && (
+                <FilePreviewList files={[licenseFile]} onRemove={() => setLicenseFile(null)} />
+              )}
+            </Box>
+
+            <Divider sx={{ mb: 3 }} />
+
+            <Box mb={2}>
+              <Typography variant="subtitle2" gutterBottom fontWeight={600} color="text.secondary">
+                2. เอกสารอื่นๆ (คำสั่ง, วุฒิบัตร ฯลฯ)
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                สามารถแนบไฟล์ภาพ หรือ PDF (ขนาดไม่เกิน 5MB)
+              </Alert>
+              <FileUploadArea files={files} onChange={setFiles} maxFiles={5} maxSizeMB={5} showList={false} />
+              <FilePreviewList
+                files={files}
+                onRemove={(index) => setFiles((prev) => prev.filter((_, i) => i !== index))}
+              />
+            </Box>
           </Box>
         );
 
@@ -643,20 +673,28 @@ export default function RequestForm({
             >
               เอกสารแนบ
             </Typography>
-            {files.length > 0 ? (
-              <Stack spacing={1}>
-                {files.map((f, i) => (
+            <Stack spacing={1}>
+              {licenseFile && (
+                <Box display="flex" alignItems="center" gap={1}>
+                  <CheckCircleOutline fontSize="small" color="success" />
+                  <Typography variant="body2" fontWeight={500}>
+                    ใบประกอบวิชาชีพ: {licenseFile.name}
+                  </Typography>
+                </Box>
+              )}
+              {files.length > 0 ? (
+                files.map((f, i) => (
                   <Box key={i} display="flex" alignItems="center" gap={1}>
                     <InsertDriveFile fontSize="small" color="action" />
                     <Typography variant="body2">{f.name}</Typography>
                   </Box>
-                ))}
-              </Stack>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                ไม่มีเอกสารแนบ
-              </Typography>
-            )}
+                ))
+              ) : !licenseFile ? (
+                <Typography variant="body2" color="text.secondary">
+                  ไม่มีเอกสารแนบ
+                </Typography>
+              ) : null}
+            </Stack>
           </Box>
 
           <Divider />

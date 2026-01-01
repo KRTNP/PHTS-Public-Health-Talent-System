@@ -39,6 +39,7 @@ router.post(
   '/',
   requestUpload.fields([
     { name: 'files', maxCount: 10 },
+    { name: 'license_file', maxCount: 1 },
     { name: 'applicant_signature', maxCount: 1 }
   ]),
   requestController.createRequest

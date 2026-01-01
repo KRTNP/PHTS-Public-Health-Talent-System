@@ -193,7 +193,7 @@ export const requestUpload = multer({
   },
   limits: {
     fileSize: MAX_FILE_SIZE,
-    files: 11, // 10 documents + 1 signature
+    files: 12, // 10 documents + 1 license + 1 signature
   },
 });
 

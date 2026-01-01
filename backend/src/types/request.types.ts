@@ -96,6 +96,7 @@ export interface WorkAttributes {
  * PTS Request entity from database
  */
 export interface PTSRequest {
+  request_no?: string;
   request_id: number;
   user_id: number;
 
@@ -105,7 +106,8 @@ export interface PTSRequest {
   department_group: string | null;
   main_duty: string | null;
   work_attributes: WorkAttributes | null;
-  applicant_signature: string | null; // Path to digital signature image
+  applicant_signature?: string | null; // Path to digital signature image (legacy)
+  applicant_signature_id?: number | null; // FK to pts_user_signatures
 
   // Request Details
   request_type: RequestType;
