@@ -195,7 +195,7 @@ export default function RequestStatusTable({ requests, loading = false }: Reques
                   variant="outlined"
                   color="primary"
                   icon={<LinearScale />}
-                  sx={{ borderRadius: 1, fontWeight: 500, bgcolor: 'primary.lighter', border: 'none' }}
+                  sx={{ borderRadius: 1, fontWeight: 500, border: 'none' }}
                 />
               </TableCell>
               <TableCell sx={{ fontWeight: 600, color: 'success.main' }}>
