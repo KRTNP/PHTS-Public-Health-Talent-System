@@ -16,6 +16,7 @@ import { initializePassport } from './config/passport.js';
 import authRoutes from './routes/authRoutes.js';
 import requestRoutes from './routes/requestRoutes.js';
 import signatureRoutes from './routes/signatureRoutes.js';
+import payrollRoutes from './routes/payrollRoutes.js';
 import { ApiResponse } from './types/auth.js';
 
 // Load environment variables
@@ -87,6 +88,7 @@ app.get('/health', (_req: Request, res: Response<ApiResponse>) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/signatures', signatureRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 /**
  * 404 Handler - Route Not Found
@@ -134,11 +136,7 @@ async function startServer() {
     console.log('Testing database connection...');
     await testConnection();
 
-    // Start Express server (skip in tests)
-    if (NODE_ENV === 'test') {
-      return;
-    }
-
+    // Start Express server
     app.listen(PORT, () => {
       console.log('');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

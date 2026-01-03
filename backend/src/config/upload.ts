@@ -9,13 +9,7 @@
 import multer, { FileFilterCallback } from 'multer';
 import { Request } from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import fs from 'fs';
-
-// Get current directory in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 function ensureDirectoryExists(uploadPath: string, cb: (err: Error | null) => void) {
   try {
@@ -48,7 +42,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const documentStorage = multer.diskStorage({
   destination: (_req: Request, _file: Express.Multer.File, cb) => {
     // Store files in uploads/documents/ relative to backend root
-    const uploadPath = path.join(__dirname, '../../uploads/documents');
+    const uploadPath = path.join(process.cwd(), 'uploads/documents');
     ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
@@ -71,7 +65,7 @@ const documentStorage = multer.diskStorage({
 const signatureStorage = multer.diskStorage({
   destination: (_req: Request, _file: Express.Multer.File, cb) => {
     // Store signatures in uploads/signatures/ relative to backend root
-    const uploadPath = path.join(__dirname, '../../uploads/signatures');
+    const uploadPath = path.join(process.cwd(), 'uploads/signatures');
     ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
@@ -161,10 +155,10 @@ export const requestUpload = multer({
     destination: (_req: Request, file: Express.Multer.File, cb) => {
       // Route to different directories based on field name
       if (file.fieldname === 'applicant_signature') {
-        const uploadPath = path.join(__dirname, '../../uploads/signatures');
+        const uploadPath = path.join(process.cwd(), 'uploads/signatures');
         ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
       } else {
-        const uploadPath = path.join(__dirname, '../../uploads/documents');
+        const uploadPath = path.join(process.cwd(), 'uploads/documents');
         ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
       }
     },

@@ -4,7 +4,7 @@
  * Aligns request workflow with Database V2.0:
  * - Uses applicant_signature_id from pts_user_signatures
  * - Stores approver signature snapshots as BLOB
- * - Finalization writes pts_rate_adjustments with request_id FK + adjustment_type
+ * - Finalization creates eligibility records (no legacy rate_adjustments table)
  */
 
 import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
@@ -14,7 +14,6 @@ import {
   RequestStatus,
   ActionType,
   FileType,
-  RequestType,
   PTSRequest,
   RequestAttachment,
   RequestWithDetails,
@@ -26,11 +25,6 @@ import {
 } from '../types/request.types.js';
 import { findRecommendedRate, MasterRate } from './classificationService.js';
 import { createEligibility } from './eligibilityService.js';
-
-interface FinalizeResult {
-  rateAdjustmentId: number | null;
-  licenseUpdated: boolean;
-}
 
 // Common select/join fragments for requester info
 const REQUESTER_FIELDS = `
@@ -113,7 +107,7 @@ function mapRequestRow(row: any): PTSRequest & {
 export async function getRecommendedRateForUser(userId: number): Promise<MasterRate | null> {
   const users = await query<RowDataPacket[]>(
     'SELECT citizen_id FROM users WHERE user_id = ? LIMIT 1',
-    [userId]
+    [userId],
   );
 
   if (!users || users.length === 0) {
@@ -131,7 +125,7 @@ export async function createRequest(
   userId: number,
   data: CreateRequestDTO,
   files?: Express.Multer.File[],
-  signatureFile?: Express.Multer.File
+  signatureFile?: Express.Multer.File,
 ): Promise<RequestWithDetails> {
   const connection = await getConnection();
 
@@ -154,13 +148,13 @@ export async function createRequest(
           signature_image = VALUES(signature_image),
           updated_at = NOW()
       `,
-        [userId, sigBuffer]
+        [userId, sigBuffer],
       );
     }
 
     const [sigs] = await connection.query<RowDataPacket[]>(
       'SELECT signature_id FROM pts_user_signatures WHERE user_id = ?',
-      [userId]
+      [userId],
     );
     signatureId = sigs.length ? (sigs[0] as any).signature_id : null;
 
@@ -173,8 +167,8 @@ export async function createRequest(
     const submissionDataJson = data.submission_data
       ? JSON.stringify({ ...data.submission_data, main_duty: data.main_duty ?? null })
       : data.main_duty
-      ? JSON.stringify({ main_duty: data.main_duty })
-      : null;
+        ? JSON.stringify({ main_duty: data.main_duty })
+        : null;
 
     // Basic guard rails for NOT NULL fields
     if (data.requested_amount === undefined || data.requested_amount === null) {
@@ -206,7 +200,7 @@ export async function createRequest(
         RequestStatus.DRAFT,
         1,
         submissionDataJson,
-      ]
+      ],
     );
 
     const requestId = result.insertId;
@@ -221,7 +215,7 @@ export async function createRequest(
           `INSERT INTO pts_attachments
            (request_id, file_type, file_path, original_filename, file_size, mime_type)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [requestId, fileType, file.path, file.originalname, file.size, file.mimetype]
+          [requestId, fileType, file.path, file.originalname, file.size, file.mimetype],
         );
       }
     }
@@ -248,7 +242,7 @@ export async function submitRequest(requestId: number, userId: number): Promise<
 
     const [requests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ? AND user_id = ?',
-      [requestId, userId]
+      [requestId, userId],
     );
 
     if (requests.length === 0) {
@@ -265,21 +259,21 @@ export async function submitRequest(requestId: number, userId: number): Promise<
       `UPDATE pts_requests
        SET status = ?, current_step = ?, updated_at = NOW()
        WHERE request_id = ?`,
-      [RequestStatus.PENDING, 1, requestId]
+      [RequestStatus.PENDING, 1, requestId],
     );
 
     await connection.execute(
       `INSERT INTO pts_request_actions
        (request_id, actor_id, step_no, action, comment)
        VALUES (?, ?, ?, ?, ?)`,
-      [requestId, userId, 1, ActionType.SUBMIT, null]
+      [requestId, userId, 1, ActionType.SUBMIT, null],
     );
 
     await connection.commit();
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
-      [requestId]
+      [requestId],
     );
 
     return mapRequestRow(updatedRequests[0]) as PTSRequest;
@@ -301,7 +295,7 @@ export async function getMyRequests(userId: number): Promise<RequestWithDetails[
      JOIN users u ON r.user_id = u.user_id
      WHERE r.user_id = ?
      ORDER BY r.created_at DESC`,
-    [userId]
+    [userId],
   );
 
   const requestRows = Array.isArray(requests) ? (requests as any[]) : [];
@@ -331,7 +325,7 @@ export async function getPendingForApprover(userRole: string): Promise<RequestWi
      ${REQUESTER_JOINS}
      WHERE r.status = ? AND r.current_step = ?
      ORDER BY r.created_at ASC`,
-    [RequestStatus.PENDING, stepNo]
+    [RequestStatus.PENDING, stepNo],
   );
 
   const requestRows = Array.isArray(requests) ? (requests as any[]) : [];
@@ -358,14 +352,14 @@ export async function getPendingForApprover(userRole: string): Promise<RequestWi
 export async function getRequestById(
   requestId: number,
   userId: number,
-  userRole: string
+  userRole: string,
 ): Promise<RequestWithDetails> {
   const requests = await query<RowDataPacket[]>(
     `SELECT ${REQUESTER_FIELDS}
      FROM pts_requests r
      ${REQUESTER_JOINS}
      WHERE r.request_id = ?`,
-    [requestId]
+    [requestId],
   );
 
   if (requests.length === 0) {
@@ -404,7 +398,7 @@ export async function approveRequest(
   requestId: number,
   actorId: number,
   actorRole: string,
-  comment?: string
+  comment?: string,
 ): Promise<PTSRequest> {
   const connection = await getConnection();
 
@@ -413,7 +407,7 @@ export async function approveRequest(
 
     const [requests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
-      [requestId]
+      [requestId],
     );
 
     if (requests.length === 0) {
@@ -437,19 +431,21 @@ export async function approveRequest(
     // Approver signature snapshot (BLOB)
     const [sigRows] = await connection.query<RowDataPacket[]>(
       'SELECT signature_image FROM pts_user_signatures WHERE user_id = ? LIMIT 1',
-      [actorId]
+      [actorId],
     );
     const signatureSnapshot = sigRows.length ? (sigRows[0] as any).signature_image : null;
 
     if (!signatureSnapshot) {
-      throw new Error('Approver signature is required. Please set your signature before approving.');
+      throw new Error(
+        'Approver signature is required. Please set your signature before approving.',
+      );
     }
 
     await connection.execute(
       `INSERT INTO pts_request_actions
        (request_id, actor_id, step_no, action, comment, signature_snapshot)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [requestId, actorId, currentStep, ActionType.APPROVE, comment || null, signatureSnapshot]
+      [requestId, actorId, currentStep, ActionType.APPROVE, comment || null, signatureSnapshot],
     );
 
     if (nextStep > 5) {
@@ -457,7 +453,7 @@ export async function approveRequest(
         `UPDATE pts_requests
          SET status = ?, current_step = ?, updated_at = NOW()
          WHERE request_id = ?`,
-        [RequestStatus.APPROVED, 6, requestId]
+        [RequestStatus.APPROVED, 6, requestId],
       );
 
       try {
@@ -466,7 +462,7 @@ export async function approveRequest(
         throw new Error(
           `Request approved but finalization failed: ${
             finalizeError instanceof Error ? finalizeError.message : 'Unknown error'
-          }`
+          }`,
         );
       }
     } else {
@@ -474,7 +470,7 @@ export async function approveRequest(
         `UPDATE pts_requests
          SET current_step = ?, updated_at = NOW()
          WHERE request_id = ?`,
-        [nextStep, requestId]
+        [nextStep, requestId],
       );
     }
 
@@ -482,7 +478,7 @@ export async function approveRequest(
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
-      [requestId]
+      [requestId],
     );
 
     return mapRequestRow(updatedRequests[0]) as PTSRequest;
@@ -501,7 +497,7 @@ export async function rejectRequest(
   requestId: number,
   actorId: number,
   actorRole: string,
-  comment: string
+  comment: string,
 ): Promise<PTSRequest> {
   const connection = await getConnection();
 
@@ -510,7 +506,7 @@ export async function rejectRequest(
 
     const [requests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
-      [requestId]
+      [requestId],
     );
 
     if (requests.length === 0) {
@@ -538,21 +534,21 @@ export async function rejectRequest(
       `INSERT INTO pts_request_actions
        (request_id, actor_id, step_no, action, comment)
        VALUES (?, ?, ?, ?, ?)`,
-      [requestId, actorId, currentStep, ActionType.REJECT, comment]
+      [requestId, actorId, currentStep, ActionType.REJECT, comment],
     );
 
     await connection.execute(
       `UPDATE pts_requests
        SET status = ?, updated_at = NOW()
        WHERE request_id = ?`,
-      [RequestStatus.REJECTED, requestId]
+      [RequestStatus.REJECTED, requestId],
     );
 
     await connection.commit();
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
-      [requestId]
+      [requestId],
     );
 
     return mapRequestRow(updatedRequests[0]) as PTSRequest;
@@ -571,7 +567,7 @@ export async function returnRequest(
   requestId: number,
   actorId: number,
   actorRole: string,
-  comment: string
+  comment: string,
 ): Promise<PTSRequest> {
   const connection = await getConnection();
 
@@ -580,7 +576,7 @@ export async function returnRequest(
 
     const [requests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
-      [requestId]
+      [requestId],
     );
 
     if (requests.length === 0) {
@@ -613,21 +609,21 @@ export async function returnRequest(
       `INSERT INTO pts_request_actions
        (request_id, actor_id, step_no, action, comment)
        VALUES (?, ?, ?, ?, ?)`,
-      [requestId, actorId, currentStep, ActionType.RETURN, comment]
+      [requestId, actorId, currentStep, ActionType.RETURN, comment],
     );
 
     await connection.execute(
       `UPDATE pts_requests
        SET status = ?, current_step = ?, updated_at = NOW()
        WHERE request_id = ?`,
-      [RequestStatus.RETURNED, previousStep, requestId]
+      [RequestStatus.RETURNED, previousStep, requestId],
     );
 
     await connection.commit();
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
-      [requestId]
+      [requestId],
     );
 
     return mapRequestRow(updatedRequests[0]) as PTSRequest;
@@ -645,7 +641,7 @@ export async function returnRequest(
 export async function approveBatch(
   actorId: number,
   actorRole: string,
-  params: BatchApproveParams
+  params: BatchApproveParams,
 ): Promise<BatchApproveResult> {
   const { requestIds, comment } = params;
   const result: BatchApproveResult = { success: [], failed: [] };
@@ -662,19 +658,21 @@ export async function approveBatch(
 
     const [sigRows] = await connection.query<RowDataPacket[]>(
       'SELECT signature_image FROM pts_user_signatures WHERE user_id = ? LIMIT 1',
-      [actorId]
+      [actorId],
     );
     const signatureSnapshot = sigRows.length ? (sigRows[0] as any).signature_image : null;
 
     if (!signatureSnapshot) {
-      throw new Error('Approver signature is required. Please set your signature before approving.');
+      throw new Error(
+        'Approver signature is required. Please set your signature before approving.',
+      );
     }
 
     for (const requestId of requestIds) {
       try {
         const [rows] = await connection.query<RowDataPacket[]>(
           'SELECT * FROM pts_requests WHERE request_id = ? FOR UPDATE',
-          [requestId]
+          [requestId],
         );
 
         if (rows.length === 0) {
@@ -704,7 +702,14 @@ export async function approveBatch(
           `INSERT INTO pts_request_actions
            (request_id, actor_id, step_no, action, comment, signature_snapshot)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [requestId, actorId, expectedStep, ActionType.APPROVE, comment || null, signatureSnapshot]
+          [
+            requestId,
+            actorId,
+            expectedStep,
+            ActionType.APPROVE,
+            comment || null,
+            signatureSnapshot,
+          ],
         );
 
         if (expectedStep === 5) {
@@ -712,7 +717,7 @@ export async function approveBatch(
             `UPDATE pts_requests
              SET status = ?, current_step = 6, updated_at = NOW()
              WHERE request_id = ?`,
-            [RequestStatus.APPROVED, requestId]
+            [RequestStatus.APPROVED, requestId],
           );
 
           try {
@@ -731,7 +736,7 @@ export async function approveBatch(
             `UPDATE pts_requests
              SET current_step = 5, updated_at = NOW()
              WHERE request_id = ?`,
-            [requestId]
+            [requestId],
           );
         }
 
@@ -753,21 +758,19 @@ export async function approveBatch(
 }
 
 // ============================================
-// Finalization ("The Bridge" V2.0)
+// Finalization ("The Bridge" V3.0 - Eligibility only)
 // ============================================
 export async function finalizeRequest(
   requestId: number,
-  finalApproverId: number,
-  connection: PoolConnection
-): Promise<FinalizeResult> {
-  const result: FinalizeResult = { rateAdjustmentId: null, licenseUpdated: false };
-
+  _finalApproverId: number,
+  connection: PoolConnection,
+): Promise<void> {
   const [requests] = await connection.query<RowDataPacket[]>(
     `SELECT r.*, u.citizen_id
      FROM pts_requests r
      JOIN users u ON r.user_id = u.user_id
      WHERE r.request_id = ?`,
-    [requestId]
+    [requestId],
   );
 
   if (!requests.length) {
@@ -779,77 +782,45 @@ export async function finalizeRequest(
 
   if (request.requested_amount && request.requested_amount > 0) {
     if (!request.effective_date) {
-      throw new Error('effective_date is required for rate adjustment finalization');
+      throw new Error('effective_date is required for finalization');
     }
 
-    const effectiveDate = new Date(request.effective_date);
     const effectiveDateStr =
-      typeof request.effective_date === 'string'
-        ? request.effective_date
-        : effectiveDate.toISOString().slice(0, 10);
-
-    if (Number.isNaN(effectiveDate.getTime())) {
-      throw new Error('Invalid effective_date for rate adjustment finalization');
-    }
-
-    let adjustmentType: 'NEW' | 'ADJUST' | 'BACKPAY' = 'ADJUST';
-    if (request.request_type === RequestType.NEW_ENTRY) adjustmentType = 'NEW';
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (effectiveDate < today) {
-      adjustmentType = 'BACKPAY';
-    }
-
-    const expiryDate = new Date(effectiveDate);
-    expiryDate.setUTCDate(expiryDate.getUTCDate() - 1);
-    const expiryDateStr = expiryDate.toISOString().slice(0, 10);
-
-    await connection.execute(
-      `UPDATE pts_rate_adjustments
-       SET is_active = 0, expiry_date = ?
-       WHERE citizen_id = ? AND is_active = 1`,
-      [expiryDateStr, citizenId]
-    );
-
-    const [res] = await connection.execute<ResultSetHeader>(
-      `INSERT INTO pts_rate_adjustments
-       (citizen_id, pts_rate, effective_date, request_id, adjustment_type, is_active, note)
-       VALUES (?, ?, ?, ?, ?, 1, ?)`,
-      [
-        citizenId,
-        request.requested_amount,
-        request.effective_date,
-        requestId,
-        adjustmentType,
-        JSON.stringify({ approvedBy: finalApproverId }),
-      ]
-    );
-    result.rateAdjustmentId = res.insertId;
+      request.effective_date instanceof Date
+        ? request.effective_date.toISOString().slice(0, 10)
+        : String(request.effective_date).slice(0, 10);
 
     const recommendedRate = await findRecommendedRate(citizenId);
-    if (recommendedRate) {
-      await createEligibility(
-        connection,
-        citizenId,
-        recommendedRate.rate_id,
-        effectiveDateStr,
-        requestId
-      );
-    }
-  }
+    let targetRateId: number | null = null;
 
-  return result;
+    if (recommendedRate && recommendedRate.amount === Number(request.requested_amount)) {
+      targetRateId = recommendedRate.rate_id;
+    } else {
+      const [rates] = await connection.query<RowDataPacket[]>(
+        `SELECT rate_id FROM pts_master_rates WHERE amount = ? AND is_active = 1 LIMIT 1`,
+        [request.requested_amount],
+      );
+      if (rates.length === 0) {
+        throw new Error(`ไม่พบ Master Rate ที่มียอดเงิน ${request.requested_amount}`);
+      }
+      targetRateId = (rates[0] as any).rate_id as number;
+    }
+
+    if (!targetRateId) {
+      throw new Error('ไม่สามารถระบุ master_rate_id สำหรับการสร้างสิทธิ์ได้');
+    }
+
+    await createEligibility(connection, citizenId, targetRateId, effectiveDateStr, requestId);
+  }
 }
 
 /**
  * Helper: request details with attachments & actions
  */
 async function getRequestDetails(requestId: number): Promise<RequestWithDetails> {
-  const requests = await query<RowDataPacket[]>(
-    'SELECT * FROM pts_requests WHERE request_id = ?',
-    [requestId]
-  );
+  const requests = await query<RowDataPacket[]>('SELECT * FROM pts_requests WHERE request_id = ?', [
+    requestId,
+  ]);
 
   if (requests.length === 0) {
     throw new Error('Request not found');
@@ -859,12 +830,12 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
 
   const attachments = await query<RowDataPacket[]>(
     'SELECT * FROM pts_attachments WHERE request_id = ? ORDER BY uploaded_at DESC',
-    [requestId]
+    [requestId],
   );
 
   const actions = await query<RowDataPacket[]>(
-    `SELECT a.*, 
-            u.citizen_id as actor_citizen_id, 
+    `SELECT a.*,
+            u.citizen_id as actor_citizen_id,
             u.role as actor_role,
             COALESCE(e.first_name, s.first_name) as actor_first_name,
             COALESCE(e.last_name, s.last_name) as actor_last_name
@@ -874,7 +845,7 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
      LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
      WHERE a.request_id = ?
      ORDER BY a.action_date ASC`,
-    [requestId]
+    [requestId],
   );
 
   const actionsWithActor = (actions as any[]).map((action) => ({

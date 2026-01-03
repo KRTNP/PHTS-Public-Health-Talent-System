@@ -17,14 +17,48 @@ export interface MasterRate {
   amount: number;
 }
 
+const DOCTOR_KEYWORDS = ['แพทย์', 'นายแพทย์'];
+const DOCTOR_GROUP3_KEYWORDS = ['อายุรกรรม', 'ออร์โธ', 'กุมาร', 'ศัลยกรรม', 'อายุรแพทย์'];
+const DOCTOR_GROUP2_EXPERT = ['เฉพาะทาง', 'เวชปฏิบัติทั่วไป'];
+
+const DENTIST_KEYWORDS = ['ทันตแพทย์'];
+const DENTIST_GROUP3_EXPERT = ['เฉพาะทาง'];
+const DENTIST_GROUP2_EXPERT = ['ทั่วไป'];
+
+const PHARMACIST_KEYWORDS = ['เภสัชกร'];
+const PHARMACIST_SUBDEPT = ['งานเภสัชกรรม', 'คลังยา', 'จ่ายยา'];
+const PHARMACIST_EXPERT = ['เภสัชคลินิก', 'เภสัชกรรมคลินิก'];
+
+const NURSE_TITLES = ['พยาบาลวิชาชีพ', 'พยาบาลเทคนิค', 'วิสัญญีพยาบาล'];
+const NURSE_KEYWORDS = ['พยาบาล'];
+const NURSE_GROUP3_SUB = ['ICU', 'CCU', 'วิกฤต', 'วิสัญญี'];
+const NURSE_GROUP3_EXPERT = ['APN', 'วิสัญญี', 'ICU', 'CCU'];
+const NURSE_GROUP2_SUB = ['OR', 'ER', 'LR', 'ห้องผ่าตัด', 'อุบัติเหตุ', 'ห้องคลอด', 'Ward', 'OPD'];
+const NURSE_GROUP2_EXPERT = ['ER', 'OR', 'LR', 'NICU', 'PICU'];
+
+const ALLIED_POS = ['นักกายภาพบำบัด', 'นักรังสีการแพทย์', 'นักโภชนาการ', 'นักเทคนิคการแพทย์'];
+
+function normalize(value?: string | null): string {
+  return (value || '').trim();
+}
+
+function startsWithAny(value: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => value.startsWith(pattern));
+}
+
+function includesAny(value: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => value.includes(pattern));
+}
+
 /**
- * Resolve recommended rate for a citizen based on precise position matching.
+ * Resolve recommended rate for a citizen based on profile keywords.
+ * This is pure business logic so it can be unit tested independently.
  */
 export async function findRecommendedRate(citizenId: string): Promise<MasterRate | null> {
   const rows = await query<RowDataPacket[]>(
     `SELECT citizen_id, position_name, specialist, expert, sub_department 
      FROM pts_employees WHERE citizen_id = ?`,
-    [citizenId]
+    [citizenId],
   );
 
   if (!rows || rows.length === 0) return null;
@@ -33,79 +67,62 @@ export async function findRecommendedRate(citizenId: string): Promise<MasterRate
   let targetProfession = '';
   let targetGroup = 1;
 
-  const pos = (profile.position_name || '').trim();
-  const specialist = (profile.specialist || '').trim();
-  const expert = (profile.expert || '').trim();
-  const subDept = (profile.sub_department || '').trim();
+  const pos = normalize(profile.position_name);
+  const specialist = normalize(profile.specialist);
+  const expert = normalize(profile.expert);
+  const subDept = normalize(profile.sub_department);
 
-  if (!subDept && (pos.includes('พยาบาล') || pos.includes('เภสัช'))) {
-    console.warn(
-      `[Audit] Missing sub_department for ${citizenId} (${pos}). Classification may be downgraded.`
-    );
-  }
+  const isAssistantNurse = startsWithAny(pos, ['ผู้ช่วยพยาบาล', 'พนักงานช่วยการพยาบาล']);
+  const isNurseStrict = startsWithAny(pos, NURSE_TITLES);
 
-  const isDoctor =
-    pos.startsWith('นายแพทย์') || pos === 'ผู้อำนวยการเฉพาะด้าน (แพทย์)';
-  const isDentist =
-    pos.startsWith('ทันตแพทย์') || pos === 'ผู้อำนวยการเฉพาะด้าน (ทันตแพทย์)';
-  const isPharmacist =
-    pos.startsWith('เภสัชกร') || pos === 'ผู้อำนวยการเฉพาะด้าน (เภสัชกรรม)';
-  const isNurse = ['พยาบาลวิชาชีพ', 'พยาบาลเทคนิค', 'วิสัญญีพยาบาล'].some((p) =>
-    pos.startsWith(p)
-  );
-
-  if (isDoctor) {
-    targetProfession = 'DOCTOR';
-    const group3Keywords = ['นิติเวช', 'จิตเวช', 'ประสาทศัลย', 'ทรวงอก', 'ระบาดวิทยา', 'พยาธิ'];
-    if (group3Keywords.some((k) => specialist.includes(k) || expert.includes(k))) {
-      targetGroup = 3;
-    } else if (
-      specialist !== '' ||
-      expert.includes('เวชกรรม') ||
-      expert.includes('ปริญญาโท') ||
-      expert.includes('คุณภาพ')
-    ) {
-      targetGroup = 2;
-    }
-  } else if (isDentist) {
-    targetProfession = 'DENTIST';
-    if (expert.includes('ทันตกรรม') || specialist !== '') {
-      targetGroup = 3;
-    } else if (expert.includes('ปริญญาโท') || expert.includes('ปริญญาเอก')) {
-      targetGroup = 2;
-    }
-  } else if (isPharmacist) {
-    targetProfession = 'PHARMACIST';
-    if (subDept.includes('เคมีบำบัด') || subDept.includes('คุ้มครอง') || expert.includes('เอดส์')) {
-      targetGroup = 2;
-    }
-  } else if (isNurse) {
+  if (isAssistantNurse) {
+    targetProfession = '';
+  } else if (isNurseStrict) {
     targetProfession = 'NURSE';
-    const g3Sub = ['ICU', 'CCU', 'วิกฤต', 'วิสัญญี'];
-    const g3Exp = ['วิกฤต', 'วิสัญญี', 'APN', 'ติดเชื้อรุนแรง'];
-    const g2Sub = ['OR', 'ER', 'LR', 'ห้องคลอด', 'ไตเทียม', 'Ward', 'ตึก', 'เคมีบำบัด'];
-    const g2Exp = ['ผู้คลอด', 'จิต', 'ยาเสพติด', 'ฟื้นฟู'];
-
-    if (g3Sub.some((k) => subDept.includes(k)) || g3Exp.some((k) => expert.includes(k))) {
+    if (includesAny(subDept, NURSE_GROUP3_SUB) || includesAny(expert, NURSE_GROUP3_EXPERT)) {
       targetGroup = 3;
-    } else if (g2Sub.some((k) => subDept.includes(k)) || g2Exp.some((k) => expert.includes(k))) {
+    } else if (includesAny(subDept, NURSE_GROUP2_SUB) || includesAny(expert, NURSE_GROUP2_EXPERT)) {
       targetGroup = 2;
     }
-  } else {
-    const alliedPos = ['นักเทคนิคการแพทย์', 'นักรังสี', 'นักกายภาพ', 'นักกิจกรรม', 'นักจิตวิทยา', 'นักเทคโนโลยีหัวใจ'];
-    if (alliedPos.some((k) => pos.startsWith(k))) {
-      targetProfession = 'ALLIED';
-      targetGroup = 1;
+  } else if (includesAny(pos, DOCTOR_KEYWORDS)) {
+    targetProfession = 'DOCTOR';
+    if (includesAny(specialist, DOCTOR_GROUP3_KEYWORDS) || includesAny(expert, DOCTOR_GROUP3_KEYWORDS)) {
+      targetGroup = 3;
+    } else if (specialist !== '' || includesAny(expert, DOCTOR_GROUP2_EXPERT)) {
+      targetGroup = 2;
     }
+  } else if (includesAny(pos, DENTIST_KEYWORDS)) {
+    targetProfession = 'DENTIST';
+    if (includesAny(expert, DENTIST_GROUP3_EXPERT) || specialist !== '') {
+      targetGroup = 3;
+    } else if (includesAny(expert, DENTIST_GROUP2_EXPERT)) {
+      targetGroup = 2;
+    }
+  } else if (includesAny(pos, PHARMACIST_KEYWORDS)) {
+    targetProfession = 'PHARMACIST';
+    if (includesAny(subDept, PHARMACIST_SUBDEPT) || includesAny(expert, PHARMACIST_EXPERT)) {
+      targetGroup = 2;
+    }
+  } else if (!isAssistantNurse && includesAny(pos, NURSE_KEYWORDS)) {
+    targetProfession = 'NURSE';
+    if (includesAny(subDept, NURSE_GROUP3_SUB) || includesAny(expert, NURSE_GROUP3_EXPERT)) {
+      targetGroup = 3;
+    } else if (includesAny(subDept, NURSE_GROUP2_SUB) || includesAny(expert, NURSE_GROUP2_EXPERT)) {
+      targetGroup = 2;
+    }
+  } else if (startsWithAny(pos, ALLIED_POS)) {
+    targetProfession = 'ALLIED';
+    targetGroup = 1;
   }
 
   if (!targetProfession) return null;
 
   const rates = await query<RowDataPacket[]>(
     `SELECT * FROM pts_master_rates 
-       WHERE profession_code = ? AND group_no = ? AND is_active = 1
+       WHERE profession_code = ? AND group_no = ?
+       AND is_active = 1
        ORDER BY amount DESC LIMIT 1`,
-    [targetProfession, targetGroup]
+    [targetProfession, targetGroup],
   );
 
   return rates.length > 0 ? (rates[0] as MasterRate) : null;
