@@ -6,7 +6,7 @@
  * Date: 2025-12-30
  */
 
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -18,6 +18,7 @@ import requestRoutes from './routes/requestRoutes.js';
 import signatureRoutes from './routes/signatureRoutes.js';
 import payrollRoutes from './routes/payrollRoutes.js';
 import { ApiResponse } from './types/auth.js';
+import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 
 // Load environment variables
 dotenv.config();
@@ -93,38 +94,13 @@ app.use('/api/payroll', payrollRoutes);
 /**
  * 404 Handler - Route Not Found
  */
-app.use((req: Request, res: Response<ApiResponse>) => {
-  res.status(404).json({
-    success: false,
-    error: `Route ${req.originalUrl} not found`,
-  });
-});
+app.use(notFoundHandler);
 
 /**
  * Global Error Handler
  * Catches all errors thrown in the application
  */
-app.use(
-  (
-    err: Error,
-    _req: Request,
-    res: Response<ApiResponse>,
-    _next: NextFunction
-  ) => {
-    console.error('Error:', err.stack);
-
-    // Don't expose error details in production
-    const errorMessage =
-      NODE_ENV === 'production'
-        ? 'An internal server error occurred'
-        : err.message;
-
-    res.status(500).json({
-      success: false,
-      error: errorMessage,
-    });
-  }
-);
+app.use(errorHandler);
 
 /**
  * Start Server

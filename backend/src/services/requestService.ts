@@ -25,6 +25,7 @@ import {
 } from '../types/request.types.js';
 import { findRecommendedRate, MasterRate } from './classificationService.js';
 import { createEligibility } from './eligibilityService.js';
+import { saveSignature } from './signatureService.js';
 
 // Common select/join fragments for requester info
 const REQUESTER_FIELDS = `
@@ -140,23 +141,14 @@ export async function createRequest(
           ? signatureFile.buffer
           : await readFile(signatureFile.path);
 
-      await connection.query(
-        `
-        INSERT INTO pts_user_signatures (user_id, signature_image, updated_at)
-        VALUES (?, ?, NOW())
-        ON DUPLICATE KEY UPDATE
-          signature_image = VALUES(signature_image),
-          updated_at = NOW()
-      `,
-        [userId, sigBuffer],
+      signatureId = await saveSignature(userId, sigBuffer, connection);
+    } else {
+      const [sigs] = await connection.query<RowDataPacket[]>(
+        'SELECT signature_id FROM pts_user_signatures WHERE user_id = ?',
+        [userId],
       );
+      signatureId = sigs.length ? (sigs[0] as any).signature_id : null;
     }
-
-    const [sigs] = await connection.query<RowDataPacket[]>(
-      'SELECT signature_id FROM pts_user_signatures WHERE user_id = ?',
-      [userId],
-    );
-    signatureId = sigs.length ? (sigs[0] as any).signature_id : null;
 
     if (!signatureId) {
       throw new Error('ไม่พบข้อมูลลายเซ็น กรุณาเซ็นชื่อก่อนยื่นคำขอ');
@@ -425,9 +417,6 @@ export async function approveRequest(
       throw new Error(`Invalid approver role. Expected ${expectedRole}, got ${actorRole}`);
     }
 
-    const currentStep = request.current_step;
-    const nextStep = currentStep + 1;
-
     // Approver signature snapshot (BLOB)
     const [sigRows] = await connection.query<RowDataPacket[]>(
       'SELECT signature_image FROM pts_user_signatures WHERE user_id = ? LIMIT 1',
@@ -440,39 +429,14 @@ export async function approveRequest(
         'Approver signature is required. Please set your signature before approving.',
       );
     }
-
-    await connection.execute(
-      `INSERT INTO pts_request_actions
-       (request_id, actor_id, step_no, action, comment, signature_snapshot)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [requestId, actorId, currentStep, ActionType.APPROVE, comment || null, signatureSnapshot],
+    await _performApproval(
+      connection,
+      request,
+      requestId,
+      actorId,
+      comment || null,
+      signatureSnapshot,
     );
-
-    if (nextStep > 5) {
-      await connection.execute(
-        `UPDATE pts_requests
-         SET status = ?, current_step = ?, updated_at = NOW()
-         WHERE request_id = ?`,
-        [RequestStatus.APPROVED, 6, requestId],
-      );
-
-      try {
-        await finalizeRequest(requestId, actorId, connection);
-      } catch (finalizeError) {
-        throw new Error(
-          `Request approved but finalization failed: ${
-            finalizeError instanceof Error ? finalizeError.message : 'Unknown error'
-          }`,
-        );
-      }
-    } else {
-      await connection.execute(
-        `UPDATE pts_requests
-         SET current_step = ?, updated_at = NOW()
-         WHERE request_id = ?`,
-        [nextStep, requestId],
-      );
-    }
 
     await connection.commit();
 
@@ -698,47 +662,7 @@ export async function approveBatch(
           continue;
         }
 
-        await connection.execute(
-          `INSERT INTO pts_request_actions
-           (request_id, actor_id, step_no, action, comment, signature_snapshot)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            requestId,
-            actorId,
-            expectedStep,
-            ActionType.APPROVE,
-            comment || null,
-            signatureSnapshot,
-          ],
-        );
-
-        if (expectedStep === 5) {
-          await connection.execute(
-            `UPDATE pts_requests
-             SET status = ?, current_step = 6, updated_at = NOW()
-             WHERE request_id = ?`,
-            [RequestStatus.APPROVED, requestId],
-          );
-
-          try {
-            await finalizeRequest(requestId, actorId, connection);
-          } catch (finalizeError) {
-            result.failed.push({
-              id: requestId,
-              reason: `Finalization failed: ${
-                finalizeError instanceof Error ? finalizeError.message : 'Unknown error'
-              }`,
-            });
-            continue;
-          }
-        } else {
-          await connection.execute(
-            `UPDATE pts_requests
-             SET current_step = 5, updated_at = NOW()
-             WHERE request_id = ?`,
-            [requestId],
-          );
-        }
+        await _performApproval(connection, request, requestId, actorId, comment || null, signatureSnapshot);
 
         result.success.push(requestId);
       } catch (err) {
@@ -754,6 +678,45 @@ export async function approveBatch(
     throw error;
   } finally {
     connection.release();
+  }
+}
+
+/**
+ * Internal helper to perform approval (action log, step update, finalization)
+ */
+async function _performApproval(
+  connection: PoolConnection,
+  request: PTSRequest,
+  requestId: number,
+  actorId: number,
+  comment: string | null,
+  signatureSnapshot: Buffer,
+): Promise<void> {
+  const currentStep = request.current_step;
+  const nextStep = currentStep + 1;
+
+  await connection.execute(
+    `INSERT INTO pts_request_actions
+     (request_id, actor_id, step_no, action, comment, signature_snapshot)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [requestId, actorId, currentStep, ActionType.APPROVE, comment, signatureSnapshot],
+  );
+
+  if (nextStep > 5) {
+    await connection.execute(
+      `UPDATE pts_requests
+       SET status = ?, current_step = 6, updated_at = NOW()
+       WHERE request_id = ?`,
+      [RequestStatus.APPROVED, requestId],
+    );
+    await finalizeRequest(requestId, actorId, connection);
+  } else {
+    await connection.execute(
+      `UPDATE pts_requests
+       SET current_step = ?, updated_at = NOW()
+       WHERE request_id = ?`,
+      [nextStep, requestId],
+    );
   }
 }
 
@@ -796,10 +759,22 @@ export async function finalizeRequest(
     if (recommendedRate && recommendedRate.amount === Number(request.requested_amount)) {
       targetRateId = recommendedRate.rate_id;
     } else {
-      const [rates] = await connection.query<RowDataPacket[]>(
-        `SELECT rate_id FROM pts_master_rates WHERE amount = ? AND is_active = 1 LIMIT 1`,
-        [request.requested_amount],
-      );
+      const professionCode = (recommendedRate as any)?.profession_code;
+      let sql = `SELECT rate_id FROM pts_master_rates WHERE amount = ? AND is_active = 1`;
+      const params: any[] = [request.requested_amount];
+      if (professionCode) {
+        sql += ` AND profession_code = ?`;
+        params.push(professionCode);
+      }
+      sql += ` LIMIT 1`;
+
+      let [rates] = await connection.query<RowDataPacket[]>(sql, params);
+      if (rates.length === 0) {
+        [rates] = await connection.query<RowDataPacket[]>(
+          `SELECT rate_id FROM pts_master_rates WHERE amount = ? AND is_active = 1 LIMIT 1`,
+          [request.requested_amount],
+        );
+      }
       if (rates.length === 0) {
         throw new Error(`ไม่พบ Master Rate ที่มียอดเงิน ${request.requested_amount}`);
       }

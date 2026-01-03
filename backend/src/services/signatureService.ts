@@ -8,6 +8,7 @@
  */
 
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { PoolConnection } from 'mysql2/promise';
 import { query, getConnection } from '../config/database.js';
 
 /**
@@ -88,11 +89,16 @@ export async function getSignatureDataUrl(userId: number): Promise<string | null
  * @param imageBuffer - Binary image data
  * @returns Created/updated signature ID
  */
-export async function saveSignature(userId: number, imageBuffer: Buffer): Promise<number> {
-  const connection = await getConnection();
+export async function saveSignature(
+  userId: number,
+  imageBuffer: Buffer,
+  externalConnection?: PoolConnection,
+): Promise<number> {
+  const connection = externalConnection || (await getConnection());
+  const manageTx = !externalConnection;
 
   try {
-    await connection.beginTransaction();
+    if (manageTx) await connection.beginTransaction();
 
     // Check if signature already exists
     const [existing] = await connection.query<RowDataPacket[]>(
@@ -121,13 +127,13 @@ export async function saveSignature(userId: number, imageBuffer: Buffer): Promis
       signatureId = result.insertId;
     }
 
-    await connection.commit();
+    if (manageTx) await connection.commit();
     return signatureId;
   } catch (error) {
-    await connection.rollback();
+    if (manageTx) await connection.rollback();
     throw error;
   } finally {
-    connection.release();
+    if (manageTx) connection.release();
   }
 }
 

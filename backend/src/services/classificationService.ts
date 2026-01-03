@@ -1,5 +1,6 @@
 import { RowDataPacket } from 'mysql2/promise';
 import { query } from '../config/database.js';
+import * as RULES from '../config/classification.constants.js';
 
 export interface EmployeeProfile {
   citizen_id: string;
@@ -16,27 +17,6 @@ export interface MasterRate {
   item_no: string;
   amount: number;
 }
-
-const DOCTOR_KEYWORDS = ['แพทย์', 'นายแพทย์'];
-const DOCTOR_GROUP3_KEYWORDS = ['อายุรกรรม', 'ออร์โธ', 'กุมาร', 'ศัลยกรรม', 'อายุรแพทย์'];
-const DOCTOR_GROUP2_EXPERT = ['เฉพาะทาง', 'เวชปฏิบัติทั่วไป'];
-
-const DENTIST_KEYWORDS = ['ทันตแพทย์'];
-const DENTIST_GROUP3_EXPERT = ['เฉพาะทาง'];
-const DENTIST_GROUP2_EXPERT = ['ทั่วไป'];
-
-const PHARMACIST_KEYWORDS = ['เภสัชกร'];
-const PHARMACIST_SUBDEPT = ['งานเภสัชกรรม', 'คลังยา', 'จ่ายยา'];
-const PHARMACIST_EXPERT = ['เภสัชคลินิก', 'เภสัชกรรมคลินิก'];
-
-const NURSE_TITLES = ['พยาบาลวิชาชีพ', 'พยาบาลเทคนิค', 'วิสัญญีพยาบาล'];
-const NURSE_KEYWORDS = ['พยาบาล'];
-const NURSE_GROUP3_SUB = ['ICU', 'CCU', 'วิกฤต', 'วิสัญญี'];
-const NURSE_GROUP3_EXPERT = ['APN', 'วิสัญญี', 'ICU', 'CCU'];
-const NURSE_GROUP2_SUB = ['OR', 'ER', 'LR', 'ห้องผ่าตัด', 'อุบัติเหตุ', 'ห้องคลอด', 'Ward', 'OPD'];
-const NURSE_GROUP2_EXPERT = ['ER', 'OR', 'LR', 'NICU', 'PICU'];
-
-const ALLIED_POS = ['นักกายภาพบำบัด', 'นักรังสีการแพทย์', 'นักโภชนาการ', 'นักเทคนิคการแพทย์'];
 
 function normalize(value?: string | null): string {
   return (value || '').trim();
@@ -72,45 +52,48 @@ export async function findRecommendedRate(citizenId: string): Promise<MasterRate
   const expert = normalize(profile.expert);
   const subDept = normalize(profile.sub_department);
 
-  const isAssistantNurse = startsWithAny(pos, ['ผู้ช่วยพยาบาล', 'พนักงานช่วยการพยาบาล']);
-  const isNurseStrict = startsWithAny(pos, NURSE_TITLES);
+  const isAssistantNurse = startsWithAny(pos, RULES.ASSISTANT_NURSE_POS);
+  const isNurseStrict = startsWithAny(pos, RULES.NURSE_TITLES);
 
   if (isAssistantNurse) {
     targetProfession = '';
   } else if (isNurseStrict) {
     targetProfession = 'NURSE';
-    if (includesAny(subDept, NURSE_GROUP3_SUB) || includesAny(expert, NURSE_GROUP3_EXPERT)) {
+    if (includesAny(subDept, RULES.NURSE_GROUP3_SUB) || includesAny(expert, RULES.NURSE_GROUP3_EXPERT)) {
       targetGroup = 3;
-    } else if (includesAny(subDept, NURSE_GROUP2_SUB) || includesAny(expert, NURSE_GROUP2_EXPERT)) {
+    } else if (includesAny(subDept, RULES.NURSE_GROUP2_SUB) || includesAny(expert, RULES.NURSE_GROUP2_EXPERT)) {
       targetGroup = 2;
     }
-  } else if (includesAny(pos, DOCTOR_KEYWORDS)) {
+  } else if (includesAny(pos, RULES.DOCTOR_KEYWORDS)) {
     targetProfession = 'DOCTOR';
-    if (includesAny(specialist, DOCTOR_GROUP3_KEYWORDS) || includesAny(expert, DOCTOR_GROUP3_KEYWORDS)) {
+    if (
+      includesAny(specialist, RULES.DOCTOR_GROUP3_KEYWORDS) ||
+      includesAny(expert, RULES.DOCTOR_GROUP3_KEYWORDS)
+    ) {
       targetGroup = 3;
-    } else if (specialist !== '' || includesAny(expert, DOCTOR_GROUP2_EXPERT)) {
+    } else if (specialist !== '' || includesAny(expert, RULES.DOCTOR_GROUP2_EXPERT)) {
       targetGroup = 2;
     }
-  } else if (includesAny(pos, DENTIST_KEYWORDS)) {
+  } else if (includesAny(pos, RULES.DENTIST_KEYWORDS)) {
     targetProfession = 'DENTIST';
-    if (includesAny(expert, DENTIST_GROUP3_EXPERT) || specialist !== '') {
+    if (includesAny(expert, RULES.DENTIST_GROUP3_EXPERT) || specialist !== '') {
       targetGroup = 3;
-    } else if (includesAny(expert, DENTIST_GROUP2_EXPERT)) {
+    } else if (includesAny(expert, RULES.DENTIST_GROUP2_EXPERT)) {
       targetGroup = 2;
     }
-  } else if (includesAny(pos, PHARMACIST_KEYWORDS)) {
+  } else if (includesAny(pos, RULES.PHARMACIST_KEYWORDS)) {
     targetProfession = 'PHARMACIST';
-    if (includesAny(subDept, PHARMACIST_SUBDEPT) || includesAny(expert, PHARMACIST_EXPERT)) {
+    if (includesAny(subDept, RULES.PHARMACIST_SUBDEPT) || includesAny(expert, RULES.PHARMACIST_EXPERT)) {
       targetGroup = 2;
     }
-  } else if (!isAssistantNurse && includesAny(pos, NURSE_KEYWORDS)) {
+  } else if (!isAssistantNurse && includesAny(pos, RULES.NURSE_KEYWORDS)) {
     targetProfession = 'NURSE';
-    if (includesAny(subDept, NURSE_GROUP3_SUB) || includesAny(expert, NURSE_GROUP3_EXPERT)) {
+    if (includesAny(subDept, RULES.NURSE_GROUP3_SUB) || includesAny(expert, RULES.NURSE_GROUP3_EXPERT)) {
       targetGroup = 3;
-    } else if (includesAny(subDept, NURSE_GROUP2_SUB) || includesAny(expert, NURSE_GROUP2_EXPERT)) {
+    } else if (includesAny(subDept, RULES.NURSE_GROUP2_SUB) || includesAny(expert, RULES.NURSE_GROUP2_EXPERT)) {
       targetGroup = 2;
     }
-  } else if (startsWithAny(pos, ALLIED_POS)) {
+  } else if (startsWithAny(pos, RULES.ALLIED_POS)) {
     targetProfession = 'ALLIED';
     targetGroup = 1;
   }

@@ -25,17 +25,6 @@ export const payrollController = {
       const yearNum = Number(year);
       const monthNum = Number(month);
 
-      if (!yearNum || !monthNum) {
-        return res
-          .status(400)
-          .json({ error: 'กรุณาระบุปี (year) และเดือน (month)' });
-      }
-      if (monthNum < 1 || monthNum > 12) {
-        return res.status(400).json({ error: 'รูปแบบเดือนไม่ถูกต้อง' });
-      }
-      if (citizen_id !== undefined && typeof citizen_id !== 'string') {
-        return res.status(400).json({ error: 'citizen_id ต้องเป็น string' });
-      }
 
       await conn.beginTransaction();
 
