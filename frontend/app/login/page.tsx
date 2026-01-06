@@ -23,10 +23,10 @@ import {
   Person,
   Lock,
   Login as LoginIcon,
-  LocalHospital,
 } from '@mui/icons-material';
 import { AuthService } from '@/lib/api/authApi';
 import { UserRole } from '@/types/auth';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -128,7 +128,29 @@ export default function LoginPage() {
             textAlign: 'center',
           }}
         >
-          <LocalHospital sx={{ fontSize: 80, mb: 2, opacity: 0.9 }} />
+          <Box
+            sx={{
+              width: 120,
+              height: 120,
+              mb: 2,
+              borderRadius: '16px',
+              overflow: 'hidden',
+              backgroundColor: 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: 'none',
+            }}
+          >
+            <Image
+              src="/logo-uttaradit-hospital.png"
+              alt="Uttaradit Hospital"
+              width={120}
+              height={120}
+              priority
+              style={{ objectFit: 'contain' }}
+            />
+          </Box>
           <Typography variant="h3" component="h1" fontWeight="700" gutterBottom>
             PHTS System
           </Typography>
@@ -155,7 +177,29 @@ export default function LoginPage() {
         >
           {isMobile && (
             <>
-              <LocalHospital color="primary" sx={{ fontSize: 50, mb: 1 }} />
+              <Box
+              sx={{
+                width: 96,
+                height: 96,
+                mb: 1,
+                borderRadius: '14px',
+                overflow: 'hidden',
+                backgroundColor: 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 'none',
+              }}
+            >
+                <Image
+                  src="/logo-uttaradit-hospital.png"
+                  alt="Uttaradit Hospital"
+                  width={96}
+                  height={96}
+                  priority
+                  style={{ objectFit: 'contain' }}
+                />
+              </Box>
               <Typography component="h1" variant="h5" fontWeight="700" color="primary" gutterBottom>
                 PHTS Login
               </Typography>

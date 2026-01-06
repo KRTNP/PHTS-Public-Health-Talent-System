@@ -14,63 +14,56 @@ import {
   CheckCircle,
   Cancel,
   HourglassEmpty,
-  Edit,
   AssignmentReturn,
   Drafts,
 } from '@mui/icons-material';
 
-interface StatusChipProps extends Omit<ChipProps, 'color'> {
+interface StatusChipProps extends ChipProps {
   status: RequestStatus | string;
 }
 
-export default function StatusChip({ status, sx, ...props }: StatusChipProps) {
+export default function StatusChip({ status, sx, color, size = 'medium', ...props }: StatusChipProps) {
   const theme = useTheme();
 
-  let color: ChipProps['color'] = 'default';
+  let chipColor: ChipProps['color'] = color ?? 'default';
   let icon: React.ReactNode = undefined;
-  let label: React.ReactNode = REQUEST_STATUS_LABELS[status as RequestStatus] || status;
+  const label: React.ReactNode = REQUEST_STATUS_LABELS[status as RequestStatus] || status;
 
   switch (status) {
     case RequestStatus.APPROVED:
-      color = 'success';
+      chipColor = color ?? 'success';
       icon = <CheckCircle />;
-      label = 'อนุมัติแล้ว';
       break;
     case RequestStatus.REJECTED:
-      color = 'error';
+      chipColor = color ?? 'error';
       icon = <Cancel />;
-      label = 'ถูกปฏิเสธ';
       break;
     case RequestStatus.PENDING:
-      color = 'warning';
+      chipColor = color ?? 'warning';
       icon = <HourglassEmpty />;
-      label = 'รอพิจารณา';
       break;
     case RequestStatus.DRAFT:
-      color = 'default';
+      chipColor = color ?? 'default';
       icon = <Drafts />;
-      label = 'แบบร่าง';
       break;
     case RequestStatus.RETURNED:
-      color = 'warning';
+      chipColor = color ?? 'warning';
       icon = <AssignmentReturn />;
-      label = 'ส่งคืนแก้ไข';
       break;
     case RequestStatus.CANCELLED:
-      color = 'default';
+      chipColor = color ?? 'default';
       icon = <Cancel />;
-      label = 'ยกเลิก';
       break;
     default:
-      label = status;
+      break;
   }
 
   return (
     <Chip
       label={label}
       icon={icon}
-      color={color}
-      size="medium"
+      color={chipColor}
+      size={size}
       variant="filled"
       sx={{
         fontWeight: 700,
@@ -79,7 +72,7 @@ export default function StatusChip({ status, sx, ...props }: StatusChipProps) {
         '& .MuiChip-label': {
           px: 1,
         },
-        ...(color === 'default' && {
+        ...(chipColor === 'default' && {
           backgroundColor: theme.palette.grey[400],
           color: theme.palette.common.white,
         }),
