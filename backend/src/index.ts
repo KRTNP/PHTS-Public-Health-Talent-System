@@ -36,13 +36,19 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
  */
 app.use(helmet());
 
-/**
- * CORS Configuration
- * Allow requests from Next.js frontend
- */
+// Allow CORS for configured origins (comma-separated env support for multiple frontends)
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim());
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
