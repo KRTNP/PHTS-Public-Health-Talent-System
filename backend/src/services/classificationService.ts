@@ -32,7 +32,7 @@ function includesAny(value: string, patterns: string[]): boolean {
 
 /**
  * Resolve recommended rate for a citizen based on profile keywords.
- * This is pure business logic so it can be unit tested independently.
+ * FINAL LOGIC: Doctor item mapping, Dentist board->grp3, Nurse NP general->grp2, APN/ICU->grp3
  */
 export async function findRecommendedRate(citizenId: string): Promise<MasterRate | null> {
   const rows = await query<RowDataPacket[]>(
@@ -46,6 +46,7 @@ export async function findRecommendedRate(citizenId: string): Promise<MasterRate
 
   let targetProfession = '';
   let targetGroup = 1;
+  let targetItemHint = '';
 
   const pos = normalize(profile.position_name);
   const specialist = normalize(profile.specialist);
@@ -55,58 +56,99 @@ export async function findRecommendedRate(citizenId: string): Promise<MasterRate
   const isAssistantNurse = startsWithAny(pos, RULES.ASSISTANT_NURSE_POS);
   const isNurseStrict = startsWithAny(pos, RULES.NURSE_TITLES);
 
+  // 1. NURSE LOGIC
   if (isAssistantNurse) {
     targetProfession = '';
   } else if (isNurseStrict) {
     targetProfession = 'NURSE';
     if (includesAny(subDept, RULES.NURSE_GROUP3_SUB) || includesAny(expert, RULES.NURSE_GROUP3_EXPERT)) {
       targetGroup = 3;
+      targetItemHint = '3.1'; // default critical/anaes
     } else if (includesAny(subDept, RULES.NURSE_GROUP2_SUB) || includesAny(expert, RULES.NURSE_GROUP2_EXPERT)) {
       targetGroup = 2;
+      targetItemHint = '2.1'; // default ward/IPD/general NP
+    } else {
+      targetGroup = 1;
+      targetItemHint = '1.1';
     }
+
+    // 2. DENTIST LOGIC
   } else if (includesAny(pos, RULES.DENTIST_KEYWORDS)) {
     targetProfession = 'DENTIST';
-    if (includesAny(expert, RULES.DENTIST_GROUP3_EXPERT) || specialist !== '') {
+    if (includesAny(expert, RULES.DENTIST_GROUP3_EXPERT) || (specialist !== '' && specialist !== null)) {
       targetGroup = 3;
+      targetItemHint = '3.1';
     } else if (includesAny(expert, RULES.DENTIST_GROUP2_EXPERT)) {
       targetGroup = 2;
+      targetItemHint = '2.1';
     }
+
+    // 3. DOCTOR LOGIC
   } else if (includesAny(pos, RULES.DOCTOR_KEYWORDS)) {
     targetProfession = 'DOCTOR';
-    if (
-      includesAny(specialist, RULES.DOCTOR_GROUP3_KEYWORDS) ||
-      includesAny(expert, RULES.DOCTOR_GROUP3_KEYWORDS)
-    ) {
+    let matchedItem = '';
+    for (const [keyword, itemNo] of Object.entries(RULES.DOCTOR_ITEM_MAP)) {
+      if (specialist.includes(keyword) || expert.includes(keyword)) {
+        matchedItem = itemNo;
+        break;
+      }
+    }
+    if (matchedItem) {
       targetGroup = 3;
+      targetItemHint = matchedItem;
     } else if (specialist !== '' || includesAny(expert, RULES.DOCTOR_GROUP2_EXPERT)) {
       targetGroup = 2;
+      targetItemHint = '2.1';
+    } else {
+      targetGroup = 1;
+      targetItemHint = '1.1';
     }
+
+    // 4. PHARMACIST LOGIC
   } else if (includesAny(pos, RULES.PHARMACIST_KEYWORDS)) {
     targetProfession = 'PHARMACIST';
     if (includesAny(subDept, RULES.PHARMACIST_SUBDEPT) || includesAny(expert, RULES.PHARMACIST_EXPERT)) {
       targetGroup = 2;
+      targetItemHint = '2.1';
     }
+
+    // 5. GENERIC NURSE FALLBACK
   } else if (!isAssistantNurse && includesAny(pos, RULES.NURSE_KEYWORDS)) {
     targetProfession = 'NURSE';
     if (includesAny(subDept, RULES.NURSE_GROUP3_SUB) || includesAny(expert, RULES.NURSE_GROUP3_EXPERT)) {
       targetGroup = 3;
+      targetItemHint = '3.1';
     } else if (includesAny(subDept, RULES.NURSE_GROUP2_SUB) || includesAny(expert, RULES.NURSE_GROUP2_EXPERT)) {
       targetGroup = 2;
+      targetItemHint = '2.1';
+    } else {
+      targetGroup = 1;
+      targetItemHint = '1.1';
     }
+
+    // 6. ALLIED LOGIC
   } else if (startsWithAny(pos, RULES.ALLIED_POS)) {
     targetProfession = 'ALLIED';
-    targetGroup = 1;
+    targetGroup = 5;
+    targetItemHint = '5.1';
   }
 
   if (!targetProfession) return null;
 
-  const rates = await query<RowDataPacket[]>(
-    `SELECT * FROM pts_master_rates 
+  // SQL Query with Item Hinting Logic
+  let sql = `SELECT * FROM pts_master_rates 
        WHERE profession_code = ? AND group_no = ?
-       AND is_active = 1
-       ORDER BY amount DESC LIMIT 1`,
-    [targetProfession, targetGroup],
-  );
+       AND is_active = 1`;
+  const params: any[] = [targetProfession, targetGroup];
+
+  if (targetItemHint) {
+    sql += ` ORDER BY CASE WHEN item_no = ? THEN 1 ELSE 2 END, item_no ASC, amount DESC LIMIT 1`;
+    params.push(targetItemHint);
+  } else {
+    sql += ` ORDER BY item_no ASC, amount DESC LIMIT 1`;
+  }
+
+  const rates = await query<RowDataPacket[]>(sql, params);
 
   return rates.length > 0 ? (rates[0] as MasterRate) : null;
 }

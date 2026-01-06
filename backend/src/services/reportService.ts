@@ -35,6 +35,7 @@ export async function generateDetailReport(params: ReportParams): Promise<Buffer
         p.total_payable as total,
         p.remark,
         mr.group_no,
+        mr.item_no,
         mr.profession_code
       FROM pts_payouts p
       JOIN pts_periods per ON p.period_id = per.period_id
@@ -114,7 +115,7 @@ export async function generateDetailReport(params: ReportParams): Promise<Buffer
       r.getCell(6).value = Number(row.retro);
       r.getCell(7).value = Number(row.total);
       r.getCell(8).value = row.group_no;
-      r.getCell(9).value = '-';
+      r.getCell(9).value = row.item_no || '-';
       r.getCell(10).value = Number(row.base_rate);
       r.getCell(11).value = row.remark;
 

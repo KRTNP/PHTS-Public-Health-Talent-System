@@ -4,10 +4,13 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-export const DB_NAME = process.env.DB_NAME || 'phts_test_payroll';
+export const DB_NAME = 'phts_test';
 export const JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
 
 export async function createTestPool(): Promise<Pool> {
+  // Force app/test to use this DB
+  process.env.DB_NAME = DB_NAME;
+
   const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT || 3306),
@@ -36,6 +39,7 @@ export async function setupSchema(pool: Pool) {
       rate_id INT AUTO_INCREMENT PRIMARY KEY,
       profession_code VARCHAR(20),
       group_no INT,
+      item_no VARCHAR(10),
       amount DECIMAL(10,2),
       is_active TINYINT(1) DEFAULT 1
     );
@@ -165,9 +169,7 @@ export async function cleanTables(pool: Pool) {
 }
 
 export function signAdminToken() {
-  return jwt.sign(
-    { userId: 99, citizenId: 'ADMIN1', role: 'ADMIN' },
-    JWT_SECRET,
-    { expiresIn: '1h' },
-  );
+  return jwt.sign({ userId: 99, citizenId: 'ADMIN1', role: 'ADMIN' }, JWT_SECRET, {
+    expiresIn: '1h',
+  });
 }

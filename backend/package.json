@@ -8,9 +8,10 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "seed:users": "tsx src/scripts/seed_users.ts",
-    "migrate:requests": "tsx src/scripts/migrate_requests.ts",
-    "migrate:update-schema": "tsx src/scripts/update_requests_schema.ts",
+    "sync:all": "tsx src/scripts/sync_all.ts",
+    "sync:fast": "tsx src/scripts/sync_all_fast.ts",
+    "sync:users": "tsx src/scripts/sync_users.ts",
+    "sync:signatures": "tsx src/scripts/sync_signatures.ts",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "test": "jest"

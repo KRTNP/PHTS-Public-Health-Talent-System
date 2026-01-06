@@ -133,6 +133,16 @@ export async function createRequest(
   try {
     await connection.beginTransaction();
 
+    // Ensure citizen_id is available for the insert
+    const [userRows] = await connection.query<RowDataPacket[]>(
+      'SELECT citizen_id FROM users WHERE user_id = ? LIMIT 1',
+      [userId],
+    );
+    if (!userRows.length) {
+      throw new Error('User not found');
+    }
+    const citizenId = (userRows[0] as any).citizen_id as string;
+
     // 1) Handle signature: if a new file is uploaded, upsert; otherwise use existing
     let signatureId: number | null = null;
     if (signatureFile) {
@@ -174,12 +184,13 @@ export async function createRequest(
     const requestNo = generateRequestNo();
     const [result] = await connection.execute<ResultSetHeader>(
       `INSERT INTO pts_requests
-       (user_id, request_no, personnel_type, current_position_number, current_department,
+       (user_id, citizen_id, request_no, personnel_type, current_position_number, current_department,
         work_attributes, applicant_signature_id, request_type, requested_amount,
         effective_date, status, current_step, submission_data)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
+        citizenId,
         requestNo,
         data.personnel_type,
         data.position_number || null,
