@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { protect, restrictTo } from '../middlewares/authMiddleware.js';
 import { UserRole } from '../types/auth.js';
-import * as adminCtrl from '../controllers/adminController.js';
+import * as systemCtrl from '../controllers/systemController.js';
 import * as officerCtrl from '../controllers/officerController.js';
 
 const router = Router();
@@ -24,11 +24,11 @@ router.put('/leaves/:id/adjust', officerAuth, officerCtrl.adjustLeaveRequest);
 // Admin only
 const adminAuth = restrictTo(UserRole.ADMIN);
 
-router.get('/users', adminAuth, adminCtrl.searchUsers);
-router.put('/users/:userId/role', adminAuth, adminCtrl.updateUserRole);
+router.get('/users', adminAuth, systemCtrl.searchUsers);
+router.put('/users/:userId/role', adminAuth, systemCtrl.updateUserRole);
 
-router.post('/system/sync', adminAuth, adminCtrl.triggerSync);
-router.post('/system/maintenance', adminAuth, adminCtrl.toggleMaintenanceMode);
-router.post('/system/backup', adminAuth, adminCtrl.triggerBackup);
+router.post('/system/sync', adminAuth, systemCtrl.triggerSync);
+router.post('/system/maintenance', adminAuth, systemCtrl.toggleMaintenanceMode);
+router.post('/system/backup', adminAuth, systemCtrl.triggerBackup);
 
 export default router;

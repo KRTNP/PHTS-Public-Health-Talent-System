@@ -33,10 +33,11 @@ export const updateUserRole = async (req: Request, res: Response) => {
       throw new Error('Invalid role');
     }
 
-    await query(
-      'UPDATE users SET role = ?, is_active = ? WHERE id = ?',
-      [role, is_active, userId],
-    );
+    await query('UPDATE users SET role = ?, is_active = ? WHERE id = ?', [
+      role,
+      is_active,
+      userId,
+    ]);
     res.json({ success: true, message: 'User role updated successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
