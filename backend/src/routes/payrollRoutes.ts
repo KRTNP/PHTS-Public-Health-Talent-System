@@ -3,6 +3,7 @@ import {
   approveByDirector,
   approveByHR,
   approveByHeadFinance,
+  calculateOnDemand,
   calculatePeriod,
   getPeriodStatus,
   rejectPeriod,
@@ -15,6 +16,20 @@ const router = Router();
 
 // View period status (authenticated dashboard users)
 router.get('/period', protect, getPeriodStatus);
+
+// Ad-hoc calculation for a single employee (integration tests/tools)
+router.post(
+  '/calculate',
+  protect,
+  restrictTo(
+    UserRole.ADMIN,
+    UserRole.PTS_OFFICER,
+    UserRole.HEAD_FINANCE,
+    UserRole.DIRECTOR,
+    UserRole.HEAD_HR,
+  ),
+  calculateOnDemand,
+);
 
 // Calculate (OFFICER/ADMIN)
 router.post(

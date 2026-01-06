@@ -212,3 +212,26 @@ export async function returnRequest(id: number, comment: string): Promise<PTSReq
     throw new Error(extractErrorMessage(error, 'Unable to return request'));
   }
 }
+
+/**
+ * Batch approve multiple requests (Director/Head Finance only)
+ */
+export async function batchApproveRequests(
+  requestIds: number[],
+  comment?: string
+): Promise<{ success: number[]; failed: any[] }> {
+  try {
+    const response = await apiClient.post<ApiResponse<{ success: number[]; failed: any[] }>>(
+      '/api/requests/batch-approve',
+      { requestIds, comment }
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to batch approve');
+    }
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(extractErrorMessage(error, 'Batch approval failed'));
+  }
+}

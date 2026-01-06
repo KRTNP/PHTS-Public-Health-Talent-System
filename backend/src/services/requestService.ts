@@ -68,6 +68,32 @@ function parseJsonField<T = any>(value: any): T | null {
 }
 
 /**
+ * Normalize date input to `YYYY-MM-DD` (safely handles strings with timezones).
+ */
+function normalizeDateToYMD(value: string | Date): string {
+  if (!value) {
+    throw new Error('effective_date is required');
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    return match[1];
+  }
+
+  const parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  throw new Error('Invalid effective_date format');
+}
+
+/**
  * Normalize DB row to API shape (keeps backward-compatible fields).
  */
 function mapRequestRow(row: any): PTSRequest & {
@@ -99,6 +125,102 @@ function mapRequestRow(row: any): PTSRequest & {
     updated_at: row.updated_at,
     submitted_at: row.submitted_at ?? null,
   } as any;
+}
+
+function buildInClause(ids: number[]): { clause: string; params: number[] } {
+  const placeholders = ids.map(() => '?').join(', ');
+  return { clause: placeholders, params: ids };
+}
+
+async function hydrateRequests(requestRows: any[]): Promise<RequestWithDetails[]> {
+  if (!requestRows.length) return [];
+
+  const ids = requestRows.map((row) => row.request_id);
+  const { clause, params } = buildInClause(ids);
+
+  const attachments = await query<RowDataPacket[]>(
+    `SELECT * FROM pts_attachments WHERE request_id IN (${clause}) ORDER BY uploaded_at DESC`,
+    params,
+  );
+
+  const actions = await query<RowDataPacket[]>(
+    `SELECT a.*,
+            u.citizen_id as actor_citizen_id,
+            u.role as actor_role,
+            COALESCE(e.first_name, s.first_name) as actor_first_name,
+            COALESCE(e.last_name, s.last_name) as actor_last_name
+     FROM pts_request_actions a
+     JOIN users u ON a.actor_id = u.id
+     LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
+     LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+     WHERE a.request_id IN (${clause})
+     ORDER BY a.created_at ASC`,
+    params,
+  );
+
+  const attachmentsByRequest = new Map<number, RowDataPacket[]>();
+  for (const att of attachments as any[]) {
+    const list = attachmentsByRequest.get(att.request_id) || [];
+    list.push(att);
+    attachmentsByRequest.set(att.request_id, list);
+  }
+
+  const actionsByRequest = new Map<number, RowDataPacket[]>();
+  for (const action of actions as any[]) {
+    const list = actionsByRequest.get(action.request_id) || [];
+    list.push(action);
+    actionsByRequest.set(action.request_id, list);
+  }
+
+  return requestRows.map((row) => {
+    const request = mapRequestRow(row) as RequestWithDetails;
+    const requestId = row.request_id;
+
+    request.attachments = (attachmentsByRequest.get(requestId) || []).map((att: any) => ({
+      attachment_id: att.attachment_id,
+      request_id: att.request_id,
+      file_type: att.file_type,
+      file_path: att.file_path,
+      file_name: att.file_name,
+      original_filename: att.file_name,
+      file_size: att.file_size,
+      mime_type: att.mime_type,
+      uploaded_at: att.uploaded_at,
+    })) as RequestAttachment[];
+
+    request.actions = (actionsByRequest.get(requestId) || []).map((action: any) => ({
+      action_id: action.action_id,
+      request_id: action.request_id,
+      actor_id: action.actor_id,
+      action: action.action,
+      action_type: action.action,
+      step_no: action.step_no,
+      from_step: action.step_no,
+      to_step: action.step_no,
+      comment: action.comment,
+      action_date: action.created_at,
+      created_at: action.created_at,
+      signature_snapshot: action.signature_snapshot,
+      actor: {
+        citizen_id: action.actor_citizen_id,
+        role: action.actor_role,
+        first_name: action.actor_first_name,
+        last_name: action.actor_last_name,
+      },
+    }));
+
+    if (row.requester_citizen_id) {
+      request.requester = {
+        citizen_id: row.requester_citizen_id,
+        role: row.requester_role,
+        first_name: row.req_first_name,
+        last_name: row.req_last_name,
+        position: row.req_position,
+      };
+    }
+
+    return request;
+  });
 }
 
 /**
@@ -175,9 +297,7 @@ export async function createRequest(
     if (data.requested_amount === undefined || data.requested_amount === null) {
       throw new Error('requested_amount is required');
     }
-    if (!data.effective_date) {
-      throw new Error('effective_date is required');
-    }
+    const effectiveDateStr = normalizeDateToYMD(data.effective_date as any);
 
     // 3) Insert request (V2 schema)
     const requestNo = generateRequestNo();
@@ -198,7 +318,7 @@ export async function createRequest(
         signatureId,
         data.request_type,
         data.requested_amount,
-        data.effective_date,
+        effectiveDateStr,
         RequestStatus.DRAFT,
         1,
         submissionDataJson,
@@ -215,9 +335,9 @@ export async function createRequest(
 
         await connection.execute<ResultSetHeader>(
           `INSERT INTO pts_attachments
-           (request_id, file_type, file_path, original_filename, file_size, mime_type)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [requestId, fileType, file.path, file.originalname, file.size, file.mimetype],
+           (request_id, file_type, file_path, file_name)
+           VALUES (?, ?, ?, ?)`,
+          [requestId, fileType, file.path, file.originalname],
         );
       }
     }
@@ -308,14 +428,7 @@ export async function getMyRequests(userId: number): Promise<RequestWithDetails[
   );
 
   const requestRows = Array.isArray(requests) ? (requests as any[]) : [];
-  const requestsWithDetails: RequestWithDetails[] = [];
-
-  for (const request of requestRows) {
-    const details = await getRequestDetails(request.request_id);
-    requestsWithDetails.push(details);
-  }
-
-  return requestsWithDetails;
+  return await hydrateRequests(requestRows);
 }
 
 /**
@@ -338,21 +451,7 @@ export async function getPendingForApprover(userRole: string): Promise<RequestWi
   );
 
   const requestRows = Array.isArray(requests) ? (requests as any[]) : [];
-  const requestsWithDetails: RequestWithDetails[] = [];
-
-  for (const request of requestRows) {
-    const details = await getRequestDetails(request.request_id);
-    details.requester = {
-      citizen_id: request.requester_citizen_id,
-      role: request.requester_role,
-      first_name: request.req_first_name,
-      last_name: request.req_last_name,
-      position: request.req_position,
-    };
-    requestsWithDetails.push(details);
-  }
-
-  return requestsWithDetails;
+  return await hydrateRequests(requestRows);
 }
 
 /**
@@ -651,7 +750,14 @@ export async function approveBatch(
   const result: BatchApproveResult = { success: [], failed: [] };
 
   const expectedStep = ROLE_STEP_MAP[actorRole];
-  if (expectedStep === undefined || (expectedStep !== 4 && expectedStep !== 5)) {
+  const allowedSteps =
+    actorRole === 'DIRECTOR'
+      ? [4, 5]
+      : expectedStep !== undefined
+        ? [expectedStep]
+        : [];
+
+  if (allowedSteps.length === 0 || !allowedSteps.some((s) => s === 4 || s === 5)) {
     throw new Error(`Batch approval not supported for role: ${actorRole}`);
   }
 
@@ -689,11 +795,13 @@ export async function approveBatch(
 
         const request = mapRequestRow(rows[0]);
 
-        if (request.current_step !== expectedStep) {
+        if (!allowedSteps.includes(request.current_step)) {
           await connection.rollback();
           result.failed.push({
             id: requestId,
-            reason: `Not at Step ${expectedStep} (currently at Step ${request.current_step})`,
+            reason: `Not at allowed step (${allowedSteps.join(
+              '/',
+            )}) (currently at Step ${request.current_step})`,
           });
           continue;
         }
@@ -807,10 +915,7 @@ export async function finalizeRequest(
       throw new Error('effective_date is required for finalization');
     }
 
-    const effectiveDateStr =
-      request.effective_date instanceof Date
-        ? request.effective_date.toISOString().slice(0, 10)
-        : String(request.effective_date).slice(0, 10);
+    const effectiveDateStr = normalizeDateToYMD(request.effective_date as any);
 
     const recommendedRate = await findRecommendedRate(citizenId);
     let targetRateId: number | null = null;
@@ -827,21 +932,17 @@ export async function finalizeRequest(
       }
       sql += ` LIMIT 1`;
 
-      let [rates] = await connection.query<RowDataPacket[]>(sql, params);
+      const [rates] = await connection.query<RowDataPacket[]>(sql, params);
       if (rates.length === 0) {
-        [rates] = await connection.query<RowDataPacket[]>(
-          `SELECT rate_id FROM pts_master_rates WHERE amount = ? AND is_active = 1 LIMIT 1`,
-          [request.requested_amount],
+        throw new Error(
+          'Unable to resolve master rate for finalization. Please verify profession and rate configuration.',
         );
-      }
-      if (rates.length === 0) {
-        throw new Error(`ไม่พบ Master Rate ที่มียอดเงิน ${request.requested_amount}`);
       }
       targetRateId = (rates[0] as any).rate_id as number;
     }
 
     if (!targetRateId) {
-      throw new Error('ไม่สามารถระบุ master_rate_id สำหรับการสร้างสิทธิ์ได้');
+      throw new Error('Unable to resolve master rate during finalization.');
     }
 
     await createEligibility(connection, citizenId, targetRateId, effectiveDateStr, requestId);
@@ -910,8 +1011,8 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
       request_id: att.request_id,
       file_type: att.file_type,
       file_path: att.file_path,
-      original_filename: att.original_filename,
-      file_name: att.original_filename,
+      file_name: att.file_name,
+      original_filename: att.file_name,
       file_size: att.file_size,
       mime_type: att.mime_type,
       uploaded_at: att.uploaded_at,

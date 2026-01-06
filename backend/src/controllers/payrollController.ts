@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PayrollService } from '../services/payrollService.js';
+import { ApiResponse } from '../types/auth.js';
 
 export const getPeriodStatus = async (req: Request, res: Response) => {
   try {
@@ -28,6 +29,30 @@ export const calculatePeriod = async (req: Request, res: Response) => {
     res.json({ message: 'Calculation completed successfully', data: result });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const calculateOnDemand = async (req: Request, res: Response<ApiResponse>) => {
+  try {
+    const { year, month, citizen_id } = req.body;
+
+    if (!year || !month || !citizen_id) {
+      res.status(400).json({
+        success: false,
+        error: 'year, month, and citizen_id are required',
+      });
+      return;
+    }
+
+    const data = await PayrollService.calculateOnDemand(
+      Number(year),
+      Number(month),
+      String(citizen_id),
+    );
+
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 

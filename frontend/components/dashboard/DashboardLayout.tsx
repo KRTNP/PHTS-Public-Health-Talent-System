@@ -21,7 +21,8 @@ import {
   Container,
   Stack,
 } from '@mui/material';
-import { AccountCircle, Logout, LocalHospital } from '@mui/icons-material';
+import { AccountCircle, Logout } from '@mui/icons-material';
+import Image from 'next/image';
 import { AuthService } from '@/lib/api/authApi';
 import { UserProfile, ROLE_NAMES } from '@/types/auth';
 import { useRouter } from 'next/navigation';
@@ -31,10 +32,7 @@ interface DashboardLayoutProps {
   title: string;
 }
 
-export default function DashboardLayout({
-  children,
-  title,
-}: DashboardLayoutProps) {
+export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -85,7 +83,17 @@ export default function DashboardLayout({
         <Toolbar>
           {/* Logo & Title */}
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexGrow: 1 }}>
-            <LocalHospital sx={{ fontSize: 32 }} />
+            {/* Hospital Logo */}
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Image
+                src="/logo-uttaradit-hospital.png"
+                alt="Hospital Logo"
+                width={40}
+                height={40}
+                style={{ objectFit: 'contain' }}
+              />
+            </Box>
+
             <Box>
               <Typography variant="h6" component="div" fontWeight={600}>
                 PHTS System

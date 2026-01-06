@@ -229,4 +229,40 @@ export class PayrollService {
     );
     return rows[0] || null;
   }
+
+  /**
+   * On-demand calculation for a single employee (no persistence).
+   */
+  static async calculateOnDemand(year: number, month: number, citizenId: string) {
+    const conn = await db.getConnection();
+    try {
+      const currentResult = await calculator.calculateMonthly(
+        citizenId,
+        year,
+        month,
+        conn as any,
+      );
+      const retroResult = await calculateRetroactive(
+        citizenId,
+        year,
+        month,
+        6,
+        conn as any,
+      );
+
+      const retroTotal = retroResult.totalRetro || 0;
+      const total_payable = Number((currentResult.netPayment + retroTotal).toFixed(2));
+
+      return [
+        {
+          ...currentResult,
+          retroactiveTotal: retroTotal,
+          retroDetails: retroResult.retroDetails,
+          total_payable,
+        },
+      ];
+    } finally {
+      conn.release();
+    }
+  }
 }

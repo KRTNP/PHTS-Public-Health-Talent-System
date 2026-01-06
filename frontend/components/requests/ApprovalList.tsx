@@ -22,10 +22,12 @@ import {
   Chip,
   Avatar,
   Button,
+  Checkbox,
+  Toolbar,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { CheckCircle, Cancel, Undo, Visibility, Person, AccessTime, AttachMoney } from '@mui/icons-material';
+import { CheckCircle, Cancel, Undo, Visibility, Person, AccessTime, AttachMoney, DoneAll } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { RequestWithDetails, REQUEST_TYPE_LABELS } from '@/types/request.types';
 import StatusChip from '@/components/common/StatusChip';
@@ -43,6 +45,8 @@ interface ApprovalListProps {
   onRefresh?: () => void;
   showQuickActions?: boolean;
   basePath?: string;
+  enableBatchSelection?: boolean;
+  onBatchApprove?: (ids: number[]) => Promise<void>;
 }
 
 export default function ApprovalList({
@@ -55,6 +59,8 @@ export default function ApprovalList({
   onRefresh,
   showQuickActions = true,
   basePath = '/dashboard/user/requests',
+  enableBatchSelection = false,
+  onBatchApprove,
 }: ApprovalListProps) {
   const router = useRouter();
   const theme = useTheme();
@@ -64,6 +70,49 @@ export default function ApprovalList({
   const [selectedRequest, setSelectedRequest] = useState<RequestWithDetails | null>(null);
   const [currentAction, setCurrentAction] = useState<ApprovalAction>('approve');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      const newSelecteds = requests.map((n) => n.request_id);
+      setSelectedIds(newSelecteds);
+      return;
+    }
+    setSelectedIds([]);
+  };
+
+  const handleClick = (id: number) => {
+    const selectedIndex = selectedIds.indexOf(id);
+    let newSelected: number[] = [];
+
+    if (selectedIndex === -1) {
+      newSelected = newSelected.concat(selectedIds, id);
+    } else if (selectedIndex === 0) {
+      newSelected = newSelected.concat(selectedIds.slice(1));
+    } else if (selectedIndex === selectedIds.length - 1) {
+      newSelected = newSelected.concat(selectedIds.slice(0, -1));
+    } else if (selectedIndex > 0) {
+      newSelected = newSelected.concat(
+        selectedIds.slice(0, selectedIndex),
+        selectedIds.slice(selectedIndex + 1)
+      );
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBatchApproveClick = async () => {
+    if (!onBatchApprove || selectedIds.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      await onBatchApprove(selectedIds);
+      setSelectedIds([]);
+      onRefresh?.();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isSelected = (id: number) => selectedIds.indexOf(id) !== -1;
 
   const handleOpenDialog = (request: RequestWithDetails, action: ApprovalAction) => {
     setSelectedRequest(request);
@@ -107,13 +156,62 @@ export default function ApprovalList({
     );
   }
 
+  const renderBatchToolbar = () => {
+    if (!enableBatchSelection || selectedIds.length === 0) return null;
+    return (
+      <Toolbar
+        sx={{
+          pl: { sm: 2 },
+          pr: { xs: 1, sm: 1 },
+          bgcolor: (theme) => alpha(theme.palette.primary.main, theme.palette.action.activatedOpacity),
+        }}
+      >
+        <Typography sx={{ flex: '1 1 100%' }} color="inherit" variant="subtitle1" component="div">
+          เลือก {selectedIds.length} รายการ
+        </Typography>
+        <Tooltip title="อนุมัติทั้งหมดที่เลือก">
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<DoneAll />}
+            onClick={handleBatchApproveClick}
+            disabled={isSubmitting}
+          >
+            อนุมัติกลุ่ม
+          </Button>
+        </Tooltip>
+      </Toolbar>
+    );
+  };
+
   // Mobile view as cards
   if (isMobile) {
     return (
       <Stack spacing={2}>
-        {requests.map((req) => (
-          <Card key={req.request_id} variant="outlined" sx={{ borderRadius: 3, borderColor: 'grey.200' }}>
+        {renderBatchToolbar()}
+        {requests.map((req) => {
+          const isItemSel = isSelected(req.request_id);
+          return (
+            <Card
+              key={req.request_id}
+              variant="outlined"
+              sx={{
+                borderRadius: 3,
+                borderColor: isItemSel ? 'primary.main' : 'grey.200',
+                bgcolor: isItemSel ? 'primary.lighter' : 'background.paper',
+                position: 'relative',
+              }}
+            >
             <CardContent>
+              {enableBatchSelection && (
+                <Box sx={{ position: 'absolute', top: 10, right: 10 }}>
+                  <Checkbox
+                    checked={isItemSel}
+                    onChange={() => handleClick(req.request_id)}
+                    color="primary"
+                  />
+                </Box>
+              )}
               <Stack direction="row" justifyContent="space-between" mb={2}>
                 <Chip
                   label={`#${req.request_id}`}
@@ -129,7 +227,7 @@ export default function ApprovalList({
                 </Avatar>
                 <Box>
                   <Typography variant="subtitle1" fontWeight={700}>
-                    {req.requester?.citizen_id || 'ไม่ระบุชื่อ'}
+                    {req.requester?.citizen_id || 'ไม่ระบุ'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {req.department_group || 'ไม่ระบุแผนก'}
@@ -197,7 +295,8 @@ export default function ApprovalList({
               </Stack>
             </CardContent>
           </Card>
-        ))}
+        );
+        })}
         {showQuickActions && (
           <ApprovalDialog
             open={dialogOpen}
@@ -215,10 +314,22 @@ export default function ApprovalList({
   // Desktop table view
   return (
     <>
-      <TableContainer component={Paper} elevation={0} variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <Table sx={{ minWidth: 650 }}>
+      <Paper sx={{ width: '100%', mb: 2, borderRadius: 3, overflow: 'hidden' }} elevation={0} variant="outlined">
+        {renderBatchToolbar()}
+        <TableContainer>
+          <Table sx={{ minWidth: 650 }}>
           <TableHead sx={{ bgcolor: 'primary.50' }}>
             <TableRow>
+              {enableBatchSelection && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    color="primary"
+                    indeterminate={selectedIds.length > 0 && selectedIds.length < requests.length}
+                    checked={requests.length > 0 && selectedIds.length === requests.length}
+                    onChange={handleSelectAllClick}
+                  />
+                </TableCell>
+              )}
               <TableCell sx={{ fontWeight: 700, color: 'primary.dark' }}>ผู้ยื่นคำขอ</TableCell>
               <TableCell sx={{ fontWeight: 700, color: 'primary.dark' }}>ประเภท/วันที่</TableCell>
               <TableCell sx={{ fontWeight: 700, color: 'primary.dark' }}>ยอดเงิน</TableCell>
@@ -227,8 +338,26 @@ export default function ApprovalList({
             </TableRow>
           </TableHead>
           <TableBody>
-            {requests.map((req) => (
-              <TableRow key={req.request_id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+            {requests.map((req) => {
+              const isItemSel = isSelected(req.request_id);
+              return (
+              <TableRow
+                key={req.request_id}
+                hover
+                role="checkbox"
+                aria-checked={isItemSel}
+                selected={isItemSel}
+                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+              >
+                {enableBatchSelection && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      color="primary"
+                      checked={isItemSel}
+                      onChange={() => handleClick(req.request_id)}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <Stack direction="row" spacing={2} alignItems="center">
                     <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.lighter', color: 'primary.main', fontSize: 14 }}>
@@ -236,7 +365,7 @@ export default function ApprovalList({
                     </Avatar>
                     <Box>
                       <Typography variant="subtitle2" fontWeight={600}>
-                        {req.requester?.citizen_id}
+                        {req.requester?.citizen_id || 'ไม่ระบุ'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {req.department_group}
@@ -288,10 +417,12 @@ export default function ApprovalList({
                   </Stack>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
-        </Table>
-      </TableContainer>
+          </Table>
+        </TableContainer>
+      </Paper>
       {showQuickActions && (
         <ApprovalDialog
           open={dialogOpen}

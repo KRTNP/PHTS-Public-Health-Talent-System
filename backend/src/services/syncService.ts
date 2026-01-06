@@ -340,7 +340,7 @@ export class SyncService {
       // 5. Leave Requests
       console.log('[SyncService] Processing leave requests...');
       const [existingLeaves] = await conn.query<RowDataPacket[]>(
-        'SELECT ref_id, status, start_date, end_date FROM pts_leave_requests WHERE ref_id IS NOT NULL',
+        'SELECT ref_id, status, start_date, end_date, is_no_pay FROM pts_leave_requests WHERE ref_id IS NOT NULL',
       );
       const leaveMap = new Map(existingLeaves.map((l) => [l.ref_id, l]));
 
@@ -360,7 +360,8 @@ export class SyncService {
             isChanged(dbLeave.start_date, vLeave.start_date) ||
             isChanged(dbLeave.end_date, vLeave.end_date);
           const statusChanged = isChanged(dbLeave.status, vLeave.status);
-          if (!dateChanged && !statusChanged) {
+          const noPayChanged = isChanged(dbLeave.is_no_pay, vLeave.is_no_pay);
+          if (!dateChanged && !statusChanged && !noPayChanged) {
             stats.leaves.skipped++;
             continue;
           }
@@ -370,13 +371,14 @@ export class SyncService {
           `
           INSERT INTO pts_leave_requests (
             ref_id, citizen_id, leave_type, start_date, end_date, 
-            duration_days, fiscal_year, remark, status, synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            duration_days, fiscal_year, remark, status, is_no_pay, synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
             status = VALUES(status),
             start_date = VALUES(start_date),
             end_date = VALUES(end_date),
             duration_days = VALUES(duration_days),
+            is_no_pay = VALUES(is_no_pay),
             synced_at = NOW()
         `,
           [
@@ -389,6 +391,7 @@ export class SyncService {
             toNull(vLeave.fiscal_year),
             toNull(vLeave.remark),
             toNull(vLeave.status),
+            toNull(vLeave.is_no_pay ?? 0),
           ],
         );
         stats.leaves.upserted++;

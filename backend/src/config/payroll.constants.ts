@@ -31,6 +31,6 @@ export const LEAVE_RULES: Record<
   maternity: { limit: 90, unit: 'calendar_days', rule_type: 'per_event' },
   ordain: { limit: 60, unit: 'calendar_days', rule_type: 'per_event' },
   military: { limit: 60, unit: 'calendar_days', rule_type: 'per_event' },
-  education: { limit: 60, unit: 'calendar_days', rule_type: 'per_event' },
+  education: { limit: 60, unit: 'calendar_days', rule_type: 'cumulative' },
   rehab: { limit: 60, unit: 'calendar_days', rule_type: 'per_event' },
 };

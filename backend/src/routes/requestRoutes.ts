@@ -37,6 +37,7 @@ router.post(
 // Master rates and recommended rate
 router.get('/master-rates', requestController.getMasterRates);
 router.get('/recommended-rate', requestController.getRecommendedRate);
+router.get('/classification', requestController.getPreClassification);
 
 // Create new request with file uploads and signature
 router.post(

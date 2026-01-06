@@ -150,12 +150,12 @@ export interface RequestAction {
 export interface RequestAttachment {
   attachment_id: number;
   request_id: number;
-  file_type: FileType;
-  original_filename: string;
-  file_name?: string;
+  file_type: FileType | string;
+  file_name: string;
+  original_filename?: string;
   file_path: string;
-  file_size: number;
-  mime_type: string;
+  file_size?: number;
+  mime_type?: string;
   uploaded_at: Date;
 }
 

@@ -16,6 +16,7 @@ export default function DirectorDashboard() {
         title="รายการคำขอรออนุมัติ"
         subtitle="คำขอที่รอการพิจารณาจากผู้อำนวยการโรงพยาบาล"
         stepNumber={5}
+        enableBatchApproval={true}
       />
     </DashboardLayout>
   );

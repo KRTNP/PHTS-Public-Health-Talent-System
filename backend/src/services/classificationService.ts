@@ -18,8 +18,15 @@ export interface MasterRate {
   amount: number;
 }
 
+export interface ClassificationResult {
+  group_id: number;
+  group_name: string;
+  rate_amount: number;
+  criteria_text?: string | null;
+}
+
 function normalize(value?: string | null): string {
-  return (value || '').trim();
+  return (value || '').trim().toUpperCase();
 }
 
 function startsWithAny(value: string, patterns: string[]): boolean {
@@ -155,4 +162,16 @@ export async function findRecommendedRate(citizenId: string): Promise<MasterRate
 
 export async function getAllActiveMasterRates(): Promise<RowDataPacket[]> {
   return await query<RowDataPacket[]>(`SELECT * FROM pts_master_rates WHERE is_active = 1`);
+}
+
+export async function classifyEmployee(employee: EmployeeProfile): Promise<ClassificationResult | null> {
+  const rate = await findRecommendedRate(employee.citizen_id);
+  if (!rate) return null;
+
+  return {
+    group_id: rate.group_no,
+    group_name: `กลุ่ม ${rate.group_no}`,
+    rate_amount: rate.amount,
+    criteria_text: null,
+  };
 }

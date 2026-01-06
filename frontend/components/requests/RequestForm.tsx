@@ -8,6 +8,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
+  Card,
+  CardContent,
   Paper,
   TextField,
   Button,
@@ -72,6 +74,7 @@ import FileUploadArea from './FileUploadArea';
 import FilePreviewList from '@/components/common/FilePreviewList';
 import SignaturePad from '@/components/common/SignaturePad';
 import { AuthService } from '@/lib/api/authApi';
+import { apiClient } from '@/lib/axios';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 
@@ -111,6 +114,9 @@ export default function RequestForm({
   const [loadingUser, setLoadingUser] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [openReviewDialog, setOpenReviewDialog] = useState(false);
+  const [classification, setClassification] = useState<any>(null);
+  const [loadingClass, setLoadingClass] = useState(false);
+  const [classError, setClassError] = useState<string | null>(null);
 
   const [personnelType, setPersonnelType] = useState<PersonnelType | ''>('');
   const [requestType, setRequestType] = useState<RequestType | ''>('');
@@ -168,6 +174,44 @@ export default function RequestForm({
     loadUser();
   }, []);
 
+  useEffect(() => {
+    if (activeStep === 2) {
+      fetchClassification();
+    }
+  }, [activeStep]);
+
+  const fetchClassification = async () => {
+    setLoadingClass(true);
+    setClassError(null);
+    try {
+      const res = await apiClient.get('/api/requests/classification');
+      if (res.data?.success) {
+        const data = res.data.data;
+        setClassification(data);
+        if (typeof data?.rate_amount === 'number') {
+          setRequestedAmount(String(data.rate_amount));
+        }
+        if (data?.start_work_date && typeof data.start_work_date === 'string') {
+          const datePart = data.start_work_date.includes('T')
+            ? data.start_work_date.split('T')[0]
+            : data.start_work_date;
+          setEffectiveDate(datePart);
+        }
+      } else {
+        setClassError('ไม่สามารถดึงข้อมูลสิทธิ์ได้');
+      }
+    } catch (err) {
+      console.error('Failed to load classification', err);
+      setClassError('เกิดข้อผิดพลาดในการเชื่อมต่อระบบ');
+    } finally {
+      setLoadingClass(false);
+    }
+  };
+
+;
+
+;
+
   const handleWorkAttributeChange = (key: keyof WorkAttributes) => {
     setWorkAttributes((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -204,8 +248,9 @@ export default function RequestForm({
         }
         return true;
       case 2:
-        if (!requestedAmount || parseFloat(requestedAmount) <= 0) {
-          setError('กรุณากรอกจำนวนเงินที่ถูกต้อง');
+        if (loadingClass) return false;
+        if (!classification || !classification.rate_amount || classification.rate_amount <= 0) {
+          setError('ไม่พบข้อมูลสิทธิ์ พ.ต.ส. หรือคุณไม่มีสิทธิ์ได้รับเงิน (กรุณาติดต่อ HR)');
           return false;
         }
         if (!effectiveDate) {
@@ -213,11 +258,16 @@ export default function RequestForm({
           return false;
         }
         return true;
+
       case 3:
         return true;
       case 4:
         if (!hasSignature) {
           setError('กรุณาลงลายมือชื่อก่อนยืนยัน');
+          return false;
+        }
+        if (!acceptLegal) {
+          setError('กรุณาติ๊กถูก "ข้าพเจ้าตรวจสอบข้อมูลและยินยอม..." ก่อนยืนยัน');
           return false;
         }
         return true;
@@ -254,7 +304,7 @@ export default function RequestForm({
         main_duty: mainDuty.trim(),
         work_attributes: workAttributes,
         request_type: requestType as RequestType,
-        requested_amount: parseFloat(requestedAmount),
+        requested_amount: classification?.rate_amount ?? parseFloat(requestedAmount.replace(/,/g, '')),
         effective_date: effectiveDate,
       };
       await onSubmit(formData, files, signatureFile || undefined, licenseFile || undefined);
@@ -272,7 +322,11 @@ export default function RequestForm({
       main_duty: mainDuty.trim(),
       work_attributes: workAttributes,
       request_type: (requestType as RequestType) || (Object.keys(REQUEST_TYPE_LABELS)[0] as RequestType),
-      requested_amount: requestedAmount ? parseFloat(requestedAmount) : undefined,
+      requested_amount: typeof classification?.rate_amount === 'number'
+        ? classification.rate_amount
+        : requestedAmount
+          ? parseFloat(requestedAmount.replace(/,/g, ''))
+          : undefined,
       effective_date: effectiveDate || undefined,
     };
     try {
@@ -503,37 +557,79 @@ export default function RequestForm({
 
       case 2:
         return (
-          <Stack spacing={3} alignItems="center" py={2}>
-            <Box width="100%">
-              <EditToggle />
-            </Box>
-            <Typography variant="h6" align="center" gutterBottom>
-              ระบุอัตราเงินและวันที่มีผล
-            </Typography>
+          <Stack spacing={3}>
+            {loadingClass ? (
+              <Box textAlign="center" py={4}>
+                <CircularProgress />
+              </Box>
+            ) : classError ? (
+              <Alert
+                severity="error"
+                action={
+                  <Button color="inherit" size="small" onClick={fetchClassification}>
+                    {'ลองใหม่'}
+                  </Button>
+                }
+              >
+                {classError}
+              </Alert>
+            ) : (
+              <Card variant="outlined" sx={{ bgcolor: 'primary.50' }}>
+                <CardContent>
+                  <Typography variant="h6" color="primary.main" gutterBottom>
+                    {'ข้อมูลสิทธิ์ พ.ต.ส. ของคุณ (ระบบคำนวณอัตโนมัติ)'}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                      gap: 2,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="caption">{'กลุ่มบัญชี'}</Typography>
+                      <Typography variant="body1" fontWeight="bold">
+                        {classification?.group_name || '-'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption">{'จำนวนเงินที่ได้รับ'}</Typography>
+                      <Typography variant="h5" color="success.main" fontWeight="bold">
+                        {classification?.rate_amount?.toLocaleString() || 0} ???
+                      </Typography>
+                    </Box>
+                    <Box sx={{ gridColumn: { xs: '1 / -1', sm: '1 / -1' } }}>
+                      <Typography variant="caption">{'เงื่อนไข/เกณฑ์'}</Typography>
+                      <Typography variant="body2">
+                        {classification?.criteria_text || '-'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+
+            <Alert severity="warning">
+              {'การแก้ไขข้อมูลในหน้านี้เป็นการแจ้งเปลี่ยนข้อมูลเบื้องต้น ไม่มีผลต่อการคำนวณเงินในรอบนี้'}
+            </Alert>
+
             <TextField
-              label="อัตราเงิน พ.ต.ส. ที่ขอเบิก (บาท/เดือน)"
-              type="number"
-              value={requestedAmount}
-              onChange={(e) => setRequestedAmount(e.target.value)}
-              required
-              disabled={!isEditMode}
-              fullWidth
-              sx={{ maxWidth: 500, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#000000', color: '#000000' } }}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">฿</InputAdornment>,
-                style: { fontSize: '1.25rem', fontWeight: 'bold' },
-              }}
-            />
-            <TextField
-              label="ตั้งแต่วันที่ (วันที่มีผล)"
+              label="วันที่เริ่มมีผล (ตามคำสั่งบรรจุ/เริ่มปฏิบัติงาน)"
               type="date"
+              fullWidth
               value={effectiveDate}
               onChange={(e) => setEffectiveDate(e.target.value)}
-              required
-              disabled={!isEditMode}
-              fullWidth
-              sx={{ maxWidth: 500, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#000000', color: '#000000' } }}
+              disabled={loadingClass}
               InputLabelProps={{ shrink: true }}
+              helperText={
+                classification?.start_work_date
+                  ? `ระบบดึงจากวันเริ่มงาน: ${(() => {
+                      const raw = classification.start_work_date;
+                      if (typeof raw !== 'string') return '-';
+                      return raw.includes('T') ? raw.split('T')[0] : raw;
+                    })()}`
+                  : 'กรุณาระบุวันที่ตามคำสั่ง'
+              }
             />
           </Stack>
         );
@@ -691,6 +787,22 @@ export default function RequestForm({
               label="วันที่มีผล"
               value={effectiveDate ? format(new Date(effectiveDate), 'd MMMM yyyy', { locale: th }) : '-'}
             />
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                {'ลักษณะงานที่เลือก:'}
+              </Typography>
+              <Stack direction="row" flexWrap="wrap" gap={1} mt={0.5}>
+                {Object.entries(workAttributes).map(([key, checked]) =>
+                  checked ? (
+                    <Chip
+                      key={key}
+                      label={WORK_ATTRIBUTE_LABELS[key as keyof WorkAttributes]}
+                      size="small"
+                    />
+                  ) : null
+                )}
+              </Stack>
+            </Box>
           </Box>
 
           <Divider />

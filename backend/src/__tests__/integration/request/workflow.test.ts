@@ -5,6 +5,7 @@ import { createTestPool, setupSchema, DB_NAME } from './utils.ts';
 import type { BatchApproveResult } from '../../../types/request.types.js';
 
 let pool: Pool;
+let directorId: number;
 let approveBatch: (
   actorId: number,
   actorRole: string,
@@ -28,11 +29,14 @@ beforeAll(async () => {
     `INSERT INTO pts_master_rates (profession_code, group_no, amount) VALUES ('NURSE', 1, 1500)`,
   );
 
-  await pool.query(
-    `INSERT INTO users (user_id, citizen_id, role) VALUES (99, 'DIRECTOR', 'DIRECTOR')`,
+  const [userResult]: any = await pool.query(
+    `INSERT INTO users (citizen_id, role) VALUES ('DIRECTOR_CIT', 'DIRECTOR')`,
   );
+  directorId = userResult.insertId;
+
   await pool.query(
-    `INSERT INTO pts_user_signatures (user_id, signature_image) VALUES (99, 'mock_blob_data')`,
+    `INSERT INTO pts_user_signatures (user_id, signature_image) VALUES (?, 'mock_blob_data')`,
+    [directorId],
   );
 
   ({ approveBatch } = await import('../../../services/requestService.js'));
@@ -68,7 +72,7 @@ describe('Request Workflow & Batch Approval', () => {
     );
     const id3 = res3.insertId;
 
-    const result = await approveBatch(99, 'DIRECTOR', {
+    const result = await approveBatch(directorId, 'DIRECTOR', {
       requestIds: [id1, id2, id3],
       comment: 'Batch Test',
     });

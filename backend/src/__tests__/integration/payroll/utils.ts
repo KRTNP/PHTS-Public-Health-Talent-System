@@ -29,7 +29,7 @@ export async function createTestPool(): Promise<Pool> {
 export async function setupSchema(pool: Pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      user_id INT PRIMARY KEY AUTO_INCREMENT,
+      id INT PRIMARY KEY AUTO_INCREMENT,
       citizen_id VARCHAR(20) NOT NULL UNIQUE,
       role VARCHAR(20),
       password_hash VARCHAR(100),
@@ -131,6 +131,9 @@ export async function seedBaseData(pool: Pool) {
     ('DOCTOR', 1, 5000),
     ('DOCTOR', 2, 10000);
   `);
+  await pool.query(
+    `INSERT INTO users (id, citizen_id, role, is_active) VALUES (99, 'ADMIN1', 'ADMIN', 1)`,
+  );
   await pool.query(`INSERT INTO users (citizen_id, role) VALUES ('DOC1', 'USER')`);
   await pool.query(
     `INSERT INTO pts_employees (citizen_id, position_name) VALUES ('DOC1', 'นายแพทย์ปฏิบัติการ')`,

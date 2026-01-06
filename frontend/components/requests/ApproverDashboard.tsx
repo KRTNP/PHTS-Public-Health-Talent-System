@@ -27,6 +27,7 @@ interface ApproverDashboardContentProps {
   stepNumber: number;
   allowQuickActions?: boolean;
   basePath?: string;
+  enableBatchApproval?: boolean;
 }
 
 export default function ApproverDashboardContent({
@@ -35,6 +36,7 @@ export default function ApproverDashboardContent({
   stepNumber,
   allowQuickActions = true,
   basePath,
+  enableBatchApproval = false,
 }: ApproverDashboardContentProps) {
   const [requests, setRequests] = useState<RequestWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function ApproverDashboardContent({
   const [toast, setToast] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error';
+    severity: 'success' | 'error' | 'warning';
   }>({
     open: false,
     message: '',
@@ -105,6 +107,30 @@ export default function ApproverDashboardContent({
       await fetchPendingRequests();
     } catch (err: any) {
       throw new Error(err.message || 'ไม่สามารถส่งคืนคำขอได้');
+    }
+  };
+
+  const handleBatchApprove = async (ids: number[]) => {
+    try {
+      const result = await requestApi.batchApproveRequests(ids, 'Batch Approved');
+      const successCount = result.success.length;
+      const failCount = result.failed.length;
+
+      let msg = `อนุมัติสำเร็จ ${successCount} รายการ`;
+      if (failCount > 0) msg += ` (ไม่สำเร็จ ${failCount} รายการ)`;
+
+      setToast({
+        open: true,
+        message: msg,
+        severity: failCount > 0 ? 'warning' : 'success',
+      });
+      await fetchPendingRequests();
+    } catch (err: any) {
+      setToast({
+        open: true,
+        message: err.message || 'เกิดข้อผิดพลาดในการอนุมัติกลุ่ม',
+        severity: 'error',
+      });
     }
   };
 
@@ -188,6 +214,8 @@ export default function ApproverDashboardContent({
             onRefresh={fetchPendingRequests}
             showQuickActions={allowQuickActions}
             basePath={basePath}
+            enableBatchSelection={enableBatchApproval}
+            onBatchApprove={handleBatchApprove}
           />
         </Box>
       </Stack>

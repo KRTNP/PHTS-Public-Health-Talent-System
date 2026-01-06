@@ -31,7 +31,7 @@ export async function createTestPool(): Promise<Pool> {
 export async function setupSchema(pool: Pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      user_id INT PRIMARY KEY AUTO_INCREMENT,
+      id INT PRIMARY KEY AUTO_INCREMENT,
       citizen_id VARCHAR(20) NOT NULL UNIQUE,
       role VARCHAR(20),
       is_active TINYINT(1) DEFAULT 1
@@ -100,6 +100,17 @@ export async function setupSchema(pool: Pool) {
       effective_date DATE,
       request_id INT,
       is_active TINYINT(1) DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS pts_notifications (
+      notification_id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT,
+      title VARCHAR(255),
+      message TEXT,
+      link VARCHAR(255),
+      type VARCHAR(20),
+      is_read TINYINT(1) DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 }

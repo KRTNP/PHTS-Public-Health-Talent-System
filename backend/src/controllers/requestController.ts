@@ -7,6 +7,7 @@
  */
 
 import { Request, Response } from 'express';
+import { RowDataPacket } from 'mysql2/promise';
 import { ApiResponse } from '../types/auth.js';
 import {
   RequestType,
@@ -17,8 +18,14 @@ import {
   BatchApproveResult,
 } from '../types/request.types.js';
 import * as requestService from '../services/requestService.js';
-import { findRecommendedRate, getAllActiveMasterRates } from '../services/classificationService.js';
+import {
+  classifyEmployee,
+  findRecommendedRate,
+  getAllActiveMasterRates,
+} from '../services/classificationService.js';
 import { handleUploadError } from '../config/upload.js';
+import pool from '../config/database.js';
+import { NotificationService } from '../services/notificationService.js';
 import fs from 'fs';
 
 /**
@@ -124,6 +131,30 @@ export async function createRequest(
       submission_data: parsedSubmissionData,
     };
 
+    const [empRows] = await pool.query<RowDataPacket[]>(
+      `SELECT * FROM pts_employees WHERE citizen_id = ?`,
+      [req.user.citizenId]
+    );
+
+    if (!empRows.length) {
+      res.status(404).json({
+        success: false,
+        error: 'Employee not found',
+      });
+      return;
+    }
+
+    const classification = await classifyEmployee(empRows[0] as any);
+    if (!classification) {
+      res.status(400).json({
+        success: false,
+        error: 'Unable to classify employee',
+      });
+      return;
+    }
+
+    requestData.requested_amount = classification.rate_amount;
+
     // Get uploaded files (documents) and optional signature upload
     let documentFiles: Express.Multer.File[] = [];
     let signatureFile: Express.Multer.File | undefined;
@@ -144,6 +175,14 @@ export async function createRequest(
       requestData,
       documentFiles,
       signatureFile
+    );
+
+    await NotificationService.notifyUser(
+      req.user.userId,
+      'ส่งคำขอสำเร็จ',
+      `คำขอ พ.ต.ส. ของคุณถูกส่งแล้ว (รหัส ${request.request_id})`,
+      `/dashboard/user/requests/${request.request_id}`,
+      'INFO'
     );
 
     res.status(201).json({
@@ -401,6 +440,14 @@ export async function approveRequest(
       comment
     );
 
+    await NotificationService.notifyUser(
+      request.user_id,
+      'อนุมัติคำขอแล้ว',
+      `คำขอ พ.ต.ส. ของคุณได้รับการอนุมัติ (รหัส ${request.request_id})`,
+      `/dashboard/user/requests/${request.request_id}`,
+      'INFO'
+    );
+
     res.status(200).json({
       success: true,
       data: request,
@@ -584,7 +631,7 @@ export async function approveBatch(
     }
 
     // Validate user is DIRECTOR or HEAD_FINANCE
-    const allowedRoles = ['DIRECTOR', 'HEAD_FINANCE', 'FINANCE'];
+    const allowedRoles = ['DIRECTOR', 'HEAD_FINANCE'];
     if (!allowedRoles.includes(req.user.role)) {
       res.status(403).json({
         success: false,
@@ -662,6 +709,49 @@ export async function getRecommendedRate(req: Request, res: Response): Promise<v
   } catch (error: any) {
     console.error('Error fetching recommended rate:', error);
     res.status(500).json({ error: error.message });
+  }
+}
+
+/**
+ * Pre-classification info for current user
+ */
+export async function getPreClassification(req: Request, res: Response): Promise<void> {
+  try {
+    const user = req.user;
+    if (!user?.citizenId) {
+      res.status(401).json({ success: false, error: 'Unauthorized access' });
+      return;
+    }
+
+    const [empRows] = await pool.query<RowDataPacket[]>(
+      `SELECT *, start_work_date FROM pts_employees WHERE citizen_id = ?`,
+      [user.citizenId]
+    );
+
+    if (empRows.length === 0) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    const employee = empRows[0] as any;
+    const classification = await classifyEmployee(employee);
+
+    if (!classification) {
+      res.status(404).json({ success: false, error: 'Classification not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...classification,
+        start_work_date: employee.start_work_date,
+        position_name: employee.position_name,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Error calculating classification' });
   }
 }
 

@@ -12,6 +12,7 @@ export interface LeaveRow extends RowDataPacket {
   start_date: Date | string;
   end_date: Date | string;
   duration_days: number;
+  is_no_pay?: number | null;
 }
 
 export interface QuotaRow extends RowDataPacket {
@@ -36,6 +37,21 @@ export function calculateDeductions(
 
   for (const leave of sortedLeaves) {
     const type = leave.leave_type;
+    const start = new Date(leave.start_date);
+    const end = new Date(leave.end_date);
+
+    if (Number(leave.is_no_pay ?? 0) === 1) {
+      let cursor = new Date(start);
+      while (cursor <= end) {
+        const dateStr = formatLocalDate(cursor);
+        if (cursor >= monthStart && cursor <= monthEnd) {
+          deductionMap.set(dateStr, Math.max(deductionMap.get(dateStr) || 0, 1));
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      continue;
+    }
+
     const rule = LEAVE_RULES[type];
     if (!rule) continue;
 
@@ -43,9 +59,6 @@ export function calculateDeductions(
     if (type === 'vacation') limit = Number(quota.quota_vacation ?? 10);
     if (type === 'personal') limit = Number(quota.quota_personal ?? 45);
     if (type === 'sick') limit = Number(quota.quota_sick ?? 60);
-
-    const start = new Date(leave.start_date);
-    const end = new Date(leave.end_date);
     const isHalfDay = leave.duration_days === 0.5;
 
     let duration = 0;
