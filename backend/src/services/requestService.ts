@@ -295,7 +295,7 @@ export async function getMyRequests(userId: number): Promise<RequestWithDetails[
   const requests = await query<RowDataPacket[]>(
     `SELECT r.*, u.citizen_id, u.role
      FROM pts_requests r
-     JOIN users u ON r.user_id = u.user_id
+     JOIN users u ON r.user_id = u.id
      WHERE r.user_id = ?
      ORDER BY r.created_at DESC`,
     [userId],
