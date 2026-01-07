@@ -114,6 +114,21 @@ export default function RequestForm({
   const [error, setError] = useState<string | null>(null);
   const [acceptLegal, setAcceptLegal] = useState(false);
 
+  // Helper function to convert ISO datetime to yyyy-MM-dd format for HTML date inputs
+  const formatDateForInput = (dateString: string | null | undefined): string => {
+    if (!dateString) return '';
+    try {
+      // Handle ISO format dates (e.g., "2004-05-10T17:00:00.000Z")
+      if (dateString.includes('T')) {
+        return dateString.split('T')[0];
+      }
+      // Already in yyyy-MM-dd format
+      return dateString;
+    } catch {
+      return '';
+    }
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -124,7 +139,7 @@ export default function RequestForm({
           if (user.department) setDepartmentGroup(user.department);
           if (user.position_number) setPositionNumber(user.position_number);
           if (user.mission_group) setMainDuty(user.mission_group);
-          if (user.start_current_position) setEffectiveDate(user.start_current_position);
+          if (user.start_current_position) setEffectiveDate(formatDateForInput(user.start_current_position));
 
           if (!personnelType) {
             // Logic เลือกประเภทบุคลากรอัตโนมัติ (คงเดิม)
@@ -161,8 +176,7 @@ export default function RequestForm({
         setClassification(data);
         if (typeof data?.rate_amount === 'number') setRequestedAmount(String(data.rate_amount));
         if (data?.start_work_date) {
-          const d = data.start_work_date;
-          setEffectiveDate(typeof d === 'string' && d.includes('T') ? d.split('T')[0] : d);
+          setEffectiveDate(formatDateForInput(data.start_work_date));
         }
       } else {
         setClassError('ไม่สามารถดึงข้อมูลสิทธิ์ได้');
@@ -233,9 +247,20 @@ export default function RequestForm({
           classification?.rate_amount ?? parseFloat(requestedAmount.replace(/,/g, '') || '0'),
         effective_date: effectiveDate,
       };
+
+      // Debug logging to help identify the issue
+      console.log('Submitting request with data:', {
+        ...formData,
+        hasFiles: files.length,
+        hasSignature: !!signatureFile,
+        hasLicense: !!licenseFile,
+      });
+
       await onSubmit(formData, files, signatureFile || undefined, licenseFile || undefined);
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาด');
+      console.error('Request submission error:', err);
+      console.error('Error response:', err.response?.data);
+      setError(err.response?.data?.error || err.message || 'เกิดข้อผิดพลาด');
     }
   };
 

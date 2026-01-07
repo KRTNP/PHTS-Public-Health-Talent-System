@@ -36,7 +36,7 @@ import fs from 'fs';
  */
 export async function createRequest(
   req: Request,
-  res: Response<ApiResponse<RequestWithDetails>>
+  res: Response<ApiResponse<RequestWithDetails>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -90,9 +90,8 @@ export async function createRequest(
     let parsedWorkAttributes;
     if (work_attributes) {
       try {
-        parsedWorkAttributes = typeof work_attributes === 'string'
-          ? JSON.parse(work_attributes)
-          : work_attributes;
+        parsedWorkAttributes =
+          typeof work_attributes === 'string' ? JSON.parse(work_attributes) : work_attributes;
       } catch (error) {
         res.status(400).json({
           success: false,
@@ -106,9 +105,8 @@ export async function createRequest(
     let parsedSubmissionData;
     if (submission_data) {
       try {
-        parsedSubmissionData = typeof submission_data === 'string'
-          ? JSON.parse(submission_data)
-          : submission_data;
+        parsedSubmissionData =
+          typeof submission_data === 'string' ? JSON.parse(submission_data) : submission_data;
       } catch (error) {
         res.status(400).json({
           success: false,
@@ -152,8 +150,12 @@ export async function createRequest(
       });
       return;
     }
-
     requestData.requested_amount = classification.rate_amount;
+
+    // ใช้ยอดเงินที่ส่งมาจาก Frontend (หรือ 0) แทนการคำนวณ
+    if (requestData.requested_amount === undefined) {
+      requestData.requested_amount = 0;
+    }
 
     // Get uploaded files (documents) and optional signature upload
     let documentFiles: Express.Multer.File[] = [];
@@ -174,7 +176,7 @@ export async function createRequest(
       req.user.userId,
       requestData,
       documentFiles,
-      signatureFile
+      signatureFile,
     );
 
     await NotificationService.notifyUser(
@@ -182,7 +184,7 @@ export async function createRequest(
       'ส่งคำขอสำเร็จ',
       `คำขอ พ.ต.ส. ของคุณถูกส่งแล้ว (รหัส ${request.request_id})`,
       `/dashboard/user/requests/${request.request_id}`,
-      'INFO'
+      'INFO',
     );
 
     res.status(201).json({
@@ -232,7 +234,7 @@ export async function createRequest(
  */
 export async function submitRequest(
   req: Request,
-  res: Response<ApiResponse<PTSRequest>>
+  res: Response<ApiResponse<PTSRequest>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -263,11 +265,12 @@ export async function submitRequest(
   } catch (error: any) {
     console.error('Submit request error:', error);
 
-    const statusCode = error.message.includes('not found') || error.message.includes('permission')
-      ? 404
-      : error.message.includes('Cannot submit')
-      ? 400
-      : 500;
+    const statusCode =
+      error.message.includes('not found') || error.message.includes('permission')
+        ? 404
+        : error.message.includes('Cannot submit')
+          ? 400
+          : 500;
 
     res.status(statusCode).json({
       success: false,
@@ -284,7 +287,7 @@ export async function submitRequest(
  */
 export async function getMyRequests(
   req: Request,
-  res: Response<ApiResponse<RequestWithDetails[]>>
+  res: Response<ApiResponse<RequestWithDetails[]>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -318,7 +321,7 @@ export async function getMyRequests(
  */
 export async function getPendingApprovals(
   req: Request,
-  res: Response<ApiResponse<RequestWithDetails[]>>
+  res: Response<ApiResponse<RequestWithDetails[]>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -355,7 +358,7 @@ export async function getPendingApprovals(
  */
 export async function getHistory(
   req: Request,
-  res: Response<ApiResponse<RequestWithDetails[]>>
+  res: Response<ApiResponse<RequestWithDetails[]>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -389,7 +392,7 @@ export async function getHistory(
  */
 export async function getRequestById(
   req: Request,
-  res: Response<ApiResponse<RequestWithDetails>>
+  res: Response<ApiResponse<RequestWithDetails>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -410,11 +413,7 @@ export async function getRequestById(
       return;
     }
 
-    const request = await requestService.getRequestById(
-      requestId,
-      req.user.userId,
-      req.user.role
-    );
+    const request = await requestService.getRequestById(requestId, req.user.userId, req.user.role);
 
     res.status(200).json({
       success: true,
@@ -426,8 +425,8 @@ export async function getRequestById(
     const statusCode = error.message.includes('not found')
       ? 404
       : error.message.includes('permission')
-      ? 403
-      : 500;
+        ? 403
+        : 500;
 
     res.status(statusCode).json({
       success: false,
@@ -444,7 +443,7 @@ export async function getRequestById(
  */
 export async function approveRequest(
   req: Request,
-  res: Response<ApiResponse<PTSRequest>>
+  res: Response<ApiResponse<PTSRequest>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -471,7 +470,7 @@ export async function approveRequest(
       requestId,
       req.user.userId,
       req.user.role,
-      comment
+      comment,
     );
 
     await NotificationService.notifyUser(
@@ -479,7 +478,7 @@ export async function approveRequest(
       'อนุมัติคำขอแล้ว',
       `คำขอ พ.ต.ส. ของคุณได้รับการอนุมัติ (รหัส ${request.request_id})`,
       `/dashboard/user/requests/${request.request_id}`,
-      'INFO'
+      'INFO',
     );
 
     res.status(200).json({
@@ -493,8 +492,8 @@ export async function approveRequest(
     const statusCode = error.message.includes('not found')
       ? 404
       : error.message.includes('Invalid approver') || error.message.includes('Cannot approve')
-      ? 403
-      : 500;
+        ? 403
+        : 500;
 
     res.status(statusCode).json({
       success: false,
@@ -511,7 +510,7 @@ export async function approveRequest(
  */
 export async function rejectRequest(
   req: Request,
-  res: Response<ApiResponse<PTSRequest>>
+  res: Response<ApiResponse<PTSRequest>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -546,7 +545,7 @@ export async function rejectRequest(
       requestId,
       req.user.userId,
       req.user.role,
-      comment
+      comment,
     );
 
     res.status(200).json({
@@ -560,10 +559,10 @@ export async function rejectRequest(
     const statusCode = error.message.includes('not found')
       ? 404
       : error.message.includes('Invalid approver') || error.message.includes('Cannot reject')
-      ? 403
-      : error.message.includes('required')
-      ? 400
-      : 500;
+        ? 403
+        : error.message.includes('required')
+          ? 400
+          : 500;
 
     res.status(statusCode).json({
       success: false,
@@ -580,7 +579,7 @@ export async function rejectRequest(
  */
 export async function returnRequest(
   req: Request,
-  res: Response<ApiResponse<PTSRequest>>
+  res: Response<ApiResponse<PTSRequest>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -615,7 +614,7 @@ export async function returnRequest(
       requestId,
       req.user.userId,
       req.user.role,
-      comment
+      comment,
     );
 
     res.status(200).json({
@@ -629,10 +628,10 @@ export async function returnRequest(
     const statusCode = error.message.includes('not found')
       ? 404
       : error.message.includes('Invalid approver') || error.message.includes('Cannot return')
-      ? 403
-      : error.message.includes('required')
-      ? 400
-      : 500;
+        ? 403
+        : error.message.includes('required')
+          ? 400
+          : 500;
 
     res.status(statusCode).json({
       success: false,
@@ -653,7 +652,7 @@ export async function returnRequest(
  */
 export async function approveBatch(
   req: Request,
-  res: Response<ApiResponse<BatchApproveResult>>
+  res: Response<ApiResponse<BatchApproveResult>>,
 ): Promise<void> {
   try {
     if (!req.user) {
@@ -695,14 +694,10 @@ export async function approveBatch(
       return;
     }
 
-    const result = await requestService.approveBatch(
-      req.user.userId,
-      req.user.role,
-      {
-        requestIds,
-        comment,
-      }
-    );
+    const result = await requestService.approveBatch(req.user.userId, req.user.role, {
+      requestIds,
+      comment,
+    });
 
     res.status(200).json({
       success: true,
@@ -757,21 +752,55 @@ export async function getPreClassification(req: Request, res: Response): Promise
       return;
     }
 
+    // Auto-detect data source: pts_employees (test) or employees view (production/HRMS sync)
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.env.DB_NAME?.includes('test');
+    const dataSource = isTestEnv ? 'pts_employees' : 'employees';
+    const startDateField = isTestEnv ? 'start_work_date' : 'start_current_position';
+
     const [empRows] = await pool.query<RowDataPacket[]>(
-      `SELECT *, start_work_date FROM pts_employees WHERE citizen_id = ?`,
+      `SELECT
+        citizen_id,
+        position_name,
+        specialist,
+        expert,
+        sub_department,
+        ${startDateField} as start_work_date
+       FROM ${dataSource} WHERE citizen_id = ?`,
       [user.citizenId],
     );
 
     if (empRows.length === 0) {
-      res.status(404).json({ success: false, error: 'Employee not found' });
+      // Return graceful response instead of 404 when employee record is not found
+      // This allows users to still fill out the form manually
+      console.warn(`Employee record not found for citizen_id: ${user.citizenId}`);
+      res.json({
+        success: true,
+        data: {
+          group_name: 'ไม่พบข้อมูลพนักงาน - กรุณากรอกข้อมูลเอง',
+          rate_amount: 0,
+          criteria_text: 'กรุณากรอกข้อมูลและระบุจำนวนเงินที่ขอรับด้วยตนเอง',
+          start_work_date: null,
+          position_name: null,
+        },
+      });
       return;
     }
 
     const employee = empRows[0] as any;
-    const classification = await classifyEmployee(employee);
 
+    const classification = await classifyEmployee(employee);
     if (!classification) {
-      res.status(404).json({ success: false, error: 'Classification not found' });
+      // Return graceful response if classification fails
+      res.json({
+        success: true,
+        data: {
+          group_name: 'ไม่สามารถจำแนกสิทธิ์อัตโนมัติได้ - กรุณาระบุเอง',
+          rate_amount: 0,
+          criteria_text: 'กรุณากรอกข้อมูลและระบุจำนวนเงินที่ขอรับด้วยตนเอง',
+          start_work_date: employee.start_work_date || null,
+          position_name: employee.position_name || null,
+        },
+      });
       return;
     }
 
@@ -817,21 +846,21 @@ export async function processAction(req: Request, res: Response): Promise<void> 
         requestId,
         req.user.userId,
         req.user.role,
-        comment
+        comment,
       );
     } else if (action === 'REJECT') {
       result = await requestService.rejectRequest(
         requestId,
         req.user.userId,
         req.user.role,
-        comment || ''
+        comment || '',
       );
     } else {
       result = await requestService.returnRequest(
         requestId,
         req.user.userId,
         req.user.role,
-        comment || ''
+        comment || '',
       );
     }
 

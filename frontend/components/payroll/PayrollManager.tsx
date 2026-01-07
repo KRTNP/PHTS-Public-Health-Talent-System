@@ -39,11 +39,56 @@ import StatCard from '@/components/dashboard/StatCard';
 
 // Mock data for payroll details
 const mockPayrollData = [
-  { id: 1, name: 'นายวรวุฒิ เพ็ชรยัง', position: 'นักเทคนิคการแพทย์', license_exp: '2025-10-14', days: 30, rate: 1000, total: 1000, note: '' },
-  { id: 2, name: 'นางสาวพรรณารักษ์ มีอาหาร', position: 'นักเทคนิคการแพทย์', license_exp: '2023-10-15', days: 15, rate: 1000, total: 500, note: 'ใบประกอบหมดอายุ 15 ต.ค.' },
-  { id: 3, name: 'นางสาวกชนันทน์ เพ็ชรราช', position: 'นายแพทย์', license_exp: '2026-05-19', days: 0, rate: 5000, total: 0, note: 'ลาศึกษาต่อ' },
-  { id: 4, name: 'นายสมชาย ใจดี', position: 'พยาบาลวิชาชีพ', license_exp: '2027-03-20', days: 30, rate: 1500, total: 1500, note: '' },
-  { id: 5, name: 'นางสมศรี รักษา', position: 'เภสัชกร', license_exp: '2026-12-15', days: 28, rate: 2000, total: 1867, note: 'ลาป่วย 2 วัน' },
+  {
+    id: 1,
+    name: 'นายวรวุฒิ เพ็ชรยัง',
+    position: 'นักเทคนิคการแพทย์',
+    license_exp: '2025-10-14',
+    days: 30,
+    rate: 1000,
+    total: 1000,
+    note: '',
+  },
+  {
+    id: 2,
+    name: 'นางสาวพรรณารักษ์ มีอาหาร',
+    position: 'นักเทคนิคการแพทย์',
+    license_exp: '2023-10-15',
+    days: 15,
+    rate: 1000,
+    total: 500,
+    note: 'ใบประกอบหมดอายุ 15 ต.ค.',
+  },
+  {
+    id: 3,
+    name: 'นางสาวกชนันทน์ เพ็ชรราช',
+    position: 'นายแพทย์',
+    license_exp: '2026-05-19',
+    days: 0,
+    rate: 5000,
+    total: 0,
+    note: 'ลาศึกษาต่อ',
+  },
+  {
+    id: 4,
+    name: 'นายสมชาย ใจดี',
+    position: 'พยาบาลวิชาชีพ',
+    license_exp: '2027-03-20',
+    days: 30,
+    rate: 1500,
+    total: 1500,
+    note: '',
+  },
+  {
+    id: 5,
+    name: 'นางสมศรี รักษา',
+    position: 'เภสัชกร',
+    license_exp: '2026-12-15',
+    days: 28,
+    rate: 2000,
+    total: 1867,
+    note: 'ลาป่วย 2 วัน',
+  },
 ];
 
 export default function PayrollManager() {
@@ -126,12 +171,21 @@ export default function PayrollManager() {
         }}
       >
         <CardContent sx={{ p: 4 }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, alignItems: 'center' }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 3,
+              alignItems: 'center',
+            }}
+          >
             <Box>
               <Stack direction="row" spacing={2} alignItems="center" mb={1}>
                 <DateRange fontSize="large" />
                 <Typography variant="h4" fontWeight={800}>
-                  งวดเดือน {new Date(0, currentPeriod?.month - 1).toLocaleString('th-TH', { month: 'long' })} {(currentPeriod?.year || 0) + 543}
+                  งวดเดือน{' '}
+                  {new Date(0, currentPeriod?.month - 1).toLocaleString('th-TH', { month: 'long' })}{' '}
+                  {(currentPeriod?.year || 0) + 543}
                 </Typography>
               </Stack>
               <Chip
@@ -171,10 +225,20 @@ export default function PayrollManager() {
                   <Typography variant="body2" gutterBottom>
                     กำลังคำนวณเงินและตรวจสอบเงื่อนไขวันลา... ({progress}%)
                   </Typography>
-                  <LinearProgress variant="determinate" value={progress} sx={{ height: 10, borderRadius: 5 }} />
+                  <LinearProgress
+                    variant="determinate"
+                    value={progress}
+                    sx={{ height: 10, borderRadius: 5 }}
+                  />
                 </Box>
               ) : (
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                    gap: 2,
+                  }}
+                >
                   <Box>
                     <Button
                       fullWidth
@@ -183,7 +247,11 @@ export default function PayrollManager() {
                       startIcon={<Calculate />}
                       onClick={handleCalculate}
                       disabled={currentPeriod?.status !== 'OPEN'}
-                      sx={{ py: 2, bgcolor: 'warning.main', '&:hover': { bgcolor: 'warning.dark' } }}
+                      sx={{
+                        py: 2,
+                        bgcolor: 'warning.main',
+                        '&:hover': { bgcolor: 'warning.dark' },
+                      }}
                     >
                       1. ประมวลผลเงินเดือน
                     </Button>
@@ -291,29 +359,55 @@ export default function PayrollManager() {
             />
           </Stack>
 
-          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500, borderRadius: 2 }}>
+          <TableContainer
+            component={Paper}
+            variant="outlined"
+            sx={{ maxHeight: 500, borderRadius: 2 }}
+          >
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                  <TableCell
+                    sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}
+                  >
                     ชื่อ-สกุล
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                  <TableCell
+                    sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}
+                  >
                     ใบประกอบฯ หมดอายุ
                   </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                  <TableCell
+                    align="center"
+                    sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}
+                  >
                     วันทำงาน
                   </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                  <TableCell
+                    align="right"
+                    sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}
+                  >
                     อัตราเต็ม (บาท)
                   </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                  <TableCell
+                    align="right"
+                    sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}
+                  >
                     ยอดสุทธิ (บาท)
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05), minWidth: 200 }}>
+                  <TableCell
+                    sx={{
+                      fontWeight: 700,
+                      bgcolor: alpha(theme.palette.primary.main, 0.05),
+                      minWidth: 200,
+                    }}
+                  >
                     หมายเหตุ
                   </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                  <TableCell
+                    align="center"
+                    sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.05) }}
+                  >
                     แก้ไข
                   </TableCell>
                 </TableRow>
@@ -322,10 +416,18 @@ export default function PayrollManager() {
                 {payrollData.map((row) => {
                   const isExpired = new Date(row.license_exp) < new Date();
                   const isPartialDays = row.days < 30;
-                  const rowBgColor = isPartialDays ? alpha(theme.palette.warning.main, 0.08) : 'inherit';
+                  const rowBgColor = isPartialDays
+                    ? alpha(theme.palette.warning.main, 0.08)
+                    : 'inherit';
 
                   return (
-                    <TableRow key={row.id} sx={{ bgcolor: rowBgColor, '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.1) } }}>
+                    <TableRow
+                      key={row.id}
+                      sx={{
+                        bgcolor: rowBgColor,
+                        '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.1) },
+                      }}
+                    >
                       <TableCell>
                         <Typography variant="body2" fontWeight={600}>
                           {row.name}
@@ -356,7 +458,7 @@ export default function PayrollManager() {
                           size="small"
                           type="number"
                           slotProps={{
-                            htmlInput: { min: 0, max: 31, style: { textAlign: 'center' } }
+                            htmlInput: { min: 0, max: 31, style: { textAlign: 'center' } },
                           }}
                           sx={{
                             width: 70,
@@ -407,7 +509,16 @@ export default function PayrollManager() {
             </Table>
           </TableContainer>
 
-          <Box sx={{ mt: 3, p: 2, bgcolor: alpha(theme.palette.info.main, 0.05), borderRadius: 2, border: '1px dashed', borderColor: 'info.main' }}>
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              bgcolor: alpha(theme.palette.info.main, 0.05),
+              borderRadius: 2,
+              border: '1px dashed',
+              borderColor: 'info.main',
+            }}
+          >
             <Stack direction="row" spacing={4}>
               <Box>
                 <Typography variant="caption" color="text.secondary">
