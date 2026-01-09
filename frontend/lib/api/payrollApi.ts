@@ -24,53 +24,43 @@ const normalizePeriod = (period: any): PayrollPeriod => ({
   total_headcount: period.total_headcount ?? period.totalHeadcount,
 });
 
-export async function getPeriods(): Promise<PayrollPeriod[]> {
+export async function getPeriod(year: number, month: number): Promise<PayrollPeriod> {
   try {
-    const response = await apiClient.get<ApiResponse<any[]>>('/api/payroll/periods');
+    const response = await apiClient.get<ApiResponse<any>>('/api/payroll/period', {
+      params: { year, month },
+    });
 
     if (!response.data || typeof response.data !== 'object') {
-      throw new Error('Failed to fetch periods');
+      throw new Error('Failed to fetch period');
     }
 
     if ('success' in response.data) {
       if (!response.data.success || !response.data.data) {
-        throw new Error(response.data.error || 'Failed to fetch periods');
-      }
-      return response.data.data.map(normalizePeriod);
-    }
-
-    if (Array.isArray((response as any).data)) {
-      return (response as any).data.map(normalizePeriod);
-    }
-
-    return [];
-  } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'ไม่สามารถดึงข้อมูลงวดได้'));
-  }
-}
-
-/**
- * Get current active payroll period
- */
-export async function getCurrentPeriod(): Promise<PayrollPeriod> {
-  try {
-    const response = await apiClient.get<ApiResponse<any>>('/api/payroll/period/current');
-
-    if (!response.data || typeof response.data !== 'object') {
-      throw new Error('Failed to fetch current period');
-    }
-
-    if ('success' in response.data) {
-      if (!response.data.success || !response.data.data) {
-        throw new Error(response.data.error || 'Failed to fetch current period');
+        throw new Error(response.data.error || 'Failed to fetch period');
       }
       return normalizePeriod(response.data.data);
     }
 
     return normalizePeriod(response.data);
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'ไม่สามารถดึงข้อมูลงวดปัจจุบันได้'));
+    throw new Error(
+      extractErrorMessage(error, 'Е1,Е,нЕ1^Е,жЕ,¤Е,นЕ,¤Е,ЬЕ,-Е,"Е,Е,╪Е,,Е1%Е,-Е,нЕ,1Е,ЭЕ,╪Е,Е,"Е1,Е,"Е1%'),
+    );
   }
+}
+
+export async function getPeriods(): Promise<PayrollPeriod[]> {
+  const now = new Date();
+  const period = await getPeriod(now.getFullYear(), now.getMonth() + 1);
+  return period ? [period] : [];
+}
+
+/**
+ * Get current active payroll period
+ */
+export async function getCurrentPeriod(): Promise<PayrollPeriod> {
+  const now = new Date();
+  return getPeriod(now.getFullYear(), now.getMonth() + 1);
 }
 
 /**
@@ -78,7 +68,9 @@ export async function getCurrentPeriod(): Promise<PayrollPeriod> {
  */
 export async function calculateMonthly(periodId: number): Promise<ApiResponse<any>> {
   try {
-    const response = await apiClient.post<ApiResponse<any>>(`/api/payroll/calculate/${periodId}`);
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/api/payroll/period/${periodId}/calculate`
+    );
 
     if (!response.data || typeof response.data !== 'object') {
       throw new Error('Failed to calculate payroll');
@@ -86,7 +78,7 @@ export async function calculateMonthly(periodId: number): Promise<ApiResponse<an
 
     return response.data;
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'ไม่สามารถประมวลผลเงินเดือนได้'));
+    throw new Error(extractErrorMessage(error, 'Е1,Е,นЕ1^Е,жЕ,¤Е,нЕ,¤Е,ЬЕ,-Е,>Е,ЬЕ,°Е,нЕ,Е,ЭЕ,oЕ,ЭЕ1?Е,╪Е,\'Е,TЕ1?Е,"Е,·Е,-Е,TЕ1,Е,"Е1%'));
   }
 }
 
@@ -103,6 +95,6 @@ export async function submitPeriod(periodId: number): Promise<ApiResponse<any>> 
 
     return response.data;
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'ไม่สามารถปิดงวดและส่งต่อได้'));
+    throw new Error(extractErrorMessage(error, 'Е1,Е,нЕ1^Е,жЕ,¤Е,นЕ,¤Е,ЬЕ,-Е,>Е,\'Е,"Е,╪Е,Е,"Е1?Е,ЭЕ,°Е,жЕ1^Е,╪Е,Е1^Е,-Е1,Е,"Е1%'));
   }
 }
