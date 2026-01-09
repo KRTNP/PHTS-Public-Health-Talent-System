@@ -35,8 +35,7 @@ export class AuthService {
       }
       throw {
         success: false,
-        message:
-          'Е,?Е,¤Е,ЬЕ1?Е,SЕ,·Е1^Е,-Е,нЕ,Е1^Е,-Е,ЭЕ1%Е,нЕ1?Е,оЕ,ЭЕ, Е,?Е,ЬЕ,,Е,"Е,¤Е,ЭЕ,-Е,╪Е1ЯЕ,оЕ,нЕ1^Е,-Е,цЕ,?Е,,Е,ЬЕ,ёЕ1%Е,╪ (Connection failed)',
+        message: 'เชื่อมต่อระบบไม่ได้ (Connection failed)',
         error: error.message,
       };
     }

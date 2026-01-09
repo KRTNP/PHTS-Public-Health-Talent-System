@@ -44,7 +44,7 @@ export async function getPeriod(year: number, month: number): Promise<PayrollPer
     return normalizePeriod(response.data);
   } catch (error: unknown) {
     throw new Error(
-      extractErrorMessage(error, 'Е1,Е,нЕ1^Е,жЕ,¤Е,นЕ,¤Е,ЬЕ,-Е,"Е,Е,╪Е,,Е1%Е,-Е,нЕ,1Е,ЭЕ,╪Е,Е,"Е1,Е,"Е1%'),
+      extractErrorMessage(error, 'ไม่สามารถดึงข้อมูลงวดเดือนได้'),
     );
   }
 }
@@ -78,7 +78,7 @@ export async function calculateMonthly(periodId: number): Promise<ApiResponse<an
 
     return response.data;
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'Е1,Е,นЕ1^Е,жЕ,¤Е,нЕ,¤Е,ЬЕ,-Е,>Е,ЬЕ,°Е,нЕ,Е,ЭЕ,oЕ,ЭЕ1?Е,╪Е,\'Е,TЕ1?Е,"Е,·Е,-Е,TЕ1,Е,"Е1%'));
+    throw new Error(extractErrorMessage(error, 'ไม่สามารถคำนวณเงินเดือนได้'));
   }
 }
 
@@ -95,6 +95,6 @@ export async function submitPeriod(periodId: number): Promise<ApiResponse<any>> 
 
     return response.data;
   } catch (error: unknown) {
-    throw new Error(extractErrorMessage(error, 'Е1,Е,нЕ1^Е,жЕ,¤Е,นЕ,¤Е,ЬЕ,-Е,>Е,\'Е,"Е,╪Е,Е,"Е1?Е,ЭЕ,°Е,жЕ1^Е,╪Е,Е1^Е,-Е1,Е,"Е1%'));
+    throw new Error(extractErrorMessage(error, 'ไม่สามารถส่งงวดเดือนไปอนุมัติได้'));
   }
 }
