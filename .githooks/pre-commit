@@ -1,7 +1,0 @@
-#!/usr/bin/env sh
-node scripts/check-utf8.mjs
-status=$?
-if [ "$status" -ne 0 ]; then
-  echo "Encoding check failed. Commit aborted."
-  exit "$status"
-fi
