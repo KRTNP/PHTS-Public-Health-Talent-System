@@ -53,6 +53,9 @@ export default function LoginPage() {
         case UserRole.ADMIN:
           targetPath = '/dashboard/admin';
           break;
+        case UserRole.HEAD_WARD:
+          targetPath = '/dashboard/head-ward';
+          break;
         case UserRole.HEAD_DEPT:
           targetPath = '/dashboard/approver';
           break;
@@ -64,6 +67,9 @@ export default function LoginPage() {
           break;
         case UserRole.HEAD_FINANCE:
           targetPath = '/dashboard/finance-head';
+          break;
+        case UserRole.FINANCE_OFFICER:
+          targetPath = '/dashboard/finance';
           break;
         case UserRole.DIRECTOR:
           targetPath = '/dashboard/director';
