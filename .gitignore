@@ -40,3 +40,11 @@ temp/
 .idea/
 .DS_Store
 Thumbs.db
+
+# AI assistant files (may contain credentials)
+CLAUDE.md
+database.txt
+AGENTS.md
+
+# Uploads
+uploads/
