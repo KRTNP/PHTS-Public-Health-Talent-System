@@ -2,6 +2,7 @@
  * PHTS System - Snapshot Routes
  *
  * API routes for snapshot operations.
+ * Per Access_Control_Matrix.txt Line 182: PTS_OFFICER เท่านั้น
  */
 
 import { Router } from 'express';
@@ -16,41 +17,33 @@ const router = Router();
  */
 router.use(protect);
 
-// Roles that can view snapshot info
-const viewRoles = [
-  UserRole.PTS_OFFICER,
-  UserRole.HEAD_HR,
-  UserRole.HEAD_FINANCE,
-  UserRole.FINANCE_OFFICER,
-  UserRole.DIRECTOR,
-  UserRole.ADMIN,
-];
-
-// Roles that can freeze periods
-const freezeRoles = [UserRole.PTS_OFFICER, UserRole.DIRECTOR, UserRole.ADMIN];
+/**
+ * Snapshot access is restricted to PTS_OFFICER only
+ * Per Access_Control_Matrix.txt: "ล็อก Snapshot รายเดือนก่อน Export - PTS_OFFICER เท่านั้น"
+ */
 
 // Get period with snapshot info
-router.get('/periods/:id', restrictTo(...viewRoles), snapshotController.getPeriodWithSnapshot);
+router.get('/periods/:id', restrictTo(UserRole.PTS_OFFICER), snapshotController.getPeriodWithSnapshot);
 
 // Check if period is frozen
-router.get('/periods/:id/is-frozen', restrictTo(...viewRoles), snapshotController.checkFrozen);
+router.get('/periods/:id/is-frozen', restrictTo(UserRole.PTS_OFFICER), snapshotController.checkFrozen);
 
 // Get all snapshots for a period
-router.get('/periods/:id/snapshots', restrictTo(...viewRoles), snapshotController.getSnapshotsForPeriod);
+router.get('/periods/:id/snapshots', restrictTo(UserRole.PTS_OFFICER), snapshotController.getSnapshotsForPeriod);
 
 // Get specific snapshot by type
-router.get('/periods/:id/snapshot/:type', restrictTo(...viewRoles), snapshotController.getSnapshot);
+router.get('/periods/:id/snapshot/:type', restrictTo(UserRole.PTS_OFFICER), snapshotController.getSnapshot);
 
 // Get report data (respects freeze)
-router.get('/periods/:id/report-data', restrictTo(...viewRoles), snapshotController.getReportData);
+router.get('/periods/:id/report-data', restrictTo(UserRole.PTS_OFFICER), snapshotController.getReportData);
 
 // Get summary data (respects freeze)
-router.get('/periods/:id/summary-data', restrictTo(...viewRoles), snapshotController.getSummaryData);
+router.get('/periods/:id/summary-data', restrictTo(UserRole.PTS_OFFICER), snapshotController.getSummaryData);
 
 // Freeze a period
-router.post('/periods/:id/freeze', restrictTo(...freezeRoles), snapshotController.freezePeriod);
+router.post('/periods/:id/freeze', restrictTo(UserRole.PTS_OFFICER), snapshotController.freezePeriod);
 
-// Unfreeze a period (admin only)
-router.post('/periods/:id/unfreeze', restrictTo(UserRole.ADMIN), snapshotController.unfreezePeriod);
+// Unfreeze a period (PTS_OFFICER only - requires reason)
+router.post('/periods/:id/unfreeze', restrictTo(UserRole.PTS_OFFICER), snapshotController.unfreezePeriod);
 
 export default router;
