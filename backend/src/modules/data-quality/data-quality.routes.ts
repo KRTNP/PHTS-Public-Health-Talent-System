@@ -2,6 +2,7 @@
  * PHTS System - Data Quality Routes
  *
  * API routes for data quality operations.
+ * Per Access_Control_Matrix.txt Line 182: PTS_OFFICER เท่านั้น
  */
 
 import { Router } from 'express';
@@ -16,29 +17,31 @@ const router = Router();
  */
 router.use(protect);
 
-// Roles that can view data quality
-const viewRoles = [UserRole.PTS_OFFICER, UserRole.HEAD_HR, UserRole.ADMIN];
+/**
+ * Data Quality access is restricted to PTS_OFFICER only
+ * Per Access_Control_Matrix.txt: "คุณภาพข้อมูลและ Snapshot รายเดือน - PTS_OFFICER เท่านั้น"
+ */
 
 // Get dashboard
-router.get('/dashboard', restrictTo(...viewRoles), dataQualityController.getDashboard);
+router.get('/dashboard', restrictTo(UserRole.PTS_OFFICER), dataQualityController.getDashboard);
 
 // Get summary
-router.get('/summary', restrictTo(...viewRoles), dataQualityController.getSummary);
+router.get('/summary', restrictTo(UserRole.PTS_OFFICER), dataQualityController.getSummary);
 
 // Get issue types
-router.get('/types', restrictTo(...viewRoles), dataQualityController.getIssueTypes);
+router.get('/types', restrictTo(UserRole.PTS_OFFICER), dataQualityController.getIssueTypes);
 
 // Get issues with filters
-router.get('/issues', restrictTo(...viewRoles), dataQualityController.getIssues);
+router.get('/issues', restrictTo(UserRole.PTS_OFFICER), dataQualityController.getIssues);
 
 // Create a new issue (report)
-router.post('/issues', restrictTo(...viewRoles), dataQualityController.createIssue);
+router.post('/issues', restrictTo(UserRole.PTS_OFFICER), dataQualityController.createIssue);
 
 // Update issue status
-router.put('/issues/:id', restrictTo(...viewRoles), dataQualityController.updateIssue);
+router.put('/issues/:id', restrictTo(UserRole.PTS_OFFICER), dataQualityController.updateIssue);
 
-// Admin only: run checks and auto-resolve
-router.post('/run-checks', restrictTo(UserRole.ADMIN), dataQualityController.runChecks);
-router.post('/auto-resolve', restrictTo(UserRole.ADMIN), dataQualityController.autoResolve);
+// Run checks and auto-resolve (PTS_OFFICER only)
+router.post('/run-checks', restrictTo(UserRole.PTS_OFFICER), dataQualityController.runChecks);
+router.post('/auto-resolve', restrictTo(UserRole.PTS_OFFICER), dataQualityController.autoResolve);
 
 export default router;
