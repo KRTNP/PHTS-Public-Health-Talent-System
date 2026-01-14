@@ -18,6 +18,7 @@ import {
   BatchApproveResult,
 } from './request.types.js';
 import * as requestService from './request.service.js';
+import { getUserScopesForDisplay } from './scope.service.js';
 import {
   classifyEmployee,
   findRecommendedRate,
@@ -317,8 +318,9 @@ export async function getMyRequests(
  * Get pending requests for approval by current user's role
  *
  * For HEAD_WARD and HEAD_DEPT, requests are filtered by scope.
+ * Optional query param `scope` to filter to a specific scope.
  *
- * @route GET /api/requests/pending
+ * @route GET /api/requests/pending?scope=optional
  * @access Protected (Approvers only)
  */
 export async function getPendingApprovals(
@@ -334,8 +336,15 @@ export async function getPendingApprovals(
       return;
     }
 
-    // Pass userId for scope-based filtering (HEAD_WARD, HEAD_DEPT)
-    const requests = await requestService.getPendingForApprover(req.user.role, req.user.userId);
+    // Optional scope filter for multi-scope users
+    const selectedScope = req.query.scope as string | undefined;
+
+    // Pass userId and optional selectedScope for scope-based filtering
+    const requests = await requestService.getPendingForApprover(
+      req.user.role,
+      req.user.userId,
+      selectedScope,
+    );
 
     res.status(200).json({
       success: true,
@@ -349,6 +358,40 @@ export async function getPendingApprovals(
     res.status(statusCode).json({
       success: false,
       error: error.message || 'An error occurred while fetching pending approvals',
+    });
+  }
+}
+
+/**
+ * Get user's available scopes for multi-scope dropdown
+ *
+ * @route GET /api/requests/my-scopes
+ * @access Protected (HEAD_WARD, HEAD_DEPT only)
+ */
+export async function getMyScopes(
+  req: Request,
+  res: Response<ApiResponse<{ value: string; label: string; type: 'UNIT' | 'DEPT' }[]>>,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized access',
+      });
+      return;
+    }
+
+    const scopes = await getUserScopesForDisplay(req.user.userId, req.user.role);
+
+    res.status(200).json({
+      success: true,
+      data: scopes,
+    });
+  } catch (error: any) {
+    console.error('Get my scopes error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'An error occurred while fetching scopes',
     });
   }
 }

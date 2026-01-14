@@ -30,6 +30,7 @@ import { createEligibility } from './eligibility.service.js';
 import { saveSignature } from '../signature/signature.service.js';
 import {
   getScopeFilterForApprover,
+  getScopeFilterForSelectedScope,
   canApproverAccessRequest,
   canSelfApprove,
   isRequestOwner,
@@ -442,10 +443,15 @@ export async function getMyRequests(userId: number): Promise<RequestWithDetails[
  *
  * For HEAD_WARD and HEAD_DEPT, requests are filtered based on the approver's
  * scope derived from their special_position in pts_employees.
+ *
+ * @param userRole - The approver's role
+ * @param userId - The approver's user ID (required for scope filtering)
+ * @param selectedScope - Optional: filter to a specific scope (for multi-scope users)
  */
 export async function getPendingForApprover(
   userRole: string,
   userId?: number,
+  selectedScope?: string,
 ): Promise<RequestWithDetails[]> {
   const stepNo = ROLE_STEP_MAP[userRole];
 
@@ -466,10 +472,20 @@ export async function getPendingForApprover(
 
   // Apply scope filter for HEAD_WARD and HEAD_DEPT
   if (userId && (userRole === 'HEAD_WARD' || userRole === 'HEAD_DEPT')) {
-    const scopeFilter = await getScopeFilterForApprover(userId, userRole);
-    if (scopeFilter) {
-      sql += scopeFilter.whereClause;
-      params.push(...scopeFilter.params);
+    // If a specific scope is selected, filter to that scope only
+    if (selectedScope) {
+      const scopeFilter = await getScopeFilterForSelectedScope(userId, userRole, selectedScope);
+      if (scopeFilter) {
+        sql += scopeFilter.whereClause;
+        params.push(...scopeFilter.params);
+      }
+    } else {
+      // Otherwise, show all scopes the user has access to
+      const scopeFilter = await getScopeFilterForApprover(userId, userRole);
+      if (scopeFilter) {
+        sql += scopeFilter.whereClause;
+        params.push(...scopeFilter.params);
+      }
     }
   }
 

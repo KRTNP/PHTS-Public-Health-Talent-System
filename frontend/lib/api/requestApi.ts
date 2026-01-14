@@ -118,12 +118,45 @@ export async function getMyRequests(): Promise<RequestWithDetails[]> {
 }
 
 /**
- * Get pending requests for approvers
+ * Scope item for multi-scope dropdown
  */
-export async function getPendingRequests(): Promise<RequestWithDetails[]> {
+export interface ScopeItem {
+  value: string;
+  label: string;
+  type: 'UNIT' | 'DEPT';
+}
+
+/**
+ * Get user's available scopes for multi-scope dropdown
+ * (HEAD_WARD and HEAD_DEPT only)
+ */
+export async function getMyScopes(): Promise<ScopeItem[]> {
   try {
+    const response = await apiClient.get<ApiResponse<ScopeItem[]>>(
+      '/api/requests/my-scopes'
+    );
+
+    if (!response.data.success) {
+      return [];
+    }
+
+    return response.data.data || [];
+  } catch (error: unknown) {
+    console.warn('Unable to fetch scopes:', error);
+    return [];
+  }
+}
+
+/**
+ * Get pending requests for approvers
+ * @param scope - Optional scope filter for multi-scope users
+ */
+export async function getPendingRequests(scope?: string): Promise<RequestWithDetails[]> {
+  try {
+    const params = scope ? { scope } : {};
     const response = await apiClient.get<ApiResponse<RequestWithDetails[]>>(
-      '/api/requests/pending'
+      '/api/requests/pending',
+      { params }
     );
 
     if (!response.data.success) {

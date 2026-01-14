@@ -56,7 +56,18 @@ router.get(
   requestController.getMyRequests
 );
 
+// Get user's available scopes (for multi-scope dropdown)
+router.get(
+  '/my-scopes',
+  restrictTo(
+    UserRole.HEAD_WARD,
+    UserRole.HEAD_DEPT
+  ),
+  requestController.getMyScopes
+);
+
 // Get pending requests for approval (based on user's role)
+// Optional query param: ?scope=<scope_name> to filter to a specific scope
 router.get(
   '/pending',
   restrictTo(

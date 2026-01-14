@@ -275,3 +275,89 @@ export function canSelfApprove(userRole: string, currentStep: number): boolean {
   }
   return false;
 }
+
+/**
+ * Get list of scopes for UI display (multi-scope dropdown)
+ *
+ * Returns all scopes the user has access to, formatted for display
+ */
+export async function getUserScopesForDisplay(
+  userId: number,
+  userRole: string,
+): Promise<{ value: string; label: string; type: 'UNIT' | 'DEPT' }[]> {
+  if (userRole !== 'HEAD_WARD' && userRole !== 'HEAD_DEPT') {
+    return [];
+  }
+
+  const scopes = await getApproverScopes(userId, userRole as 'HEAD_WARD' | 'HEAD_DEPT');
+  const result: { value: string; label: string; type: 'UNIT' | 'DEPT' }[] = [];
+
+  // Add ward scopes (UNIT type)
+  for (const scope of scopes.wardScopes) {
+    const scopeType = inferScopeType(scope);
+    if (scopeType !== 'IGNORE' && scopeType !== 'UNKNOWN') {
+      result.push({
+        value: scope,
+        label: scope,
+        type: scopeType as 'UNIT' | 'DEPT',
+      });
+    }
+  }
+
+  // Add dept scopes (DEPT type)
+  for (const scope of scopes.deptScopes) {
+    const scopeType = inferScopeType(scope);
+    if (scopeType !== 'IGNORE' && scopeType !== 'UNKNOWN') {
+      result.push({
+        value: scope,
+        label: scope,
+        type: scopeType as 'UNIT' | 'DEPT',
+      });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get scope filter for a specific selected scope
+ *
+ * Used when user selects a specific scope from the dropdown
+ */
+export async function getScopeFilterForSelectedScope(
+  userId: number,
+  userRole: string,
+  selectedScope: string,
+): Promise<{ whereClause: string; params: any[] } | null> {
+  if (userRole !== 'HEAD_WARD' && userRole !== 'HEAD_DEPT') {
+    return null;
+  }
+
+  // Verify user has access to this scope
+  const scopes = await getApproverScopes(userId, userRole as 'HEAD_WARD' | 'HEAD_DEPT');
+  const allUserScopes = [...scopes.wardScopes, ...scopes.deptScopes];
+
+  const hasAccess = allUserScopes.some(
+    (s) => s.toLowerCase() === selectedScope.toLowerCase(),
+  );
+
+  if (!hasAccess) {
+    return { whereClause: ' AND 1 = 0', params: [] }; // No access to this scope
+  }
+
+  const scopeType = inferScopeType(selectedScope);
+
+  if (scopeType === 'UNIT') {
+    return {
+      whereClause: ' AND LOWER(e.sub_department) = LOWER(?)',
+      params: [selectedScope],
+    };
+  } else if (scopeType === 'DEPT') {
+    return {
+      whereClause: ' AND LOWER(e.department) = LOWER(?)',
+      params: [selectedScope],
+    };
+  }
+
+  return { whereClause: ' AND 1 = 0', params: [] };
+}

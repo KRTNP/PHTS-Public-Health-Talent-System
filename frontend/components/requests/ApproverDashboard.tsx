@@ -24,6 +24,11 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
 } from '@mui/material';
 import {
   Visibility,
@@ -32,10 +37,12 @@ import {
   PendingActions,
   CheckCircle,
   PlaylistAddCheck,
+  FilterList,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { alpha, useTheme } from '@mui/material/styles';
 import * as requestApi from '@/lib/api/requestApi';
+import { ScopeItem } from '@/lib/api/requestApi';
 import { RequestWithDetails } from '@/types/request.types';
 import { AuthService } from '@/lib/api/authApi';
 import { ROLE_ROUTES, UserRole } from '@/types/auth';
@@ -52,6 +59,11 @@ export default function ApproverDashboard({ allowBatch = false }: ApproverDashbo
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [detailBasePath, setDetailBasePath] = useState('/dashboard/approver');
+
+  // State for multi-scope filtering
+  const [availableScopes, setAvailableScopes] = useState<ScopeItem[]>([]);
+  const [selectedScope, setSelectedScope] = useState<string>('');
+  const [showScopeFilter, setShowScopeFilter] = useState(false);
 
   // State สำหรับ Batch Approval
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -70,13 +82,37 @@ export default function ApproverDashboard({ allowBatch = false }: ApproverDashbo
     } else if (currentUser?.role) {
       setDetailBasePath(ROLE_ROUTES[currentUser.role] || '/dashboard/approver');
     }
+
+    // Load scopes for HEAD_WARD and HEAD_DEPT
+    if (currentUser?.role === UserRole.HEAD_WARD || currentUser?.role === UserRole.HEAD_DEPT) {
+      loadScopes();
+    }
+
     loadData();
   }, []);
 
-  const loadData = async () => {
+  // Reload data when scope filter changes
+  useEffect(() => {
+    if (showScopeFilter) {
+      loadData(selectedScope || undefined);
+    }
+  }, [selectedScope]);
+
+  const loadScopes = async () => {
+    try {
+      const scopes = await requestApi.getMyScopes();
+      setAvailableScopes(scopes);
+      // Show filter if user has multiple scopes
+      setShowScopeFilter(scopes.length > 1);
+    } catch (error) {
+      console.error('Failed to load scopes', error);
+    }
+  };
+
+  const loadData = async (scope?: string) => {
     try {
       setLoading(true);
-      const data = await requestApi.getPendingRequests();
+      const data = await requestApi.getPendingRequests(scope);
       setRequests(data);
       setSelectedIds([]);
     } catch (error) {
@@ -180,14 +216,50 @@ export default function ApproverDashboard({ allowBatch = false }: ApproverDashbo
           )}
         </Stack>
 
-        <TextField
-          size="small"
-          placeholder="ค้นหาชื่อ หรือ เลขที่เอกสาร..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }}
-          sx={{ width: { xs: '100%', md: 300 }, bgcolor: 'background.paper', borderRadius: 1 }}
-        />
+        <Stack direction="row" spacing={2} alignItems="center">
+          {showScopeFilter && (
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel id="scope-filter-label">
+                <Stack direction="row" alignItems="center" spacing={0.5}>
+                  <FilterList fontSize="small" />
+                  <span>หน่วยงาน</span>
+                </Stack>
+              </InputLabel>
+              <Select
+                labelId="scope-filter-label"
+                value={selectedScope}
+                label="หน่วยงาน"
+                onChange={(e) => setSelectedScope(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>ทั้งหมด ({requests.length})</em>
+                </MenuItem>
+                {availableScopes.map((scope) => (
+                  <MenuItem key={scope.value} value={scope.value}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <span>{scope.label}</span>
+                      <Chip
+                        label={scope.type === 'UNIT' ? 'งาน' : 'กลุ่มงาน'}
+                        size="small"
+                        color={scope.type === 'UNIT' ? 'info' : 'secondary'}
+                        sx={{ height: 20, fontSize: '0.7rem' }}
+                      />
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          <TextField
+            size="small"
+            placeholder="ค้นหาชื่อ หรือ เลขที่เอกสาร..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }}
+            sx={{ width: { xs: '100%', md: 300 }, bgcolor: 'background.paper', borderRadius: 1 }}
+          />
+        </Stack>
       </Stack>
 
       {/* 3. Data Table */}
