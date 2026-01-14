@@ -28,6 +28,12 @@ import { NotificationService } from '../notification/notification.service.js';
 import { findRecommendedRate, MasterRate } from './classification.service.js';
 import { createEligibility } from './eligibility.service.js';
 import { saveSignature } from '../signature/signature.service.js';
+import {
+  getScopeFilterForApprover,
+  canApproverAccessRequest,
+  canSelfApprove,
+  isRequestOwner,
+} from './scope.service.js';
 
 // Common select/join fragments for requester info
 const REQUESTER_FIELDS = `
@@ -432,24 +438,44 @@ export async function getMyRequests(userId: number): Promise<RequestWithDetails[
 }
 
 /**
- * Get pending requests for a specific approver role
+ * Get pending requests for a specific approver role with scope filtering
+ *
+ * For HEAD_WARD and HEAD_DEPT, requests are filtered based on the approver's
+ * scope derived from their special_position in pts_employees.
  */
-export async function getPendingForApprover(userRole: string): Promise<RequestWithDetails[]> {
+export async function getPendingForApprover(
+  userRole: string,
+  userId?: number,
+): Promise<RequestWithDetails[]> {
   const stepNo = ROLE_STEP_MAP[userRole];
 
   if (!stepNo) {
     throw new Error(`Invalid approver role: ${userRole}`);
   }
 
-  const requests = await query<RowDataPacket[]>(
-    `SELECT ${REQUESTER_FIELDS}
+  // Build base query with employee join for scope filtering
+  let sql = `SELECT ${REQUESTER_FIELDS},
+       e.department AS emp_department,
+       e.sub_department AS emp_sub_department
      FROM pts_requests r
      ${REQUESTER_JOINS}
-     WHERE r.status = ? AND r.current_step = ?
-     ORDER BY r.created_at ASC`,
-    [RequestStatus.PENDING, stepNo],
-  );
+     LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
+     WHERE r.status = ? AND r.current_step = ?`;
 
+  const params: any[] = [RequestStatus.PENDING, stepNo];
+
+  // Apply scope filter for HEAD_WARD and HEAD_DEPT
+  if (userId && (userRole === 'HEAD_WARD' || userRole === 'HEAD_DEPT')) {
+    const scopeFilter = await getScopeFilterForApprover(userId, userRole);
+    if (scopeFilter) {
+      sql += scopeFilter.whereClause;
+      params.push(...scopeFilter.params);
+    }
+  }
+
+  sql += ' ORDER BY r.created_at ASC';
+
+  const requests = await query<RowDataPacket[]>(sql, params);
   const requestRows = Array.isArray(requests) ? (requests as any[]) : [];
   return await hydrateRequests(requestRows);
 }
@@ -486,7 +512,7 @@ export async function getApprovalHistory(actorId: number): Promise<RequestWithDe
 }
 
 /**
- * Get full request details by ID with access control
+ * Get full request details by ID with access control and scope verification
  */
 export async function getRequestById(
   requestId: number,
@@ -494,9 +520,12 @@ export async function getRequestById(
   userRole: string,
 ): Promise<RequestWithDetails> {
   const requests = await query<RowDataPacket[]>(
-    `SELECT ${REQUESTER_FIELDS}
+    `SELECT ${REQUESTER_FIELDS},
+       e.department AS emp_department,
+       e.sub_department AS emp_sub_department
      FROM pts_requests r
      ${REQUESTER_JOINS}
+     LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
      WHERE r.request_id = ?`,
     [requestId],
   );
@@ -508,11 +537,26 @@ export async function getRequestById(
   const request = requests[0] as any;
 
   const isOwner = request.user_id === userId;
-  const isApprover =
+  const isAdmin = userRole === 'ADMIN';
+
+  // Check if user is approver at the current step
+  let isApprover =
     ROLE_STEP_MAP[userRole] !== undefined &&
     request.status === RequestStatus.PENDING &&
     request.current_step === ROLE_STEP_MAP[userRole];
-  const isAdmin = userRole === 'ADMIN';
+
+  // For HEAD_WARD and HEAD_DEPT, also verify scope access
+  if (isApprover && (userRole === 'HEAD_WARD' || userRole === 'HEAD_DEPT')) {
+    const hasScope = await canApproverAccessRequest(
+      userId,
+      userRole,
+      request.emp_department,
+      request.emp_sub_department,
+    );
+    if (!hasScope) {
+      isApprover = false; // No scope access, not a valid approver for this request
+    }
+  }
 
   if (!isOwner && !isApprover && !isAdmin) {
     const actionRows = await query<RowDataPacket[]>(
@@ -539,7 +583,7 @@ export async function getRequestById(
 }
 
 /**
- * Approve a request
+ * Approve a request with scope verification and self-approval support
  */
 export async function approveRequest(
   requestId: number,
@@ -553,7 +597,10 @@ export async function approveRequest(
     await connection.beginTransaction();
 
     const [requests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ?',
+      `SELECT r.*, e.department AS emp_department, e.sub_department AS emp_sub_department
+       FROM pts_requests r
+       LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
+       WHERE r.request_id = ?`,
       [requestId],
     );
 
@@ -562,6 +609,8 @@ export async function approveRequest(
     }
 
     const request = mapRequestRow(requests[0]);
+    const empDepartment = (requests[0] as any).emp_department;
+    const empSubDepartment = (requests[0] as any).emp_sub_department;
 
     if (request.status !== RequestStatus.PENDING) {
       throw new Error(`Cannot approve request with status: ${request.status}`);
@@ -570,6 +619,28 @@ export async function approveRequest(
     const expectedRole = STEP_ROLE_MAP[request.current_step];
     if (expectedRole !== actorRole) {
       throw new Error(`Invalid approver role. Expected ${expectedRole}, got ${actorRole}`);
+    }
+
+    // For HEAD_WARD and HEAD_DEPT, verify scope access
+    if (actorRole === 'HEAD_WARD' || actorRole === 'HEAD_DEPT') {
+      const hasScope = await canApproverAccessRequest(
+        actorId,
+        actorRole,
+        empDepartment,
+        empSubDepartment,
+      );
+
+      // Check for self-approval case
+      const isSelfApproval = await isRequestOwner(actorId, request.user_id);
+
+      if (!hasScope && !isSelfApproval) {
+        throw new Error('You do not have scope access to approve this request');
+      }
+
+      // Self-approval is allowed per docs for HEAD_WARD (step 1) and HEAD_DEPT (step 2)
+      if (isSelfApproval && !canSelfApprove(actorRole, request.current_step)) {
+        throw new Error('Self-approval is not allowed at this step');
+      }
     }
 
     // Approver signature snapshot (BLOB)
@@ -595,12 +666,19 @@ export async function approveRequest(
 
     await connection.commit();
 
-    await NotificationService.notifyRole(
-      'HEAD_DEPT',
-      'มีคำขอใหม่รออนุมัติ',
-      `มีคำขอเลขที่ ${request.request_no} รอการตรวจสอบจากท่าน`,
-      `/dashboard/approver/requests/${requestId}`,
-    );
+    // Notify next approver role (if not finalized)
+    const nextStep = request.current_step + 1;
+    if (nextStep <= 6) {
+      const nextRole = STEP_ROLE_MAP[nextStep];
+      if (nextRole) {
+        await NotificationService.notifyRole(
+          nextRole,
+          'มีคำขอใหม่รออนุมัติ',
+          `มีคำขอเลขที่ ${request.request_no} รอการตรวจสอบจากท่าน`,
+          `/dashboard/approver/requests/${requestId}`,
+        );
+      }
+    }
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
@@ -617,7 +695,7 @@ export async function approveRequest(
 }
 
 /**
- * Reject a request
+ * Reject a request with scope verification
  */
 export async function rejectRequest(
   requestId: number,
@@ -631,7 +709,10 @@ export async function rejectRequest(
     await connection.beginTransaction();
 
     const [requests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ?',
+      `SELECT r.*, e.department AS emp_department, e.sub_department AS emp_sub_department
+       FROM pts_requests r
+       LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
+       WHERE r.request_id = ?`,
       [requestId],
     );
 
@@ -640,6 +721,8 @@ export async function rejectRequest(
     }
 
     const request = mapRequestRow(requests[0]);
+    const empDepartment = (requests[0] as any).emp_department;
+    const empSubDepartment = (requests[0] as any).emp_sub_department;
 
     if (request.status !== RequestStatus.PENDING) {
       throw new Error(`Cannot reject request with status: ${request.status}`);
@@ -648,6 +731,19 @@ export async function rejectRequest(
     const expectedRole = STEP_ROLE_MAP[request.current_step];
     if (expectedRole !== actorRole) {
       throw new Error(`Invalid approver role. Expected ${expectedRole}, got ${actorRole}`);
+    }
+
+    // For HEAD_WARD and HEAD_DEPT, verify scope access
+    if (actorRole === 'HEAD_WARD' || actorRole === 'HEAD_DEPT') {
+      const hasScope = await canApproverAccessRequest(
+        actorId,
+        actorRole,
+        empDepartment,
+        empSubDepartment,
+      );
+      if (!hasScope) {
+        throw new Error('You do not have scope access to reject this request');
+      }
     }
 
     if (!comment || comment.trim() === '') {
@@ -695,7 +791,7 @@ export async function rejectRequest(
 }
 
 /**
- * Return a request to the previous step
+ * Return a request to the previous step with scope verification
  */
 export async function returnRequest(
   requestId: number,
@@ -709,7 +805,10 @@ export async function returnRequest(
     await connection.beginTransaction();
 
     const [requests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ?',
+      `SELECT r.*, e.department AS emp_department, e.sub_department AS emp_sub_department
+       FROM pts_requests r
+       LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
+       WHERE r.request_id = ?`,
       [requestId],
     );
 
@@ -718,6 +817,8 @@ export async function returnRequest(
     }
 
     const request = mapRequestRow(requests[0]);
+    const empDepartment = (requests[0] as any).emp_department;
+    const empSubDepartment = (requests[0] as any).emp_sub_department;
 
     if (request.status !== RequestStatus.PENDING) {
       throw new Error(`Cannot return request with status: ${request.status}`);
@@ -730,6 +831,19 @@ export async function returnRequest(
     const expectedRole = STEP_ROLE_MAP[request.current_step];
     if (expectedRole !== actorRole) {
       throw new Error(`Invalid approver role. Expected ${expectedRole}, got ${actorRole}`);
+    }
+
+    // For HEAD_WARD and HEAD_DEPT, verify scope access
+    if (actorRole === 'HEAD_WARD' || actorRole === 'HEAD_DEPT') {
+      const hasScope = await canApproverAccessRequest(
+        actorId,
+        actorRole,
+        empDepartment,
+        empSubDepartment,
+      );
+      if (!hasScope) {
+        throw new Error('You do not have scope access to return this request');
+      }
     }
 
     if (!comment || comment.trim() === '') {

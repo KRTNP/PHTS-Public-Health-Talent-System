@@ -60,6 +60,7 @@ router.get(
 router.get(
   '/pending',
   restrictTo(
+    UserRole.HEAD_WARD,
     UserRole.HEAD_DEPT,
     UserRole.PTS_OFFICER,
     UserRole.HEAD_HR,
@@ -73,6 +74,7 @@ router.get(
 router.get(
   '/history',
   restrictTo(
+    UserRole.HEAD_WARD,
     UserRole.HEAD_DEPT,
     UserRole.PTS_OFFICER,
     UserRole.HEAD_HR,
@@ -93,6 +95,7 @@ router.get(
 router.put(
   '/:id/action',
   restrictTo(
+    UserRole.HEAD_WARD,
     UserRole.HEAD_DEPT,
     UserRole.PTS_OFFICER,
     UserRole.HEAD_HR,
@@ -117,6 +120,7 @@ router.post(
 router.post(
   '/:id/approve',
   restrictTo(
+    UserRole.HEAD_WARD,
     UserRole.HEAD_DEPT,
     UserRole.PTS_OFFICER,
     UserRole.HEAD_HR,
@@ -130,6 +134,7 @@ router.post(
 router.post(
   '/:id/reject',
   restrictTo(
+    UserRole.HEAD_WARD,
     UserRole.HEAD_DEPT,
     UserRole.PTS_OFFICER,
     UserRole.HEAD_HR,
@@ -143,6 +148,7 @@ router.post(
 router.post(
   '/:id/return',
   restrictTo(
+    UserRole.HEAD_WARD,
     UserRole.HEAD_DEPT,
     UserRole.PTS_OFFICER,
     UserRole.HEAD_HR,

@@ -316,6 +316,8 @@ export async function getMyRequests(
 /**
  * Get pending requests for approval by current user's role
  *
+ * For HEAD_WARD and HEAD_DEPT, requests are filtered by scope.
+ *
  * @route GET /api/requests/pending
  * @access Protected (Approvers only)
  */
@@ -332,7 +334,8 @@ export async function getPendingApprovals(
       return;
     }
 
-    const requests = await requestService.getPendingForApprover(req.user.role);
+    // Pass userId for scope-based filtering (HEAD_WARD, HEAD_DEPT)
+    const requests = await requestService.getPendingForApprover(req.user.role, req.user.userId);
 
     res.status(200).json({
       success: true,
@@ -491,7 +494,10 @@ export async function approveRequest(
 
     const statusCode = error.message.includes('not found')
       ? 404
-      : error.message.includes('Invalid approver') || error.message.includes('Cannot approve')
+      : error.message.includes('Invalid approver') ||
+          error.message.includes('Cannot approve') ||
+          error.message.includes('scope access') ||
+          error.message.includes('Self-approval')
         ? 403
         : 500;
 
@@ -558,7 +564,9 @@ export async function rejectRequest(
 
     const statusCode = error.message.includes('not found')
       ? 404
-      : error.message.includes('Invalid approver') || error.message.includes('Cannot reject')
+      : error.message.includes('Invalid approver') ||
+          error.message.includes('Cannot reject') ||
+          error.message.includes('scope access')
         ? 403
         : error.message.includes('required')
           ? 400
@@ -627,7 +635,9 @@ export async function returnRequest(
 
     const statusCode = error.message.includes('not found')
       ? 404
-      : error.message.includes('Invalid approver') || error.message.includes('Cannot return')
+      : error.message.includes('Invalid approver') ||
+          error.message.includes('Cannot return') ||
+          error.message.includes('scope access')
         ? 403
         : error.message.includes('required')
           ? 400
