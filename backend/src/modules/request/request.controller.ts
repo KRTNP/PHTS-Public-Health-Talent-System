@@ -936,3 +936,121 @@ export async function getMasterRates(_req: Request, res: Response): Promise<void
     res.status(500).json({ error: error.message });
   }
 }
+
+// ============================================
+// Reassign Functions (PTS_OFFICER)
+// ============================================
+import * as reassignService from './reassign.service.js';
+
+/**
+ * Get list of PTS_OFFICER users for reassignment
+ *
+ * @route GET /api/requests/officers
+ * @access Protected (PTS_OFFICER only)
+ */
+export async function getAvailableOfficers(
+  req: Request,
+  res: Response<ApiResponse>,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized access' });
+      return;
+    }
+
+    const officers = await reassignService.getAvailableOfficers(req.user.userId);
+    res.json({ success: true, data: officers });
+  } catch (error: any) {
+    console.error('Get available officers error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * Reassign a request to another PTS_OFFICER
+ *
+ * @route POST /api/requests/:id/reassign
+ * @access Protected (PTS_OFFICER only)
+ */
+export async function reassignRequest(
+  req: Request,
+  res: Response<ApiResponse>,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized access' });
+      return;
+    }
+
+    const requestId = parseInt(req.params.id, 10);
+    if (isNaN(requestId)) {
+      res.status(400).json({ success: false, error: 'Invalid request ID' });
+      return;
+    }
+
+    const { targetOfficerId, reason } = req.body;
+
+    if (!targetOfficerId || typeof targetOfficerId !== 'number') {
+      res.status(400).json({ success: false, error: 'targetOfficerId is required' });
+      return;
+    }
+
+    if (!reason || typeof reason !== 'string' || reason.trim() === '') {
+      res.status(400).json({ success: false, error: 'Reason for reassignment is required' });
+      return;
+    }
+
+    const result = await reassignService.reassignRequest(requestId, req.user.userId, {
+      targetOfficerId,
+      reason,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'Request reassigned successfully',
+    });
+  } catch (error: any) {
+    console.error('Reassign request error:', error);
+
+    const statusCode = error.message.includes('not found')
+      ? 404
+      : error.message.includes('Cannot reassign') ||
+          error.message.includes('not at PTS_OFFICER') ||
+          error.message.includes('not a PTS_OFFICER')
+        ? 400
+        : 500;
+
+    res.status(statusCode).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * Get reassignment history for a request
+ *
+ * @route GET /api/requests/:id/reassign-history
+ * @access Protected
+ */
+export async function getReassignHistory(
+  req: Request,
+  res: Response<ApiResponse>,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized access' });
+      return;
+    }
+
+    const requestId = parseInt(req.params.id, 10);
+    if (isNaN(requestId)) {
+      res.status(400).json({ success: false, error: 'Invalid request ID' });
+      return;
+    }
+
+    const history = await reassignService.getReassignmentHistory(requestId);
+    res.json({ success: true, data: history });
+  } catch (error: any) {
+    console.error('Get reassign history error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}

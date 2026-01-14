@@ -169,4 +169,29 @@ router.post(
   requestController.returnRequest
 );
 
+/**
+ * Reassign Routes
+ * PTS_OFFICER only - transfer pending requests to another officer
+ */
+
+// Get list of available PTS_OFFICER users for reassignment
+router.get(
+  '/officers',
+  restrictTo(UserRole.PTS_OFFICER),
+  requestController.getAvailableOfficers
+);
+
+// Reassign a request to another PTS_OFFICER
+router.post(
+  '/:id/reassign',
+  restrictTo(UserRole.PTS_OFFICER),
+  requestController.reassignRequest
+);
+
+// Get reassignment history for a request
+router.get(
+  '/:id/reassign-history',
+  requestController.getReassignHistory
+);
+
 export default router;
