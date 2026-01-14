@@ -1,170 +1,98 @@
 # PHTS - Public Health Talent System
 
-**ระบบค่าตอบแทนกำลังคนด้านสาธารณสุข**
+**ระบบบริหารจัดการเงินเพิ่มสำหรับตำแหน่งที่มีเหตุพิเศษ (พ.ต.ส.)**
 
-A hospital staff management system for Thai healthcare facilities. Manages professional talent allowances (PTS payments), leave tracking, and employee data integrated with existing HRMS.
+An enterprise-grade compensation management platform designed specifically for Thai public healthcare facilities. PHTS automates the complex calculation of "Special Position Allowances" (P.T.S.), streamlining the workflow from individual requests to monthly payroll execution while ensuring strict compliance with Civil Service Commission regulations.
 
----
+## System Overview
 
-## Project Structure
+Transitioning from error-prone manual spreadsheets to a centralized digital solution, PHTS integrates directly with existing HRMS databases. It features a robust calculation engine capable of handling intricate leave deductions, license validations, and retroactive payment adjustments across fiscal years.
 
-```
-phts-project/
-├── frontend/          # Next.js (App Router) + Material UI v5
-├── backend/           # Express.js + TypeScript + Passport.js (JWT)
-└── README.md          # This file
-```
+**Key Capabilities:**
+* **Precision Payroll Engine:** Implements "Daily Accumulation" logic to calculate allowances with 100% accuracy, automatically deducting payments when leave quotas are exceeded (e.g., Sick Leave > 60 days, Personal Leave > 45 days).
+* **Smart Retroactive System:** Automatically detects late approvals and calculates "Retroactive Payments" (ตกเบิก), handling cross-month logic and debt recovery without human intervention.
+* **5-Stage Approval Workflow:** A rigorous state-machine driven workflow (Head Dept $\to$ Officer $\to$ HR $\to$ Finance $\to$ Director) ensures every baht is auditable.
+* **Secure Digital Signature:** Replaces paper trails with secure Electronic Signatures, timestamped and logged for full auditability.
+* **Role-Based Access Control (RBAC):** Tailored dashboards for 8 distinct user roles, ensuring data security and privacy.
 
-### Frontend (`/frontend`)
+## Technical Architecture
 
-- **Framework**: Next.js 14+ with App Router
-- **UI Library**: Material UI (MUI) v5
-- **Language**: TypeScript
-- **Styling**: Emotion (MUI default) + Thai font support (Sarabun/Prompt)
-- **Theme**: "Medical Clean" - Minimalist, Professional, Trustworthy
+The system utilizes a Decoupled Architecture to separate complex business logic from the user interface:
 
-### Backend (`/backend`)
+1.  **Frontend (Next.js):** A responsive interface built with App Router and Material UI v5, focusing on a professional "Medical Clean" aesthetic.
+2.  **Backend (Express/Node.js):** A stateless RESTful API powered by TypeScript. It handles the core calculation service and manages the approval state machine.
+3.  **Data Layer (MySQL):** Stores transactional data (`pts_system`) while syncing read-only personnel and leave data from the legacy HRMS (`hrms_databases`).
 
-- **Framework**: Express.js
-- **Language**: TypeScript (with JavaScript interoperability)
-- **Authentication**: Passport.js with JWT Strategy
-- **Database**: MySQL 9.x via `mysql2` driver
-- **Database Name**: `phts_system`
+## Technology Stack
 
----
+**Frontend & Interface**
+![Next.js](https://img.shields.io/badge/-Next.js-000000?style=flat&logo=next.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![MUI](https://img.shields.io/badge/-MUI_v5-007FFF?style=flat&logo=mui&logoColor=white)
+![SweetAlert2](https://img.shields.io/badge/-SweetAlert2-EF2D5E?style=flat&logo=sweetalert2&logoColor=white)
 
-## Tech Stack Summary
-
-| Layer      | Technology                          |
-|------------|-------------------------------------|
-| Frontend   | Next.js (App Router), MUI v5, TypeScript |
-| Backend    | Node.js, Express.js, TypeScript     |
-| Auth       | Passport.js (JWT Strategy)          |
-| Database   | MySQL 9.x (`mysql2` driver)         |
-| Structure  | Monorepo                            |
-
----
-
-## Authentication Concept
-
-- **Username**: 13-digit Thai Citizen ID (`citizen_id`)
-- **Default Password**: User's birthdate in `DDMMYYYY` format (e.g., `25021990`)
-- **No Registration Page**: Users are pre-seeded from HRMS `employees` view
-- **JWT Token Payload**: `{ userId, citizenId, role }`
-
----
-
-## User Roles
-
-| Role Code         | Description                    | Dashboard Route           |
-|-------------------|--------------------------------|---------------------------|
-| `USER`            | General Staff (Requester)      | `/dashboard/user`         |
-| `HEAD_DEPT`       | Head of Department             | `/dashboard/approver`     |
-| `PTS_OFFICER`     | P.T.S. Officer (Admin Staff)   | `/dashboard/officer`      |
-| `HEAD_HR`         | Head of Human Resources        | `/dashboard/hr-head`      |
-| `DIRECTOR`        | Hospital Director              | `/dashboard/director`     |
-| `FINANCE_OFFICER` | Finance Staff                  | `/dashboard/finance`      |
-| `HEAD_FINANCE`    | Head of Finance                | `/dashboard/finance-head` |
-| `ADMIN`           | System Administrator           | `/dashboard/admin`        |
-
----
-
-## Database Architecture
-
-The system uses `phts_system` database which integrates with existing `hrms_databases`:
-
-### Core Tables
-- `holidays` - Thai public holidays for work day calculations
-- `pts_payment_history` - Monthly PTS payment records per employee
-- `pts_rate_adjustments` - PTS rate change history
-
-### Views (pulling from HRMS)
-- `employees` - Main employee data with computed PTS rates
-- `employee_licenses` - Professional licenses
-- `employee_movements` - Employment status changes
-- `leave_requests` - Leave records with automatic classification
-- `leave_quotas` - Annual leave allowances
-- `pts_rate_history_combined` - Combined rate adjustments
-
----
-
-## UI/UX Design System
-
-**Theme: "Medical Clean"**
-
-| Property     | Value                                    |
-|--------------|------------------------------------------|
-| Style        | Minimalist, Professional, Trustworthy    |
-| Primary      | Deep Teal / Medical Blue                 |
-| Background   | Light Gray `#F4F6F8`                     |
-| Typography   | 'Sarabun' or 'Prompt' (Google Fonts)     |
-| Accessibility| WCAG 2.1 AA compliance minimum           |
-
----
+**Backend & Infrastructure**
+![Node.js](https://img.shields.io/badge/-Node.js-339933?style=flat&logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/-Express-000000?style=flat&logo=express&logoColor=white)
+![MySQL](https://img.shields.io/badge/-MySQL-4479A1?style=flat&logo=mysql&logoColor=white)
+![Passport.js](https://img.shields.io/badge/-Passport.js-34E27A?style=flat&logo=passport&logoColor=white)
+![Docker](https://img.shields.io/badge/-Docker-2496ED?style=flat&logo=docker&logoColor=white)
 
 ## Getting Started
 
 ### Prerequisites
-
-- Node.js 18+ (LTS recommended)
-- MySQL 9.x
-- npm or yarn
+* Node.js (v18+ LTS)
+* MySQL (v8.0+)
+* Connection to HRMS Database (Read-Replica recommended)
 
 ### Installation
 
-```bash
-# Clone the repository
-cd phts-project
+1.  **Clone the repository**
+    ```bash
+    git clone [https://github.com/yourusername/phts-public-health-talent-system.git](https://github.com/yourusername/phts-public-health-talent-system.git)
+    cd phts-public-health-talent-system
+    ```
 
-# Install backend dependencies
-cd backend
-npm install
+2.  **Setup Backend Service**
+    Navigate to the `backend` directory:
+    ```bash
+    cd backend
+    npm install
+    ```
+    Create `.env` file and configure database connections (both PHTS and HRMS):
+    ```env
+    DB_HOST=localhost
+    DB_USER=root
+    DB_PASS=password
+    DB_NAME_PHTS=phts_system
+    DB_NAME_HRMS=hrms_databases
+    JWT_SECRET=your_secret_key
+    ```
+    Run migrations and start the server:
+    ```bash
+    npm run migrate
+    npm run dev
+    ```
 
-# Install frontend dependencies
-cd ../frontend
-npm install
-```
+3.  **Setup Frontend Application**
+    Navigate to the `frontend` directory:
+    ```bash
+    cd ../frontend
+    npm install
+    npm run dev
+    ```
 
-### Database Setup
+4.  **Access the Application**
+    Open `http://localhost:3000`. Default admin credentials (for dev): `admin` / `password`.
 
-1. Create the `phts_system` database
-2. Run the migration script (see `/backend/migrations`)
-3. Seed initial user data from HRMS
+## Core Modules
 
-### Running Development Servers
+The system is composed of several specialized modules handling specific business domains:
 
-```bash
-# Terminal 1: Backend (port 3001)
-cd backend
-npm run dev
-
-# Terminal 2: Frontend (port 3000)
-cd frontend
-npm run dev
-```
-
----
-
-## Development Phase
-
-**Current Phase**: Part 1 - Identity & Foundation
-
-### Part 1 Deliverables
-1. Monorepo Project Structure
-2. Database Migration Script (`users` table creation & seeding)
-3. Backend Authentication API (Login endpoint)
-4. Frontend Login Page with Role-Based Redirection
-
----
-
-## Related Documentation
-
-- `doc_1_requirements.md` - Part 1 Requirements Specification
-- `phts_system.sql` - Database Schema
-- `CLAUDE.md` - AI Assistant Guidelines
-
----
+* **Request Management:** Handles new enrollments (`NEW`), info updates (`UPDATE_INFO`), and rate changes (`CHANGE_RATE`). Supports file attachments (PDF/JPG) for evidence.
+* **Payroll Calculator:** The heart of PHTS. It processes "Eligible Days" by cross-referencing valid license dates with the leave history to compute the exact payout.
+* **Report Generator:** Uses `exceljs` to produce the "Monthly Detail Report" and "Payment Summary Sheet" formatted strictly for financial department processing.
 
 ## License
 
-Proprietary - Internal Use Only
+This project is proprietary software developed for internal use within Public Health facilities.
