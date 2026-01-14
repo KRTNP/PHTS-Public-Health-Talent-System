@@ -3,12 +3,21 @@ node_modules/
 **/node_modules/
 .pnp
 .pnp.js
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.yarn/logs/
 
 # Build outputs
 dist/
 build/
 out/
 .next/
+.turbo/
+.swc/
 coverage/
 .nyc_output/
 *.tsbuildinfo
@@ -27,6 +36,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 # Runtime data
 tmp/
@@ -38,6 +48,7 @@ temp/
 # Editor and OS files
 .vscode/
 .idea/
+.history/
 .DS_Store
 Thumbs.db
 
@@ -48,3 +59,8 @@ AGENTS.md
 
 # Uploads
 uploads/
+
+# Miscellaneous
+.cache/
+.githooks/
+scripts/

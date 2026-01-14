@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import type { RowDataPacket } from 'mysql2/promise';
 import db from '../config/database.js';
 import redis from '../config/redis.js';
+import { assignRoles } from './roleAssignmentService.js';
 
 const SALT_ROUNDS = 10;
 const SYNC_LOCK_KEY = 'system:sync:lock';
@@ -93,6 +94,7 @@ export class SyncService {
       quotas: { upserted: 0 },
       leaves: { upserted: 0, skipped: 0 },
       movements: { added: 0 },
+      roles: { updated: 0, skipped: 0, missing: 0 },
     };
 
     const conn = await db.getConnection();
@@ -116,6 +118,7 @@ export class SyncService {
         let needsUpdate = false;
         let finalPass = vUser.plain_password;
         let shouldHash = true;
+        const roleForInsert = dbUser?.role || 'USER';
 
         if (!dbUser) {
           stats.users.added++;
@@ -150,13 +153,9 @@ export class SyncService {
           ON DUPLICATE KEY UPDATE 
             password_hash = VALUES(password_hash),
             is_active = VALUES(is_active),
-            role = CASE 
-                    WHEN role IN ('ADMIN','OFFICER','PTS_OFFICER') THEN role 
-                    ELSE VALUES(role) 
-                   END,
             updated_at = NOW()
         `,
-          [vUser.citizen_id, finalPass, vUser.role, vUser.is_active],
+          [vUser.citizen_id, finalPass, roleForInsert, vUser.is_active],
         );
       }
 
@@ -230,9 +229,9 @@ export class SyncService {
       console.log('[SyncService] Processing support employees...');
 
       const [existingSupEmps] = await conn.query<RowDataPacket[]>(
-        `SELECT citizen_id, title, first_name, last_name, position_name, 
-                level, special_position, emp_type, department, 
-                is_currently_active, is_enable_login 
+        `SELECT citizen_id, title, first_name, last_name, position_name,
+                level, special_position, emp_type, department,
+                is_currently_active
          FROM pts_support_employees`,
       );
       const supEmpMap = new Map(existingSupEmps.map((e) => [e.citizen_id, e]));
@@ -254,8 +253,7 @@ export class SyncService {
           !isChanged(dbSup.special_position, vSup.special_position) &&
           !isChanged(dbSup.emp_type, vSup.employee_type) &&
           !isChanged(dbSup.department, vSup.department) &&
-          Number(dbSup.is_currently_active) === Number(vSup.is_currently_active) &&
-          Number(dbSup.is_enable_login) === Number(vSup.is_enable_login)
+          Number(dbSup.is_currently_active) === Number(vSup.is_currently_active)
         ) {
           stats.support_employees.skipped++;
           continue;
@@ -264,10 +262,10 @@ export class SyncService {
         await conn.execute(
           `
           INSERT INTO pts_support_employees (
-            citizen_id, title, first_name, last_name, 
-            position_name, level, special_position, emp_type, 
-            department, is_currently_active, is_enable_login, last_synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            citizen_id, title, first_name, last_name,
+            position_name, level, special_position, emp_type,
+            department, is_currently_active, last_synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
             title = VALUES(title),
             first_name = VALUES(first_name),
@@ -278,7 +276,6 @@ export class SyncService {
             emp_type = VALUES(emp_type),
             department = VALUES(department),
             is_currently_active = VALUES(is_currently_active),
-            is_enable_login = VALUES(is_enable_login),
             last_synced_at = NOW()
         `,
           [
@@ -292,7 +289,6 @@ export class SyncService {
             toNull(vSup.employee_type),
             toNull(vSup.department),
             toNull(vSup.is_currently_active),
-            toNull(vSup.is_enable_login),
           ],
         );
         stats.support_employees.upserted++;
@@ -431,6 +427,12 @@ export class SyncService {
       `);
 
       await conn.commit();
+
+      // 7. Assign roles based on HR data (after commit)
+      console.log('[SyncService] Assigning roles based on HR data...');
+      const roleResult = await assignRoles();
+      stats.roles = roleResult;
+      console.log(`[SyncService] Role assignment: ${roleResult.updated} updated, ${roleResult.skipped} skipped`);
 
       const duration = ((Date.now() - startTotal) / 1000).toFixed(2);
       const resultData = {
