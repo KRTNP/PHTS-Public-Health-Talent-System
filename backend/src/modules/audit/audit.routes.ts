@@ -2,7 +2,7 @@
  * PHTS System - Audit Trail Routes
  *
  * API routes for audit trail operations.
- * Access restricted to ADMIN, PTS_OFFICER
+ * Per Access_Control_Matrix.txt Line 146: ADMIN เท่านั้น
  */
 
 import { Router } from 'express';
@@ -18,26 +18,26 @@ const router = Router();
 router.use(protect);
 
 /**
- * Audit trail access is restricted to ADMIN and PTS_OFFICER
+ * Audit trail access is restricted to ADMIN only
+ * Per Access_Control_Matrix.txt: "ADMIN: ดาวน์โหลดรายงาน Audit Trail เพื่อการตรวจสอบ"
  */
-const auditAccessRoles = [UserRole.ADMIN, UserRole.PTS_OFFICER];
 
 // Get available event types for filtering
-router.get('/event-types', restrictTo(...auditAccessRoles), auditController.getEventTypes);
+router.get('/event-types', restrictTo(UserRole.ADMIN), auditController.getEventTypes);
 
 // Get audit summary
-router.get('/summary', restrictTo(...auditAccessRoles), auditController.getSummary);
+router.get('/summary', restrictTo(UserRole.ADMIN), auditController.getSummary);
 
 // Search audit events
-router.get('/events', restrictTo(...auditAccessRoles), auditController.searchEvents);
+router.get('/events', restrictTo(UserRole.ADMIN), auditController.searchEvents);
 
 // Export audit events
-router.get('/export', restrictTo(...auditAccessRoles), auditController.exportEvents);
+router.get('/export', restrictTo(UserRole.ADMIN), auditController.exportEvents);
 
 // Get audit trail for a specific entity
 router.get(
   '/entity/:entityType/:entityId',
-  restrictTo(...auditAccessRoles),
+  restrictTo(UserRole.ADMIN),
   auditController.getEntityAuditTrail,
 );
 
