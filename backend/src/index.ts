@@ -20,6 +20,14 @@ import payrollRoutes from './modules/payroll/payroll.routes.js';
 import reportRoutes from './modules/report/report.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import notificationRoutes from './modules/notification/notification.routes.js';
+import financeRoutes from './modules/finance/finance.routes.js';
+// Phase 6: Compliance & Quality
+import auditRoutes from './modules/audit/audit.routes.js';
+import slaRoutes from './modules/sla/sla.routes.js';
+import accessReviewRoutes from './modules/access-review/access-review.routes.js';
+import delegationRoutes from './modules/delegation/delegation.routes.js';
+import dataQualityRoutes from './modules/data-quality/data-quality.routes.js';
+import snapshotRoutes from './modules/snapshot/snapshot.routes.js';
 import { ApiResponse } from './types/auth.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 
@@ -110,6 +118,14 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/system', adminRoutes);
 app.use('/api/management', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/finance', financeRoutes);
+// Phase 6: Compliance & Quality Routes
+app.use('/api/audit', auditRoutes);
+app.use('/api/sla', slaRoutes);
+app.use('/api/access-review', accessReviewRoutes);
+app.use('/api/delegations', delegationRoutes);
+app.use('/api/data-quality', dataQualityRoutes);
+app.use('/api/snapshots', snapshotRoutes);
 
 /**
  * 404 Handler - Route Not Found
