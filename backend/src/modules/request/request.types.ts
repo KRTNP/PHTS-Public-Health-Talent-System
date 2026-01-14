@@ -58,15 +58,16 @@ export enum FileType {
 }
 
 /**
- * Step to Role mapping
+ * Step to Role mapping (6-step workflow)
  * Defines which role is responsible for approval at each workflow step
  */
 export const STEP_ROLE_MAP: Record<number, string> = {
-  1: 'HEAD_DEPT',
-  2: 'PTS_OFFICER',
-  3: 'HEAD_HR',
-  4: 'HEAD_FINANCE',
-  5: 'DIRECTOR',
+  1: 'HEAD_WARD',
+  2: 'HEAD_DEPT',
+  3: 'PTS_OFFICER',
+  4: 'HEAD_HR',
+  5: 'HEAD_FINANCE',
+  6: 'DIRECTOR',
 };
 
 /**
@@ -74,12 +75,18 @@ export const STEP_ROLE_MAP: Record<number, string> = {
  * Maps user roles to their corresponding approval step number
  */
 export const ROLE_STEP_MAP: Record<string, number> = {
-  HEAD_DEPT: 1,
-  PTS_OFFICER: 2,
-  HEAD_HR: 3,
-  HEAD_FINANCE: 4,
-  DIRECTOR: 5,
+  HEAD_WARD: 1,
+  HEAD_DEPT: 2,
+  PTS_OFFICER: 3,
+  HEAD_HR: 4,
+  HEAD_FINANCE: 5,
+  DIRECTOR: 6,
 };
+
+/**
+ * Total number of approval steps in the workflow
+ */
+export const TOTAL_APPROVAL_STEPS = 6;
 
 /**
  * Work attributes interface for P.T.S. form

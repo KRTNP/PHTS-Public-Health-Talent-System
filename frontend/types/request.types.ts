@@ -76,22 +76,41 @@ export enum FileType {
 }
 
 /**
- * Step mappings
+ * Step mappings (6-step workflow)
  */
 export const STEP_ROLE_MAP: Record<number, string> = {
-  1: 'HEAD_DEPT',
-  2: 'PTS_OFFICER',
-  3: 'HEAD_HR',
-  4: 'HEAD_FINANCE',
-  5: 'DIRECTOR',
+  1: 'HEAD_WARD',
+  2: 'HEAD_DEPT',
+  3: 'PTS_OFFICER',
+  4: 'HEAD_HR',
+  5: 'HEAD_FINANCE',
+  6: 'DIRECTOR',
 };
 
 export const ROLE_STEP_MAP: Record<string, number> = {
-  HEAD_DEPT: 1,
-  PTS_OFFICER: 2,
-  HEAD_HR: 3,
-  HEAD_FINANCE: 4,
-  DIRECTOR: 5,
+  HEAD_WARD: 1,
+  HEAD_DEPT: 2,
+  PTS_OFFICER: 3,
+  HEAD_HR: 4,
+  HEAD_FINANCE: 5,
+  DIRECTOR: 6,
+};
+
+/**
+ * Total number of approval steps
+ */
+export const TOTAL_APPROVAL_STEPS = 6;
+
+/**
+ * Step labels for UI display
+ */
+export const STEP_LABELS: Record<number, string> = {
+  1: 'หัวหน้าตึก',
+  2: 'หัวหน้ากลุ่มงาน',
+  3: 'เจ้าหน้าที่ พ.ต.ส.',
+  4: 'หัวหน้า HR',
+  5: 'หัวหน้าการเงิน',
+  6: 'ผู้อำนวยการ',
 };
 
 /**

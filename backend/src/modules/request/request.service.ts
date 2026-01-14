@@ -791,12 +791,12 @@ export async function approveBatch(
   const expectedStep = ROLE_STEP_MAP[actorRole];
   const allowedSteps =
     actorRole === 'DIRECTOR'
-      ? [4, 5]
+      ? [5, 6] // HEAD_FINANCE (5) or DIRECTOR (6) step
       : expectedStep !== undefined
         ? [expectedStep]
         : [];
 
-  if (allowedSteps.length === 0 || !allowedSteps.some((s) => s === 4 || s === 5)) {
+  if (allowedSteps.length === 0 || !allowedSteps.some((s) => s === 5 || s === 6)) {
     throw new Error(`Batch approval not supported for role: ${actorRole}`);
   }
 
@@ -892,10 +892,11 @@ async function _performApproval(
     [requestId, actorId, currentStep, ActionType.APPROVE, comment, signatureSnapshot],
   );
 
-  if (nextStep > 5) {
+  if (nextStep > 6) {
+    // All 6 steps completed - finalize request
     await connection.execute(
       `UPDATE pts_requests
-       SET status = ?, current_step = 6, updated_at = NOW()
+       SET status = ?, current_step = 7, updated_at = NOW()
        WHERE request_id = ?`,
       [RequestStatus.APPROVED, requestId],
     );
