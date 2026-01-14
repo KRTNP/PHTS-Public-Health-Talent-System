@@ -10,12 +10,22 @@ import { AuthService } from '@/lib/api/authApi';
  */
 export function getDashboardHome(role?: string): string {
   switch (role) {
+    case 'ADMIN':
+      return '/dashboard/admin';
+    case 'HEAD_WARD':
+      return '/dashboard/head-ward';
     case 'HEAD_DEPT':
-    case 'PTS_OFFICER':
-    case 'HEAD_HR':
-    case 'DIRECTOR':
-    case 'HEAD_FINANCE':
       return '/dashboard/approver';
+    case 'PTS_OFFICER':
+      return '/dashboard/officer';
+    case 'HEAD_HR':
+      return '/dashboard/hr-head';
+    case 'HEAD_FINANCE':
+      return '/dashboard/finance-head';
+    case 'FINANCE_OFFICER':
+      return '/dashboard/finance';
+    case 'DIRECTOR':
+      return '/dashboard/director';
     default:
       return '/dashboard/user';
   }
