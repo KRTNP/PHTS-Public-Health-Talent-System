@@ -57,6 +57,26 @@ Set the following variables in `.env`:
 - `REDIS_PORT`
 - `REDIS_PASSWORD`
 - `REDIS_DB`
+- `EMAIL_ENABLED` (optional, default false)
+- `SMTP_HOST` (optional)
+- `SMTP_PORT` (optional)
+- `SMTP_USER` (optional)
+- `SMTP_PASS` (optional)
+- `SMTP_SECURE` (optional)
+- `SMTP_FROM` (optional)
+- `OCR_ENABLED` (optional, default false)
+- `OCR_PROVIDER` (optional, default TYPHOON)
+- `OCR_API_KEY` (optional)
+- `OCR_BASE_URL` (optional, default https://api.opentyphoon.ai/v1)
+- `OCR_ENDPOINT` (optional, legacy alias)
+- `OCR_PYTHON_BIN` (optional, default python3)
+- `OCR_TIMEOUT_MS` (optional, default 120000)
+- `BACKUP_ENABLED` (optional, default false)
+- `BACKUP_COMMAND` (optional)
+- `BACKUP_WORKDIR` (optional)
+- `BACKUP_TIMEOUT_MS` (optional, default 300000)
+- `BACKUP_DIR` (optional, default ./backups)
+- `BACKUP_RETENTION_DAYS` (optional, default 30)
 
 ## Installation
 

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { query } from '../../config/database.js';
 import { UserRole } from '../../types/auth.js';
 import { SyncService } from '../../services/syncService.js';
+import { runBackupJob } from '../../services/backupService.js';
 
 export const searchUsers = async (req: Request, res: Response) => {
   try {
@@ -50,7 +51,16 @@ export const toggleMaintenanceMode = async (req: Request, res: Response) => {
 };
 
 export const triggerBackup = async (_req: Request, res: Response) => {
-  res.json({ success: true, message: 'Backup process started in background' });
+  try {
+    const result = await runBackupJob();
+    if (!result.enabled) {
+      res.json({ success: true, message: 'Backup is disabled (BACKUP_ENABLED=false)' });
+      return;
+    }
+    res.json({ success: true, message: 'Backup completed', data: { output: result.output } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 export const triggerSync = async (_req: Request, res: Response) => {
