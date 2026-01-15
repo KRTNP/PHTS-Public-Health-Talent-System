@@ -28,6 +28,7 @@ export enum UserRole {
 export interface User {
   user_id: number;
   citizen_id: string;
+  email: string | null;
   password_hash: string;
   role: UserRole;
   is_active: boolean;
@@ -65,6 +66,7 @@ export interface UserProfile {
   role: UserRole;
   is_active: boolean;
   last_login_at: Date | null;
+  email?: string | null;
   first_name?: string;
   last_name?: string;
   position?: string;

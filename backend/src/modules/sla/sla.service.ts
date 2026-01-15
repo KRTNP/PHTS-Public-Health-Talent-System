@@ -290,6 +290,8 @@ export async function sendSLAReminders(): Promise<{
                 `/dashboard/officer/requests/${req.request_id}`,
                 'WARNING',
               );
+              // Email notifications are intentionally disabled until SMTP is configured.
+              // When ready, wire EmailService.sendEmail(...) with a real recipient address.
 
               await logReminderSent(req.request_id, req.current_step, userId, 'APPROACHING');
             }
@@ -314,6 +316,7 @@ export async function sendSLAReminders(): Promise<{
                 `/dashboard/officer/requests/${req.request_id}`,
                 'ERROR',
               );
+              // Email notifications are intentionally disabled until SMTP is configured.
 
               await logReminderSent(req.request_id, req.current_step, userId, 'DAILY_OVERDUE');
             }
