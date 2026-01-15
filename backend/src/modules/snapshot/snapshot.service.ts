@@ -122,10 +122,15 @@ export async function freezePeriod(
              COALESCE(e.first_name, s.first_name, '') AS first_name,
              COALESCE(e.last_name, s.last_name, '') AS last_name,
              COALESCE(e.department, s.department, '') AS department,
-             COALESCE(e.position_name, s.position_name, '') AS position_name
+             COALESCE(e.position_name, s.position_name, '') AS position_name,
+             mr.amount AS base_rate,
+             mr.group_no,
+             mr.item_no,
+             mr.profession_code
       FROM pts_payouts po
       LEFT JOIN pts_employees e ON po.citizen_id = e.citizen_id
       LEFT JOIN pts_support_employees s ON po.citizen_id = s.citizen_id
+      LEFT JOIN pts_master_rates mr ON po.master_rate_id = mr.rate_id
       WHERE po.period_id = ?
       ORDER BY last_name, first_name
     `, [periodId]);
@@ -282,10 +287,15 @@ export async function getPayoutDataForReport(periodId: number): Promise<{
            COALESCE(e.first_name, s.first_name, '') AS first_name,
            COALESCE(e.last_name, s.last_name, '') AS last_name,
            COALESCE(e.department, s.department, '') AS department,
-           COALESCE(e.position_name, s.position_name, '') AS position_name
+           COALESCE(e.position_name, s.position_name, '') AS position_name,
+           mr.amount AS base_rate,
+           mr.group_no,
+           mr.item_no,
+           mr.profession_code
     FROM pts_payouts po
     LEFT JOIN pts_employees e ON po.citizen_id = e.citizen_id
     LEFT JOIN pts_support_employees s ON po.citizen_id = s.citizen_id
+    LEFT JOIN pts_master_rates mr ON po.master_rate_id = mr.rate_id
     WHERE po.period_id = ?
     ORDER BY last_name, first_name
   `;

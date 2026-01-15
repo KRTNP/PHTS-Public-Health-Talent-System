@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { RowDataPacket } from 'mysql2/promise';
-import { getConnection } from '../../config/database.js';
+import { query } from '../../config/database.js';
+import { getPayoutDataForReport } from '../snapshot/snapshot.service.js';
 
 const BORDER_STYLE: Partial<ExcelJS.Borders> = {
   top: { style: 'thin' },
@@ -18,40 +19,102 @@ interface ReportParams {
   professionCode?: string;
 }
 
+type PayoutRow = {
+  period_id: number;
+  citizen_id: string;
+  master_rate_id: number | null;
+  pts_rate_snapshot?: number;
+  calculated_amount: number;
+  retroactive_amount: number;
+  total_payable: number;
+  remark?: string | null;
+  first_name?: string;
+  last_name?: string;
+  position_name?: string;
+  base_rate?: number;
+  group_no?: string | null;
+  item_no?: string | null;
+  profession_code?: string | null;
+};
+
+type MasterRateRow = {
+  rate_id: number;
+  amount: number;
+  group_no: string | null;
+  item_no: string | null;
+  profession_code: string | null;
+};
+
+async function getPeriodId(year: number, month: number): Promise<number> {
+  const rows = await query<RowDataPacket[]>(
+    'SELECT period_id FROM pts_periods WHERE period_year = ? AND period_month = ? LIMIT 1',
+    [year, month],
+  );
+
+  if (!rows.length) {
+    throw new Error('Period not found');
+  }
+
+  return (rows[0] as any).period_id as number;
+}
+
+async function getMasterRateMap(rateIds: number[]): Promise<Map<number, MasterRateRow>> {
+  if (!rateIds.length) return new Map();
+  const placeholders = rateIds.map(() => '?').join(', ');
+  const rows = await query<RowDataPacket[]>(
+    `SELECT rate_id, amount, group_no, item_no, profession_code
+     FROM pts_master_rates
+     WHERE rate_id IN (${placeholders})`,
+    rateIds,
+  );
+  const map = new Map<number, MasterRateRow>();
+  for (const row of rows as any[]) {
+    map.set(row.rate_id, {
+      rate_id: row.rate_id,
+      amount: Number(row.amount),
+      group_no: row.group_no ?? null,
+      item_no: row.item_no ?? null,
+      profession_code: row.profession_code ?? null,
+    });
+  }
+  return map;
+}
+
 export async function generateDetailReport(params: ReportParams): Promise<Buffer> {
-  const connection = await getConnection();
-  try {
-    const { year, month, professionCode } = params;
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Detail Report');
+  const { year, month, professionCode } = params;
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Detail Report');
 
-    let sql = `
-      SELECT 
-        p.citizen_id,
-        e.first_name, e.last_name, e.position_name,
-        mr.amount as base_rate,
-        p.calculated_amount as current_receive,
-        p.retroactive_amount as retro,
-        p.total_payable as total,
-        p.remark,
-        mr.group_no,
-        mr.item_no,
-        mr.profession_code
-      FROM pts_payouts p
-      JOIN pts_periods per ON p.period_id = per.period_id
-      JOIN pts_master_rates mr ON p.master_rate_id = mr.rate_id
-      LEFT JOIN pts_employees e ON p.citizen_id = e.citizen_id
-      WHERE per.period_year = ? AND per.period_month = ?
-    `;
+    const periodId = await getPeriodId(year, month);
+    const payoutData = await getPayoutDataForReport(periodId);
+    const payouts = payoutData.data as PayoutRow[];
 
-    const queryParams: any[] = [year, month];
-    if (professionCode) {
-      sql += ` AND mr.profession_code = ?`;
-      queryParams.push(professionCode);
-    }
-    sql += ` ORDER BY e.first_name ASC`;
+    const rateIds = payouts
+      .map((row) => row.master_rate_id)
+      .filter((id): id is number => typeof id === 'number');
+    const rateMap = await getMasterRateMap(Array.from(new Set(rateIds)));
 
-    const [rows] = await connection.query<RowDataPacket[]>(sql, queryParams);
+    const rows = payouts
+      .map((row) => {
+        const rate = row.master_rate_id ? rateMap.get(row.master_rate_id) : undefined;
+        const profession = (row as any).profession_code ?? rate?.profession_code ?? null;
+        return {
+          citizen_id: row.citizen_id,
+          first_name: row.first_name || '',
+          last_name: row.last_name || '',
+          position_name: row.position_name || '',
+          base_rate: row.pts_rate_snapshot ?? (row as any).base_rate ?? rate?.amount ?? 0,
+          current_receive: Number(row.calculated_amount) || 0,
+          retro: Number(row.retroactive_amount) || 0,
+          total: Number(row.total_payable) || 0,
+          remark: row.remark || '',
+          group_no: (row as any).group_no ?? rate?.group_no ?? null,
+          item_no: (row as any).item_no ?? rate?.item_no ?? null,
+          profession_code: profession,
+        };
+      })
+      .filter((row) => !professionCode || row.profession_code === professionCode)
+      .sort((a, b) => a.first_name.localeCompare(b.first_name, 'th'));
 
     worksheet.pageSetup = { paperSize: 9, orientation: 'landscape' };
 
@@ -148,32 +211,45 @@ export async function generateDetailReport(params: ReportParams): Promise<Buffer
     signRow.getCell(2).value = 'ลงชื่อ ........................................................... ผู้จัดทำ';
     signRow.getCell(7).value = 'ลงชื่อ ........................................................... ผู้ตรวจสอบ';
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
-  } finally {
-    connection.release();
-  }
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
 }
 
 export async function generateSummaryReport(year: number, month: number): Promise<Buffer> {
-  const connection = await getConnection();
-  try {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Summary Report');
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Summary Report');
 
-    const sql = `
-      SELECT 
-        mr.profession_code,
-        SUM(p.calculated_amount) as sum_current,
-        SUM(p.retroactive_amount) as sum_retro,
-        SUM(p.total_payable) as sum_total
-      FROM pts_payouts p
-      JOIN pts_periods per ON p.period_id = per.period_id
-      JOIN pts_master_rates mr ON p.master_rate_id = mr.rate_id
-      WHERE per.period_year = ? AND per.period_month = ?
-      GROUP BY mr.profession_code
-    `;
-    const [rows] = await connection.query<RowDataPacket[]>(sql, [year, month]);
+    const periodId = await getPeriodId(year, month);
+    const payoutData = await getPayoutDataForReport(periodId);
+    const payouts = payoutData.data as PayoutRow[];
+
+    const rateIds = payouts
+      .map((row) => row.master_rate_id)
+      .filter((id): id is number => typeof id === 'number');
+    const rateMap = await getMasterRateMap(Array.from(new Set(rateIds)));
+
+    const summaryMap = new Map<string, { sum_current: number; sum_retro: number; sum_total: number }>();
+    for (const row of payouts) {
+      const rate = row.master_rate_id ? rateMap.get(row.master_rate_id) : undefined;
+      const profession = (row as any).profession_code ?? rate?.profession_code ?? 'UNKNOWN';
+      const current = Number(row.calculated_amount) || 0;
+      const retro = Number(row.retroactive_amount) || 0;
+      const total = Number(row.total_payable) || 0;
+      const bucket = summaryMap.get(profession) || { sum_current: 0, sum_retro: 0, sum_total: 0 };
+      bucket.sum_current += current;
+      bucket.sum_retro += retro;
+      bucket.sum_total += total;
+      summaryMap.set(profession, bucket);
+    }
+
+    const rows = Array.from(summaryMap.entries())
+      .map(([profession_code, sums]) => ({
+        profession_code,
+        sum_current: sums.sum_current,
+        sum_retro: sums.sum_retro,
+        sum_total: sums.sum_total,
+      }))
+      .sort((a, b) => a.profession_code.localeCompare(b.profession_code, 'th'));
 
     worksheet.pageSetup = { paperSize: 9, orientation: 'portrait' };
 
@@ -248,9 +324,6 @@ export async function generateSummaryReport(year: number, month: number): Promis
     signCell.alignment = { horizontal: 'center' };
     signCell.font = FONT_BODY;
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
-  } finally {
-    connection.release();
-  }
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
 }
