@@ -164,6 +164,10 @@ export interface RequestAttachment {
   file_size?: number;
   mime_type?: string;
   uploaded_at: Date;
+  ocr_status?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null;
+  ocr_confidence?: number | null;
+  ocr_provider?: string | null;
+  ocr_processed_at?: Date | null;
 }
 
 /**

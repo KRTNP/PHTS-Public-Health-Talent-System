@@ -81,6 +81,18 @@ router.get(
   requestController.getPendingApprovals
 );
 
+// OCR for attachments (PTS_OFFICER only)
+router.get(
+  '/attachments/:attachmentId/ocr',
+  restrictTo(UserRole.PTS_OFFICER),
+  requestController.getAttachmentOcr
+);
+router.post(
+  '/attachments/:attachmentId/ocr',
+  restrictTo(UserRole.PTS_OFFICER),
+  requestController.requestAttachmentOcr
+);
+
 // Get approval history for current approver
 router.get(
   '/history',

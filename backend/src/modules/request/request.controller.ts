@@ -941,6 +941,7 @@ export async function getMasterRates(_req: Request, res: Response): Promise<void
 // Reassign Functions (PTS_OFFICER)
 // ============================================
 import * as reassignService from './reassign.service.js';
+import * as ocrService from './ocr.service.js';
 
 /**
  * Get list of PTS_OFFICER users for reassignment
@@ -1051,6 +1052,80 @@ export async function getReassignHistory(
     res.json({ success: true, data: history });
   } catch (error: any) {
     console.error('Get reassign history error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// ============================================
+// OCR Functions (PTS_OFFICER)
+// ============================================
+
+/**
+ * Get OCR record for an attachment
+ *
+ * @route GET /api/requests/attachments/:attachmentId/ocr
+ * @access Protected (PTS_OFFICER only)
+ */
+export async function getAttachmentOcr(
+  req: Request,
+  res: Response<ApiResponse>,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized access' });
+      return;
+    }
+
+    const attachmentId = parseInt(req.params.attachmentId, 10);
+    if (isNaN(attachmentId)) {
+      res.status(400).json({ success: false, error: 'Invalid attachment ID' });
+      return;
+    }
+
+    await ocrService.assertOcrAccess(attachmentId, req.user.userId);
+    const record = await ocrService.getOcrRecord(attachmentId);
+    res.json({ success: true, data: record });
+  } catch (error: any) {
+    console.error('Get attachment OCR error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+/**
+ * Request OCR processing for an attachment
+ *
+ * @route POST /api/requests/attachments/:attachmentId/ocr
+ * @access Protected (PTS_OFFICER only)
+ */
+export async function requestAttachmentOcr(
+  req: Request,
+  res: Response<ApiResponse>,
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Unauthorized access' });
+      return;
+    }
+
+    const attachmentId = parseInt(req.params.attachmentId, 10);
+    if (isNaN(attachmentId)) {
+      res.status(400).json({ success: false, error: 'Invalid attachment ID' });
+      return;
+    }
+
+    await ocrService.assertOcrAccess(attachmentId, req.user.userId);
+    const pageNum =
+      typeof req.body?.page_num === 'number' ? req.body.page_num : undefined;
+    const result = await ocrService.requestOcrProcessing(attachmentId, pageNum);
+    res.json({
+      success: true,
+      data: result.record,
+      message: result.ocrEnabled
+        ? 'OCR request queued'
+        : 'OCR is disabled (set OCR_ENABLED=true after configuring Typhoon OCR)',
+    });
+  } catch (error: any) {
+    console.error('Request attachment OCR error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 }
