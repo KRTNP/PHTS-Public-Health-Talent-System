@@ -134,6 +134,23 @@ function mapRequestRow(row: any): PTSRequest & {
   } as any;
 }
 
+function getRequestLinkForRole(role: string, requestId: number): string {
+  switch (role) {
+    case 'PTS_OFFICER':
+      return `/dashboard/officer/requests/${requestId}`;
+    case 'HEAD_HR':
+      return `/dashboard/hr-head/requests/${requestId}`;
+    case 'USER':
+      return `/dashboard/user/requests/${requestId}`;
+    case 'HEAD_WARD':
+    case 'HEAD_DEPT':
+    case 'HEAD_FINANCE':
+    case 'DIRECTOR':
+    default:
+      return `/dashboard/approver/requests/${requestId}`;
+  }
+}
+
 function buildInClause(ids: number[]): { clause: string; params: number[] } {
   const placeholders = ids.map(() => '?').join(', ');
   return { clause: placeholders, params: ids };
@@ -146,7 +163,15 @@ async function hydrateRequests(requestRows: any[]): Promise<RequestWithDetails[]
   const { clause, params } = buildInClause(ids);
 
   const attachments = await query<RowDataPacket[]>(
-    `SELECT * FROM pts_attachments WHERE request_id IN (${clause}) ORDER BY uploaded_at DESC`,
+    `SELECT a.*,
+            o.status AS ocr_status,
+            o.confidence AS ocr_confidence,
+            o.provider AS ocr_provider,
+            o.processed_at AS ocr_processed_at
+     FROM pts_attachments a
+     LEFT JOIN pts_attachment_ocr o ON a.attachment_id = o.attachment_id
+     WHERE a.request_id IN (${clause})
+     ORDER BY a.uploaded_at DESC`,
     params,
   );
 
@@ -193,6 +218,10 @@ async function hydrateRequests(requestRows: any[]): Promise<RequestWithDetails[]
       file_size: att.file_size,
       mime_type: att.mime_type,
       uploaded_at: att.uploaded_at,
+      ocr_status: att.ocr_status,
+      ocr_confidence: att.ocr_confidence,
+      ocr_provider: att.ocr_provider,
+      ocr_processed_at: att.ocr_processed_at,
     })) as RequestAttachment[];
 
     request.actions = (actionsByRequest.get(requestId) || []).map((action: any) => ({
@@ -401,10 +430,10 @@ export async function submitRequest(requestId: number, userId: number): Promise<
     await connection.commit();
 
     await NotificationService.notifyRole(
-      'HEAD_DEPT',
+      'HEAD_WARD',
       'มีคำขอใหม่รออนุมัติ',
       `มีคำขอเลขที่ ${request.request_no} รอการตรวจสอบจากท่าน`,
-      `/dashboard/approver/requests/${requestId}`,
+      getRequestLinkForRole('HEAD_WARD', requestId),
     );
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
@@ -460,12 +489,12 @@ export async function getPendingForApprover(
   }
 
   // Build base query with employee join for scope filtering
+  // Note: REQUESTER_JOINS already includes LEFT JOIN pts_employees e ON u.citizen_id
   let sql = `SELECT ${REQUESTER_FIELDS},
        e.department AS emp_department,
        e.sub_department AS emp_sub_department
      FROM pts_requests r
      ${REQUESTER_JOINS}
-     LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
      WHERE r.status = ? AND r.current_step = ?`;
 
   const params: any[] = [RequestStatus.PENDING, stepNo];
@@ -681,20 +710,6 @@ export async function approveRequest(
     );
 
     await connection.commit();
-
-    // Notify next approver role (if not finalized)
-    const nextStep = request.current_step + 1;
-    if (nextStep <= 6) {
-      const nextRole = STEP_ROLE_MAP[nextStep];
-      if (nextRole) {
-        await NotificationService.notifyRole(
-          nextRole,
-          'มีคำขอใหม่รออนุมัติ',
-          `มีคำขอเลขที่ ${request.request_no} รอการตรวจสอบจากท่าน`,
-          `/dashboard/approver/requests/${requestId}`,
-        );
-      }
-    }
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
       'SELECT * FROM pts_requests WHERE request_id = ?',
@@ -1051,7 +1066,7 @@ async function _performApproval(
         nextRole,
         'งานรออนุมัติ',
         `มีคำขอเลขที่ ${request.request_no} ส่งต่อมาถึงท่าน`,
-        `/dashboard/approver/requests/${requestId}`,
+        getRequestLinkForRole(nextRole, requestId),
       );
     }
   }
@@ -1134,7 +1149,15 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
   const request = mapRequestRow(requests[0]);
 
   const attachments = await query<RowDataPacket[]>(
-    'SELECT * FROM pts_attachments WHERE request_id = ? ORDER BY uploaded_at DESC',
+    `SELECT a.*,
+            o.status AS ocr_status,
+            o.confidence AS ocr_confidence,
+            o.provider AS ocr_provider,
+            o.processed_at AS ocr_processed_at
+     FROM pts_attachments a
+     LEFT JOIN pts_attachment_ocr o ON a.attachment_id = o.attachment_id
+     WHERE a.request_id = ?
+     ORDER BY a.uploaded_at DESC`,
     [requestId],
   );
 
@@ -1186,6 +1209,10 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
       file_size: att.file_size,
       mime_type: att.mime_type,
       uploaded_at: att.uploaded_at,
+      ocr_status: att.ocr_status,
+      ocr_confidence: att.ocr_confidence,
+      ocr_provider: att.ocr_provider,
+      ocr_processed_at: att.ocr_processed_at,
     })) as RequestAttachment[],
     actions: actionsWithActor,
   };

@@ -187,7 +187,7 @@ export class PayrollService {
       } else if (action === 'APPROVE_DIRECTOR' && currentStatus === PeriodStatus.WAITING_DIRECTOR) {
         nextStatus = PeriodStatus.CLOSED;
         await NotificationService.notifyRole(
-          'FINANCE',
+          'FINANCE_OFFICER',
           'งวดเดือนปิดแล้ว',
           `งวดเดือน ${month}/${year} อนุมัติแล้ว สามารถดาวน์โหลดรายงานได้`,
         );
