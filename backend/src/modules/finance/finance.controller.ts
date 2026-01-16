@@ -9,10 +9,6 @@ import { ApiResponse } from '../../types/auth.js';
 import * as financeService from './finance.service.js';
 import { PaymentStatus } from './finance.service.js';
 
-function getStringQuery(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
 /**
  * Get finance dashboard overview
  * GET /api/finance/dashboard

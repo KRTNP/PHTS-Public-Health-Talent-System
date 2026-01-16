@@ -127,10 +127,10 @@ export function resolveApproverRole(
   requestDept: string | null | undefined,
   requestSubDept: string | null | undefined,
 ): 'HEAD_WARD' | 'HEAD_DEPT' | 'NONE' {
-  const wardUnitMatches: string[] = [];
-  const wardDeptMatches: string[] = [];
-  const deptUnitMatches: string[] = [];
-  const deptDeptMatches: string[] = [];
+  let wardUnitMatches = 0;
+  let wardDeptMatches = 0;
+  let deptUnitMatches = 0;
+  let deptDeptMatches = 0;
 
   // Check HEAD_WARD scopes
   for (const scope of wardScopes) {
@@ -139,12 +139,12 @@ export function resolveApproverRole(
     if (scopeType === 'IGNORE') continue;
 
     if (scopeType === 'UNIT' && scopeMatches(scope, requestSubDept)) {
-      wardUnitMatches.push(scope);
+      wardUnitMatches += 1;
     }
 
     // If sub_department is NULL, match by department
     if (scopeType === 'DEPT' && !requestSubDept && scopeMatches(scope, requestDept)) {
-      wardDeptMatches.push(scope);
+      wardDeptMatches += 1;
     }
   }
 
@@ -155,12 +155,12 @@ export function resolveApproverRole(
     if (scopeType === 'IGNORE') continue;
 
     if (scopeType === 'DEPT' && scopeMatches(scope, requestDept)) {
-      deptDeptMatches.push(scope);
+      deptDeptMatches += 1;
     }
 
     // HEAD_DEPT can also match unit scopes in their list
     if (scopeType === 'UNIT' && scopeMatches(scope, requestSubDept)) {
-      deptUnitMatches.push(scope);
+      deptUnitMatches += 1;
     }
   }
 
@@ -170,27 +170,27 @@ export function resolveApproverRole(
   // 3. If both match by dept scope -> HEAD_DEPT wins
   // 4. Single matches: return the matching role
 
-  if (wardUnitMatches.length > 0 && deptUnitMatches.length > 0) {
+  if (wardUnitMatches > 0 && deptUnitMatches > 0) {
     return 'HEAD_WARD';
   }
 
-  if (wardUnitMatches.length > 0 && deptDeptMatches.length > 0) {
+  if (wardUnitMatches > 0 && deptDeptMatches > 0) {
     return 'HEAD_WARD';
   }
 
-  if (deptDeptMatches.length > 0) {
+  if (deptDeptMatches > 0) {
     return 'HEAD_DEPT';
   }
 
-  if (wardUnitMatches.length > 0) {
+  if (wardUnitMatches > 0) {
     return 'HEAD_WARD';
   }
 
-  if (deptUnitMatches.length > 0) {
+  if (deptUnitMatches > 0) {
     return 'HEAD_DEPT';
   }
 
-  if (wardDeptMatches.length > 0) {
+  if (wardDeptMatches > 0) {
     return 'HEAD_WARD';
   }
 
