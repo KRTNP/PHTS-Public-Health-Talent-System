@@ -570,7 +570,6 @@ export async function getRequestById(
        e.sub_department AS emp_sub_department
      FROM pts_requests r
      ${REQUESTER_JOINS}
-     LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
      WHERE r.request_id = ?`,
     [requestId],
   );
