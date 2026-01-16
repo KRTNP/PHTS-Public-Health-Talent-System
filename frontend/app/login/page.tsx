@@ -8,7 +8,6 @@ import {
   TextField,
   Typography,
   Paper,
-  Container,
   InputAdornment,
   IconButton,
   Alert,
@@ -48,37 +47,29 @@ export default function LoginPage() {
       const response = await AuthService.login({ citizen_id: username, password });
       const userRole: UserRole = response.user.role;
 
-      let targetPath = '/dashboard/user';
-      switch (userRole) {
-        case UserRole.ADMIN:
-          targetPath = '/dashboard/admin';
-          break;
-        case UserRole.HEAD_WARD:
-          targetPath = '/dashboard/head-ward';
-          break;
-        case UserRole.HEAD_DEPT:
-          targetPath = '/dashboard/approver';
-          break;
-        case UserRole.PTS_OFFICER:
-          targetPath = '/dashboard/officer';
-          break;
-        case UserRole.HEAD_HR:
-          targetPath = '/dashboard/hr-head';
-          break;
-        case UserRole.HEAD_FINANCE:
-          targetPath = '/dashboard/finance-head';
-          break;
-        case UserRole.FINANCE_OFFICER:
-          targetPath = '/dashboard/finance';
-          break;
-        case UserRole.DIRECTOR:
-          targetPath = '/dashboard/director';
-          break;
-        case UserRole.USER:
-        default:
-          targetPath = '/dashboard/user';
-          break;
-      }
+      const targetPath = (() => {
+        switch (userRole) {
+          case UserRole.ADMIN:
+            return '/dashboard/admin';
+          case UserRole.HEAD_WARD:
+            return '/dashboard/head-ward';
+          case UserRole.HEAD_DEPT:
+            return '/dashboard/approver';
+          case UserRole.PTS_OFFICER:
+            return '/dashboard/officer';
+          case UserRole.HEAD_HR:
+            return '/dashboard/hr-head';
+          case UserRole.HEAD_FINANCE:
+            return '/dashboard/finance-head';
+          case UserRole.FINANCE_OFFICER:
+            return '/dashboard/finance';
+          case UserRole.DIRECTOR:
+            return '/dashboard/director';
+          case UserRole.USER:
+          default:
+            return '/dashboard/user';
+        }
+      })();
 
       router.replace(targetPath);
     } catch (err: any) {
