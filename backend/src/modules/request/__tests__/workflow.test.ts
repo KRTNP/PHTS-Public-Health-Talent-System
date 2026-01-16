@@ -1,4 +1,3 @@
-import request from 'supertest';
 import { Pool } from 'mysql2/promise';
 import path from 'path';
 import { createTestPool, setupSchema, DB_NAME } from './utils.ts';
