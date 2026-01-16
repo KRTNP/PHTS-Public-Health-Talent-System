@@ -98,7 +98,7 @@ export async function markAsPaid(
 ): Promise<void> {
   try {
     const payoutId = parseInt(req.params.payoutId, 10);
-    const userId = (req.user as any).id;
+    const userId = req.user!.userId;
     const { comment } = req.body;
 
     await financeService.markPayoutAsPaid(payoutId, userId, comment);
@@ -118,7 +118,7 @@ export async function batchMarkAsPaid(
 ): Promise<void> {
   try {
     const { payoutIds } = req.body;
-    const userId = (req.user as any).id;
+    const userId = req.user!.userId;
 
     if (!payoutIds || !Array.isArray(payoutIds) || payoutIds.length === 0) {
       res.status(400).json({ success: false, error: 'payoutIds array is required' });
@@ -142,7 +142,7 @@ export async function cancelPayout(
 ): Promise<void> {
   try {
     const payoutId = parseInt(req.params.payoutId, 10);
-    const userId = (req.user as any).id;
+    const userId = req.user!.userId;
     const { reason } = req.body;
 
     if (!reason) {
