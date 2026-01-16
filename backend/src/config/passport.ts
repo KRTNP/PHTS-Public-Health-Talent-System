@@ -11,6 +11,7 @@ import { Strategy as JwtStrategy, ExtractJwt, StrategyOptions } from 'passport-j
 import dotenv from 'dotenv';
 import { JwtPayload, User } from '../types/auth.js';
 import { query } from './database.js';
+import { getJwtSecret } from './jwt.js';
 
 // Load environment variables
 dotenv.config();
@@ -24,7 +25,7 @@ const jwtOptions: StrategyOptions = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
 
   // Secret key for verifying JWT signature
-  secretOrKey: process.env.JWT_SECRET || 'default_secret_key_change_in_production',
+  secretOrKey: getJwtSecret(),
 
   // Validate token expiration
   ignoreExpiration: false,

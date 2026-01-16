@@ -19,6 +19,7 @@ import {
   UserProfile,
 } from '../../types/auth.js';
 import { query } from '../../config/database.js';
+import { getJwtSecret } from '../../config/jwt.js';
 import { isValidCitizenId } from '../../utils/validationUtils.js';
 
 // Load environment variables
@@ -173,7 +174,17 @@ export async function login(
       role: user.role,
     };
 
-    const jwtSecret = process.env.JWT_SECRET || 'default_secret_key_change_in_production';
+    let jwtSecret: string;
+    try {
+      jwtSecret = getJwtSecret();
+    } catch (secretError) {
+      console.error('JWT secret error:', secretError);
+      res.status(500).json({
+        success: false,
+        error: 'Authentication configuration error. Please contact administrator.',
+      });
+      return;
+    }
 
     const token = jwt.sign(jwtPayload, jwtSecret, {
       expiresIn: '24h',
