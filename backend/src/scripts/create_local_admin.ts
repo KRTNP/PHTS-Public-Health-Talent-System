@@ -38,7 +38,7 @@ async function createLocalAdmin() {
     [citizenId, hash],
   );
 
-  console.log(`✅ Admin created! Login with: ${citizenId} / ${password}`);
+  console.log(`✅ Admin created! Login with: ${citizenId}`);
   await connection.end();
 }
 

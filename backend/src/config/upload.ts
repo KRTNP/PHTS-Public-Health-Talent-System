@@ -196,6 +196,7 @@ export const signatureUpload = multer({
 const requestDocumentStorage = multer.diskStorage({
   destination: (_req: Request, file: Express.Multer.File, cb) => {
     const req = _req as Request & { uploadSessionId?: string };
+    void file;
     const uploadRoot = path.join(process.cwd(), 'uploads/documents');
     const sessionId = req.uploadSessionId ?? crypto.randomUUID();
     req.uploadSessionId = sessionId;

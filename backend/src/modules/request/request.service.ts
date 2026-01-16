@@ -1004,7 +1004,10 @@ export async function approveBatch(
         result.success.push(requestId);
       } catch (err) {
         await connection.rollback();
-        console.error(`Error processing request ${requestId}:`, err);
+        console.error('Error processing request', {
+          requestId,
+          error: err instanceof Error ? err.message : err,
+        });
         result.failed.push({ id: requestId, reason: 'Database error or Finalization failed' });
       }
     }

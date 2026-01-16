@@ -20,8 +20,7 @@ beforeAll(async () => {
   // Load App (for any route-level dependencies)
   const appPath = path.join(process.cwd(), 'src/index.ts');
   const imported = await import(appPath);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const app = imported.default;
+  void imported.default;
 
   // Seed Data
   await pool.query(

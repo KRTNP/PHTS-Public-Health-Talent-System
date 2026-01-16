@@ -92,7 +92,6 @@ export default function RequestForm({
   const [classification, setClassification] = useState<any>(null);
   const [loadingClass, setLoadingClass] = useState(false);
   const [classError, setClassError] = useState<string | null>(null);
-
   // Form Data
   const [personnelType, setPersonnelType] = useState<PersonnelType | ''>('');
   const [requestType, setRequestType] = useState<RequestType | ''>('');
@@ -506,6 +505,7 @@ export default function RequestForm({
                 </CardContent>
               </Card>
             )}
+            {classError && <Alert severity="error">{classError}</Alert>}
             <Alert severity="warning">วันที่มีผลระบบดึงมาให้ หากไม่ถูกต้องสามารถแก้ไขได้</Alert>
             <TextField
               label="วันที่เริ่มมีผล (ตามคำสั่งบรรจุ)"

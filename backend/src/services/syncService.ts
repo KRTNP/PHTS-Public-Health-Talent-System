@@ -115,14 +115,14 @@ export class SyncService {
 
       for (const vUser of viewUsers) {
         const dbUser = userMap.get(vUser.citizen_id);
-        let needsUpdate = false;
+        const isNewUser = !dbUser;
+        let needsUpdate = isNewUser;
         let finalPass = vUser.plain_password;
         let shouldHash = true;
         const roleForInsert = dbUser?.role || 'USER';
 
-        if (!dbUser) {
+        if (isNewUser) {
           stats.users.added++;
-          needsUpdate = true;
         } else {
           if (dbUser.role !== vUser.role) needsUpdate = true;
           if (Number(dbUser.is_active) !== Number(vUser.is_active))

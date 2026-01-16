@@ -30,6 +30,7 @@ import dataQualityRoutes from './modules/data-quality/data-quality.routes.js';
 import snapshotRoutes from './modules/snapshot/snapshot.routes.js';
 import { ApiResponse } from './types/auth.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
+import { apiRateLimiter } from './middlewares/rateLimiter.js';
 
 // Load environment variables
 dotenv.config();
@@ -110,6 +111,7 @@ app.get('/health', (_req: Request, res: Response<ApiResponse>) => {
 /**
  * API Routes
  */
+app.use('/api', apiRateLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/signatures', signatureRoutes);
