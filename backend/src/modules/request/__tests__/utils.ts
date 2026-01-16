@@ -1,12 +1,14 @@
 import mysql, { Pool } from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 // 🔥 แยก Database สำหรับ Request Test โดยเฉพาะ เพื่อไม่ให้ตีกับ Payroll
 export const DB_NAME = 'phts_test_request';
-export const JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
+export const JWT_SECRET =
+  process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
 export async function createTestPool(): Promise<Pool> {
   // Force Env เพื่อให้ Service อื่นๆ เชื่อมมาที่นี่
