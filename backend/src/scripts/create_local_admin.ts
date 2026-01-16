@@ -14,7 +14,12 @@ const dbConfig = {
 
 async function createLocalAdmin() {
   const citizenId = process.argv[2] || '9999999999999'; // รับค่าจาก command line หรือใช้ค่า default
-  const password = process.argv[3] || 'admin1234';
+  const password = process.argv[3] || process.env.LOCAL_ADMIN_PASSWORD;
+
+  if (!password) {
+    console.error('Missing admin password. Provide as argument or LOCAL_ADMIN_PASSWORD env var.');
+    process.exit(1);
+  }
 
   console.log(`👤 Creating Local Admin: ${citizenId}`);
 
