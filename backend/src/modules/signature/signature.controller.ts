@@ -133,7 +133,7 @@ export async function uploadSignature(
 
     const { image_base64 } = req.body;
 
-    if (!image_base64) {
+    if (!image_base64 || typeof image_base64 !== 'string') {
       res.status(400).json({
         success: false,
         error: 'Missing image_base64 in request body',
