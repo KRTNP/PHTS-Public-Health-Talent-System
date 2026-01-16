@@ -9,6 +9,10 @@ import { ApiResponse } from '../../types/auth.js';
 import * as auditService from './audit.service.js';
 import { AuditEventType, AuditSearchFilter } from './audit.service.js';
 
+function getStringQuery(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
 /**
  * Search audit events with filters
  * GET /api/audit/events
@@ -24,8 +28,9 @@ export async function searchEvents(
     };
 
     // Parse event type(s)
-    if (req.query.eventType) {
-      const eventTypes = (req.query.eventType as string).split(',');
+    const eventTypeQuery = getStringQuery(req.query.eventType);
+    if (eventTypeQuery) {
+      const eventTypes = eventTypeQuery.split(',');
       if (eventTypes.length === 1) {
         filter.eventType = eventTypes[0] as AuditEventType;
       } else {
@@ -34,8 +39,9 @@ export async function searchEvents(
     }
 
     // Entity filters
-    if (req.query.entityType) {
-      filter.entityType = req.query.entityType as string;
+    const entityType = getStringQuery(req.query.entityType);
+    if (entityType) {
+      filter.entityType = entityType;
     }
 
     if (req.query.entityId) {
@@ -48,17 +54,23 @@ export async function searchEvents(
     }
 
     // Date range
-    if (req.query.startDate) {
-      filter.startDate = req.query.startDate as string;
+    const startDate = getStringQuery(req.query.startDate);
+    if (startDate) {
+      filter.startDate = startDate;
     }
 
-    if (req.query.endDate) {
-      filter.endDate = req.query.endDate as string;
+    const endDate = getStringQuery(req.query.endDate);
+    if (endDate) {
+      filter.endDate = endDate;
     }
 
     // Text search
-    if (req.query.search) {
-      filter.search = req.query.search as string;
+    const searchRaw = req.query.search;
+    if (typeof searchRaw === 'string') {
+      const search = searchRaw.trim();
+      if (search) {
+        filter.search = search;
+      }
     }
 
     const result = await auditService.searchAuditEvents(filter);
@@ -122,8 +134,9 @@ export async function exportEvents(
     const filter: Omit<AuditSearchFilter, 'page' | 'limit'> = {};
 
     // Parse filters same as search
-    if (req.query.eventType) {
-      const eventTypes = (req.query.eventType as string).split(',');
+    const exportEventTypeQuery = getStringQuery(req.query.eventType);
+    if (exportEventTypeQuery) {
+      const eventTypes = exportEventTypeQuery.split(',');
       if (eventTypes.length === 1) {
         filter.eventType = eventTypes[0] as AuditEventType;
       } else {
@@ -131,8 +144,9 @@ export async function exportEvents(
       }
     }
 
-    if (req.query.entityType) {
-      filter.entityType = req.query.entityType as string;
+    const exportEntityType = getStringQuery(req.query.entityType);
+    if (exportEntityType) {
+      filter.entityType = exportEntityType;
     }
 
     if (req.query.entityId) {
@@ -143,16 +157,22 @@ export async function exportEvents(
       filter.actorId = parseInt(req.query.actorId as string, 10);
     }
 
-    if (req.query.startDate) {
-      filter.startDate = req.query.startDate as string;
+    const exportStartDate = getStringQuery(req.query.startDate);
+    if (exportStartDate) {
+      filter.startDate = exportStartDate;
     }
 
-    if (req.query.endDate) {
-      filter.endDate = req.query.endDate as string;
+    const exportEndDate = getStringQuery(req.query.endDate);
+    if (exportEndDate) {
+      filter.endDate = exportEndDate;
     }
 
-    if (req.query.search) {
-      filter.search = req.query.search as string;
+    const exportSearchRaw = req.query.search;
+    if (typeof exportSearchRaw === 'string') {
+      const exportSearch = exportSearchRaw.trim();
+      if (exportSearch) {
+        filter.search = exportSearch;
+      }
     }
 
     const events = await auditService.getAuditEventsForExport(filter);
