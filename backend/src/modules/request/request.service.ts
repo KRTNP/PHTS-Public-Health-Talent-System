@@ -9,7 +9,6 @@
 
 import { randomUUID } from 'crypto';
 import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
-import { readUploadFile } from '../../utils/fileUtils.js';
 import { query, getConnection } from '../../config/database.js';
 import {
   RequestStatus,
@@ -303,10 +302,11 @@ export async function createRequest(
     // 1) Handle signature: if a new file is uploaded, upsert; otherwise use existing
     let signatureId: number | null = null;
     if (signatureFile) {
-      const sigBuffer =
-        signatureFile.buffer && signatureFile.buffer.length > 0
-          ? signatureFile.buffer
-          : await readUploadFile(signatureFile.path);
+      if (!signatureFile.buffer || signatureFile.buffer.length === 0) {
+        throw new Error('Signature upload is missing data');
+      }
+
+      const sigBuffer = signatureFile.buffer;
 
       signatureId = await saveSignature(userId, sigBuffer, connection);
     } else {

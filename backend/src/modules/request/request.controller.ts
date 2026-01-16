@@ -24,10 +24,11 @@ import {
   findRecommendedRate,
   getAllActiveMasterRates,
 } from './classification.service.js';
-import { handleUploadError } from '../../config/upload.js';
+import { handleUploadError, MAX_SIGNATURE_SIZE } from '../../config/upload.js';
 import pool from '../../config/database.js';
 import { NotificationService } from '../notification/notification.service.js';
-import { safeUnlinkUpload } from '../../utils/fileUtils.js';
+import fs from 'fs';
+import path from 'path';
 
 function normalizeScopeParam(scope: unknown): string | undefined {
   if (typeof scope !== 'string') return undefined;
@@ -35,6 +36,30 @@ function normalizeScopeParam(scope: unknown): string | undefined {
   if (!trimmed || trimmed.length > 120) return undefined;
   if (!/^[\p{L}\p{N}\s._\-()/]+$/u.test(trimmed)) return undefined;
   return trimmed;
+}
+
+const DOCUMENT_UPLOAD_ROOT = path.join(process.cwd(), 'uploads/documents');
+const UPLOAD_SESSION_REGEX = /^[a-f0-9-]{36}$/i;
+
+function cleanupUploadSession(req: Request): void {
+  const sessionId = req.uploadSessionId;
+  if (!sessionId || !UPLOAD_SESSION_REGEX.test(sessionId)) return;
+
+  const resolvedRoot = path.resolve(DOCUMENT_UPLOAD_ROOT);
+  const resolvedTarget = path.resolve(path.join(DOCUMENT_UPLOAD_ROOT, sessionId));
+
+  if (!resolvedTarget.startsWith(`${resolvedRoot}${path.sep}`)) {
+    return;
+  }
+
+  try {
+    fs.rmSync(resolvedTarget, { recursive: true, force: true });
+  } catch (error) {
+    console.error('Failed to cleanup upload session directory', {
+      sessionId,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 }
 
 /**
@@ -47,6 +72,9 @@ export async function createRequest(
   req: Request,
   res: Response<ApiResponse<RequestWithDetails>>,
 ): Promise<void> {
+  let documentFiles: Express.Multer.File[] = [];
+  let signatureFile: Express.Multer.File | undefined;
+
   try {
     if (!req.user) {
       res.status(401).json({
@@ -167,8 +195,6 @@ export async function createRequest(
     }
 
     // Get uploaded files (documents) and optional signature upload
-    let documentFiles: Express.Multer.File[] = [];
-    let signatureFile: Express.Multer.File | undefined;
     if (req.files) {
       const uploadedFiles = req.files as { [fieldname: string]: Express.Multer.File[] };
       if (uploadedFiles['files']) {
@@ -178,6 +204,15 @@ export async function createRequest(
         documentFiles = [...documentFiles, ...uploadedFiles['license_file']];
       }
       signatureFile = uploadedFiles['applicant_signature']?.[0];
+    }
+
+    if (signatureFile && signatureFile.size > MAX_SIGNATURE_SIZE) {
+      cleanupUploadSession(req);
+      res.status(400).json({
+        success: false,
+        error: `Signature file exceeds ${MAX_SIGNATURE_SIZE / 1024 / 1024}MB limit`,
+      });
+      return;
     }
 
     // Create request
@@ -204,21 +239,7 @@ export async function createRequest(
   } catch (error: any) {
     console.error('Create request error:', error);
 
-    // Cleanup uploaded files on failure
-    if (req.files) {
-      const uploadedFiles = req.files as { [fieldname: string]: Express.Multer.File[] };
-      Object.values(uploadedFiles)
-        .flat()
-        .forEach((file) => {
-          try {
-            if (!safeUnlinkUpload(file.path)) {
-              console.error(`Skipped deleting unexpected upload path: ${file.path}`);
-            }
-          } catch (unlinkError) {
-            console.error(`Failed to delete file ${file.path}:`, unlinkError);
-          }
-        });
-    }
+    cleanupUploadSession(req);
 
     // Handle file upload errors
     const uploadError = handleUploadError(error);
@@ -598,8 +619,7 @@ export async function rejectRequest(
     }
 
     const { comment } = req.body;
-
-    if (!comment || comment.trim() === '') {
+    if (typeof comment !== 'string' || comment.trim() === '') {
       res.status(400).json({
         success: false,
         error: 'Rejection reason (comment) is required',
@@ -669,8 +689,7 @@ export async function returnRequest(
     }
 
     const { comment } = req.body;
-
-    if (!comment || comment.trim() === '') {
+    if (typeof comment !== 'string' || comment.trim() === '') {
       res.status(400).json({
         success: false,
         error: 'Return reason (comment) is required',
