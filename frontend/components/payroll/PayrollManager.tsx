@@ -30,7 +30,6 @@ import {
 } from '@mui/icons-material';
 import { useTheme, alpha } from '@mui/material/styles';
 import * as payrollApi from '@/lib/api/payrollApi';
-import StatCard from '@/components/dashboard/StatCard';
 
 export default function PayrollManager() {
   const theme = useTheme();

@@ -296,18 +296,6 @@ export default function SignaturePad({
   };
 
   /**
-   * Get signature as base64 data URL
-   */
-  const getDataURL = (): string | null => {
-    if (mode === 'stored' && storedSignature) {
-      return storedSignature.data_url;
-    }
-    const canvas = canvasRef.current;
-    if (!canvas || !hasSignature) return null;
-    return canvas.toDataURL('image/png');
-  };
-
-  /**
    * Load initial signature if provided
    */
   useEffect(() => {

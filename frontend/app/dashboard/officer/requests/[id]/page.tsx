@@ -23,7 +23,7 @@ import StatusChip from '@/components/common/StatusChip';
 import FilePreviewList from '@/components/common/FilePreviewList';
 import BackButton from '@/components/common/BackButton';
 import * as requestApi from '@/lib/api/requestApi';
-import { RequestWithDetails, PERSONNEL_TYPE_LABELS, REQUEST_TYPE_LABELS, WORK_ATTRIBUTE_LABELS } from '@/types/request.types';
+import { RequestWithDetails, PERSONNEL_TYPE_LABELS, WORK_ATTRIBUTE_LABELS } from '@/types/request.types';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import ApprovalDialog from '@/components/requests/ApprovalDialog';
