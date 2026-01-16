@@ -9,7 +9,7 @@
 
 import { randomUUID } from 'crypto';
 import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
-import { readFile } from 'fs/promises';
+import { readUploadFile } from '../../utils/fileUtils.js';
 import { query, getConnection } from '../../config/database.js';
 import {
   RequestStatus,
@@ -306,7 +306,7 @@ export async function createRequest(
       const sigBuffer =
         signatureFile.buffer && signatureFile.buffer.length > 0
           ? signatureFile.buffer
-          : await readFile(signatureFile.path);
+          : await readUploadFile(signatureFile.path);
 
       signatureId = await saveSignature(userId, sigBuffer, connection);
     } else {

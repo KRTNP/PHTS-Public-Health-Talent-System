@@ -27,7 +27,15 @@ import {
 import { handleUploadError } from '../../config/upload.js';
 import pool from '../../config/database.js';
 import { NotificationService } from '../notification/notification.service.js';
-import fs from 'fs';
+import { safeUnlinkUpload } from '../../utils/fileUtils.js';
+
+function normalizeScopeParam(scope: unknown): string | undefined {
+  if (typeof scope !== 'string') return undefined;
+  const trimmed = scope.trim();
+  if (!trimmed || trimmed.length > 120) return undefined;
+  if (!/^[\p{L}\p{N}\s._\-()/]+$/u.test(trimmed)) return undefined;
+  return trimmed;
+}
 
 /**
  * Create a new PTS request
@@ -203,7 +211,9 @@ export async function createRequest(
         .flat()
         .forEach((file) => {
           try {
-            fs.unlinkSync(file.path);
+            if (!safeUnlinkUpload(file.path)) {
+              console.error(`Skipped deleting unexpected upload path: ${file.path}`);
+            }
           } catch (unlinkError) {
             console.error(`Failed to delete file ${file.path}:`, unlinkError);
           }
@@ -337,7 +347,14 @@ export async function getPendingApprovals(
     }
 
     // Optional scope filter for multi-scope users
-    const selectedScope = req.query.scope as string | undefined;
+    const selectedScope = normalizeScopeParam(req.query.scope);
+    if (req.query.scope !== undefined && !selectedScope) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid scope filter',
+      });
+      return;
+    }
 
     // Pass userId and optional selectedScope for scope-based filtering
     const requests = await requestService.getPendingForApprover(
