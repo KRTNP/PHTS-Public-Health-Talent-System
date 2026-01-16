@@ -201,6 +201,7 @@ export async function searchAuditEvents(
   const total = (countResult as any)[0]?.total || 0;
 
   // Get events with actor name
+  // Note: Using template literals for LIMIT/OFFSET to avoid mysql2 prepared statement issues
   const sql = `
     SELECT a.*,
            COALESCE(e.first_name, s.first_name, '') AS actor_first_name,
@@ -211,10 +212,10 @@ export async function searchAuditEvents(
     LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
     WHERE ${whereClause}
     ORDER BY a.created_at DESC
-    LIMIT ? OFFSET ?
+    LIMIT ${limit} OFFSET ${offset}
   `;
 
-  const rows = await query<RowDataPacket[]>(sql, [...params, limit, offset]);
+  const rows = await query<RowDataPacket[]>(sql, params);
 
   const events: AuditEvent[] = (rows as any[]).map((row) => ({
     audit_id: row.audit_id,
@@ -223,7 +224,11 @@ export async function searchAuditEvents(
     entity_id: row.entity_id,
     actor_id: row.actor_id,
     actor_role: row.actor_role,
-    action_detail: row.action_detail ? JSON.parse(row.action_detail) : null,
+    action_detail: row.action_detail
+      ? typeof row.action_detail === 'string'
+        ? JSON.parse(row.action_detail)
+        : row.action_detail
+      : null,
     ip_address: row.ip_address,
     user_agent: row.user_agent,
     created_at: row.created_at,

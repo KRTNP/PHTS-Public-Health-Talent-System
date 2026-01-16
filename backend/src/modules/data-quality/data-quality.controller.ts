@@ -134,7 +134,7 @@ export async function updateIssue(
   try {
     const issueId = parseInt(req.params.id, 10);
     const { status, note } = req.body;
-    const userId = (req.user as any).id;
+    const userId = req.user!.userId;
 
     if (!status || !Object.values(IssueStatus).includes(status)) {
       res.status(400).json({ success: false, error: 'Invalid status' });

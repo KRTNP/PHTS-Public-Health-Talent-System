@@ -95,7 +95,7 @@ export async function updateItem(
   try {
     const itemId = parseInt(req.params.id, 10);
     const { result, note } = req.body;
-    const reviewerId = (req.user as any).id;
+    const reviewerId = req.user!.userId;
 
     if (!result || !Object.values(ReviewResult).includes(result)) {
       res.status(400).json({ success: false, error: 'Invalid review result' });
@@ -119,7 +119,7 @@ export async function completeCycle(
 ): Promise<void> {
   try {
     const cycleId = parseInt(req.params.id, 10);
-    const completedBy = (req.user as any).id;
+    const completedBy = req.user!.userId;
 
     await accessReviewService.completeReviewCycle(cycleId, completedBy);
     res.json({ success: true, message: 'Review cycle completed' });

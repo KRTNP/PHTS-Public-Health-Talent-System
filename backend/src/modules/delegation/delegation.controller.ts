@@ -17,7 +17,7 @@ export async function getMyDelegations(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const userId = (req.user as any).id;
+    const userId = req.user!.userId;
     const includeExpired = req.query.includeExpired === 'true';
 
     const delegations = await delegationService.getUserDelegations(userId, includeExpired);
@@ -36,7 +36,7 @@ export async function getActingRoles(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const userId = (req.user as any).id;
+    const userId = req.user!.userId;
 
     const delegations = await delegationService.getActiveDelegationsForDelegate(userId);
     res.json({ success: true, data: delegations });
@@ -54,7 +54,7 @@ export async function createDelegation(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const delegatorId = (req.user as any).id;
+    const delegatorId = req.user!.userId;
     const { delegateId, delegatedRole, scopeType, scopeValue, startDate, endDate, reason } =
       req.body;
 
@@ -101,7 +101,7 @@ export async function cancelDelegation(
 ): Promise<void> {
   try {
     const delegationId = parseInt(req.params.id, 10);
-    const cancelledBy = (req.user as any).id;
+    const cancelledBy = req.user!.userId;
     const { reason } = req.body;
 
     await delegationService.cancelDelegation(delegationId, cancelledBy, reason);
@@ -120,7 +120,7 @@ export async function checkCanAct(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const userId = (req.user as any).id;
+    const userId = req.user!.userId;
     const role = req.params.role;
     const scopeType = req.query.scopeType as string | undefined;
     const scopeValue = req.query.scopeValue as string | undefined;
