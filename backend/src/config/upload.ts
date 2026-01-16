@@ -6,10 +6,11 @@
  * Date: 2025-12-30
  */
 
-import multer, { FileFilterCallback } from 'multer';
+import multer, { FileFilterCallback, StorageEngine } from 'multer';
 import { Request } from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 
 function ensureDirectoryExists(uploadPath: string, cb: (err: Error | null) => void) {
   try {
@@ -34,6 +35,7 @@ const ALLOWED_MIME_TYPES = [
  * Maximum file size: 5MB in bytes
  */
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_SIGNATURE_SIZE = 2 * 1024 * 1024; // 2MB
 
 /**
  * Configure disk storage for document file uploads
@@ -81,6 +83,47 @@ const signatureStorage = multer.diskStorage({
     cb(null, filename);
   },
 });
+
+type InternalStorageEngine = StorageEngine & {
+  _handleFile: (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error?: any, info?: Partial<Express.Multer.File>) => void
+  ) => void;
+  _removeFile: (req: Request, file: Express.Multer.File, cb: (error: Error | null) => void) => void;
+};
+
+class MixedRequestStorage implements StorageEngine {
+  private documentStorage: InternalStorageEngine;
+  private signatureStorage: InternalStorageEngine;
+
+  constructor(documentStore: StorageEngine, signatureStore: StorageEngine) {
+    this.documentStorage = documentStore as InternalStorageEngine;
+    this.signatureStorage = signatureStore as InternalStorageEngine;
+  }
+
+  _handleFile(
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error?: any, info?: Partial<Express.Multer.File>) => void
+  ): void {
+    if (file.fieldname === 'applicant_signature') {
+      this.signatureStorage._handleFile(req, file, cb);
+      return;
+    }
+
+    this.documentStorage._handleFile(req, file, cb);
+  }
+
+  _removeFile(req: Request, file: Express.Multer.File, cb: (error: Error | null) => void): void {
+    if (file.fieldname === 'applicant_signature') {
+      this.signatureStorage._removeFile(req, file, cb);
+      return;
+    }
+
+    this.documentStorage._removeFile(req, file, cb);
+  }
+}
 
 /**
  * File filter function to validate file types
@@ -141,7 +184,7 @@ export const signatureUpload = multer({
     }
   },
   limits: {
-    fileSize: 2 * 1024 * 1024, // 2MB for signatures
+    fileSize: MAX_SIGNATURE_SIZE, // 2MB for signatures
     files: 1, // Only one signature per request
   },
 });
@@ -150,34 +193,28 @@ export const signatureUpload = multer({
  * Combined upload middleware for request form
  * Handles both document files and signature
  */
-export const requestUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req: Request, file: Express.Multer.File, cb) => {
-      // Route to different directories based on field name
-      if (file.fieldname === 'applicant_signature') {
-        const uploadPath = path.join(process.cwd(), 'uploads/signatures');
-        ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
-      } else {
-        const uploadPath = path.join(process.cwd(), 'uploads/documents');
-        ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
-      }
-    },
-    filename: (req: Request, file: Express.Multer.File, cb) => {
-      const userId = req.user?.userId || 'anonymous';
-      const timestamp = Date.now();
+const requestDocumentStorage = multer.diskStorage({
+  destination: (_req: Request, file: Express.Multer.File, cb) => {
+    const req = _req as Request & { uploadSessionId?: string };
+    const uploadRoot = path.join(process.cwd(), 'uploads/documents');
+    const sessionId = req.uploadSessionId ?? crypto.randomUUID();
+    req.uploadSessionId = sessionId;
+    const uploadPath = path.join(uploadRoot, sessionId);
+    ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
+  },
+  filename: (req: Request, file: Express.Multer.File, cb) => {
+    const userId = req.user?.userId || 'anonymous';
+    const timestamp = Date.now();
+    const sanitizedOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const filename = `${userId}_${timestamp}_${sanitizedOriginalName}`;
+    cb(null, filename);
+  },
+});
 
-      if (file.fieldname === 'applicant_signature') {
-        // Signature filename
-        const filename = `signature_${userId}_${timestamp}.png`;
-        cb(null, filename);
-      } else {
-        // Document filename
-        const sanitizedOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const filename = `${userId}_${timestamp}_${sanitizedOriginalName}`;
-        cb(null, filename);
-      }
-    },
-  }),
+const requestSignatureStorage = multer.memoryStorage();
+
+export const requestUpload = multer({
+  storage: new MixedRequestStorage(requestDocumentStorage, requestSignatureStorage),
   fileFilter: (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     if (file.fieldname === 'applicant_signature') {
       // Signatures only allow PNG/JPEG
