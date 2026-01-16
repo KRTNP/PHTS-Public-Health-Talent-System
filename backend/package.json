@@ -41,6 +41,11 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1"
   },
+  "overrides": {
+    "archiver": "^7.0.1",
+    "archiver-utils": "^5.0.2",
+    "unzipper": "^0.12.3"
+  },
   "devDependencies": {
     "@babel/preset-env": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
