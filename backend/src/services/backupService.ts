@@ -35,7 +35,7 @@ export async function runBackupJob(): Promise<{ enabled: boolean; output?: strin
         throw new Error('BACKUP_ARGS must be a JSON array of strings');
       }
       args = parsed;
-    } catch (error) {
+    } catch (_error) {
       throw new Error('BACKUP_ARGS must be a JSON array of strings');
     }
   }
