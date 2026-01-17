@@ -29,6 +29,8 @@ jobs:
       DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: rootpass
+      JWT_SECRET: ci-test-secret
+      NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
