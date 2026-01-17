@@ -28,7 +28,7 @@ import { Logout, KeyboardArrowDown, NotificationsNone, PersonOutline } from '@mu
 import Image from 'next/image';
 import { AuthService } from '@/lib/api/authApi';
 import { getMyNotifications, markNotificationRead, NotificationItem } from '@/lib/api/notificationApi';
-import { UserProfile, ROLE_NAMES, ROLE_ROUTES } from '@/types/auth';
+import { ROLE_NAMES, ROLE_ROUTES } from '@/types/auth';
 import { usePathname, useRouter } from 'next/navigation';
 
 interface DashboardLayoutProps {
