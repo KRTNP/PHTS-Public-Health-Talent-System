@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Card,
@@ -71,6 +71,30 @@ export default function ApproverDashboard({ allowBatch = false }: ApproverDashbo
   const [batchComment, setBatchComment] = useState('');
   const [processingBatch, setProcessingBatch] = useState(false);
 
+  const loadScopes = useCallback(async () => {
+    try {
+      const scopes = await requestApi.getMyScopes();
+      setAvailableScopes(scopes);
+      // Show filter if user has multiple scopes
+      setShowScopeFilter(scopes.length > 1);
+    } catch (error) {
+      console.error('Failed to load scopes', error);
+    }
+  }, []);
+
+  const loadData = useCallback(async (scope?: string) => {
+    try {
+      setLoading(true);
+      const data = await requestApi.getPendingRequests(scope);
+      setRequests(data);
+      setSelectedIds([]);
+    } catch (error) {
+      console.error('Failed to load pending approvals', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const currentUser = AuthService.getCurrentUser();
     if (currentUser?.role === UserRole.PTS_OFFICER) {
@@ -89,38 +113,14 @@ export default function ApproverDashboard({ allowBatch = false }: ApproverDashbo
     }
 
     loadData();
-  }, []);
+  }, [loadData, loadScopes]);
 
   // Reload data when scope filter changes
   useEffect(() => {
     if (showScopeFilter) {
       loadData(selectedScope || undefined);
     }
-  }, [selectedScope]);
-
-  const loadScopes = async () => {
-    try {
-      const scopes = await requestApi.getMyScopes();
-      setAvailableScopes(scopes);
-      // Show filter if user has multiple scopes
-      setShowScopeFilter(scopes.length > 1);
-    } catch (error) {
-      console.error('Failed to load scopes', error);
-    }
-  };
-
-  const loadData = async (scope?: string) => {
-    try {
-      setLoading(true);
-      const data = await requestApi.getPendingRequests(scope);
-      setRequests(data);
-      setSelectedIds([]);
-    } catch (error) {
-      console.error('Failed to load pending approvals', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadData, selectedScope, showScopeFilter]);
 
   const filteredRequests = requests.filter((req) =>
     req.requester?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

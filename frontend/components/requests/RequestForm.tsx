@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Card,
@@ -128,44 +128,42 @@ export default function RequestForm({
     }
   };
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = AuthService.getCurrentUser();
-        if (user) {
-          setUserInfo(user);
-          // Auto-fill logic
-          if (user.department) setDepartmentGroup(user.department);
-          if (user.position_number) setPositionNumber(user.position_number);
-          if (user.mission_group) setMainDuty(user.mission_group);
-          if (user.start_current_position) setEffectiveDate(formatDateForInput(user.start_current_position));
+  const loadUser = useCallback(async () => {
+    try {
+      const user = AuthService.getCurrentUser();
+      if (user) {
+        setUserInfo(user);
+        // Auto-fill logic
+        if (user.department) setDepartmentGroup(user.department);
+        if (user.position_number) setPositionNumber(user.position_number);
+        if (user.mission_group) setMainDuty(user.mission_group);
+        if (user.start_current_position)
+          setEffectiveDate(formatDateForInput(user.start_current_position));
 
-          if (!personnelType) {
-            // Logic เลือกประเภทบุคลากรอัตโนมัติ (คงเดิม)
-            const emp = (user.employee_type || '').toLowerCase();
-            if (emp.includes('ราชการ') && !emp.includes('กระทรวงสาธารณสุข'))
-              setPersonnelType(PersonnelType.CIVIL_SERVANT);
-            else if (emp.includes('พนักงานราชการ')) setPersonnelType(PersonnelType.GOV_EMPLOYEE);
-            else if (emp.includes('กระทรวงสาธารณสุข') || emp.includes('พกส'))
-              setPersonnelType(PersonnelType.PH_EMPLOYEE);
-            else setPersonnelType(PersonnelType.TEMP_EMPLOYEE);
-          }
-          if (!requestType) setRequestType(Object.keys(REQUEST_TYPE_LABELS)[0] as RequestType);
+        if (!personnelType) {
+          // Logic เลือกประเภทบุคลากรอัตโนมัติ (คงเดิม)
+          const emp = (user.employee_type || '').toLowerCase();
+          if (emp.includes('ราชการ') && !emp.includes('กระทรวงสาธารณสุข'))
+            setPersonnelType(PersonnelType.CIVIL_SERVANT);
+          else if (emp.includes('พนักงานราชการ')) setPersonnelType(PersonnelType.GOV_EMPLOYEE);
+          else if (emp.includes('กระทรวงสาธารณสุข') || emp.includes('พกส'))
+            setPersonnelType(PersonnelType.PH_EMPLOYEE);
+          else setPersonnelType(PersonnelType.TEMP_EMPLOYEE);
         }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingUser(false);
+        if (!requestType) setRequestType(Object.keys(REQUEST_TYPE_LABELS)[0] as RequestType);
       }
-    };
-    loadUser();
-  }, []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingUser(false);
+    }
+  }, [personnelType, requestType]);
 
   useEffect(() => {
-    if (activeStep === 2) fetchClassification();
-  }, [activeStep]);
+    loadUser();
+  }, [loadUser]);
 
-  const fetchClassification = async () => {
+  const fetchClassification = useCallback(async () => {
     setLoadingClass(true);
     setClassError(null);
     try {
@@ -185,7 +183,11 @@ export default function RequestForm({
     } finally {
       setLoadingClass(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (activeStep === 2) fetchClassification();
+  }, [activeStep, fetchClassification]);
 
   const handleWorkAttributeChange = (key: keyof WorkAttributes) => {
     setWorkAttributes((prev) => ({ ...prev, [key]: !prev[key] }));

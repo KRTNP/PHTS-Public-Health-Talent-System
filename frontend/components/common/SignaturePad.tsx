@@ -39,6 +39,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import HistoryIcon from '@mui/icons-material/History';
 import EditIcon from '@mui/icons-material/Edit';
 import Refresh from '@mui/icons-material/Refresh';
+import Image from 'next/image';
 import { SignatureApi, SignatureData } from '@/lib/api/signatureApi';
 
 type SignatureMode = 'draw' | 'stored';
@@ -302,7 +303,8 @@ export default function SignaturePad({
     if (initialSignature && canvasRef.current && mode === 'draw') {
       const ctx = canvasRef.current.getContext('2d');
       if (ctx) {
-        const img = new Image();
+        const img = typeof window !== 'undefined' ? new window.Image() : null;
+        if (!img) return;
         img.onload = () => {
           ctx.drawImage(img, 0, 0);
           setHasSignature(true);
@@ -432,12 +434,17 @@ export default function SignaturePad({
               justifyContent: 'center',
             }}
           >
-            <img
+            <Image
               src={storedSignature.data_url}
               alt="Stored Signature"
+              width={width}
+              height={height}
+              unoptimized
               style={{
                 maxWidth: '100%',
                 maxHeight: '100%',
+                width: '100%',
+                height: 'auto',
                 objectFit: 'contain',
               }}
             />

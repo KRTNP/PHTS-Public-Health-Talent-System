@@ -110,7 +110,7 @@ export default function RequestDetailPage() {
             <Typography variant="subtitle1" fontWeight={700} gutterBottom>
               {request.status === RequestStatus.RETURNED ? 'คำขอถูกส่งคืนให้แก้ไข' : 'คำขอถูกปฏิเสธ'}
             </Typography>
-            <Typography variant="body2">เหตุผล: "{lastAction?.comment}"</Typography>
+            <Typography variant="body2">เหตุผล: &quot;{lastAction?.comment}&quot;</Typography>
             <Typography variant="caption" sx={{ opacity: 0.8, mt: 1, display: 'block' }}>
               โดย: {lastAction?.actor?.first_name ? `${lastAction.actor.first_name} ${lastAction.actor.last_name || ''}` : lastAction?.actor?.role}{' '}
               {lastAction?.actor?.role ? `(${lastAction.actor.role})` : ''} เมื่อ {formatDate(lastAction?.action_date || lastAction?.created_at, true)}
@@ -244,7 +244,7 @@ export default function RequestDetailPage() {
                       {action.comment && (
                         <Box mt={1} p={1.5} bgcolor="#fff" border="1px solid #eee" borderRadius={2}>
                           <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                            "{action.comment}"
+                            &quot;{action.comment}&quot;
                           </Typography>
                         </Box>
                       )}

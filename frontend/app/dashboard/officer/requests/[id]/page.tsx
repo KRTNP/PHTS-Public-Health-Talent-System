@@ -274,7 +274,7 @@ export default function OfficerRequestDetailPage() {
                       </Typography>
                       {action.comment && (
                         <Typography variant="caption" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
-                          "{action.comment}"
+                          &quot;{action.comment}&quot;
                         </Typography>
                       )}
                     </Box>

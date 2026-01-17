@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
@@ -62,6 +62,19 @@ export default function RequestApprovalDetail({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'APPROVE' | 'REJECT' | 'RETURN'>('APPROVE');
 
+  const fetchRequest = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      const data = await requestApi.getRequestById(Number(id));
+      setRequest(data);
+    } catch (err: any) {
+      setError(err.message || 'ไม่สามารถโหลดข้อมูลคำขอได้');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     const currentUser = AuthService.getCurrentUser();
     if (!currentUser) {
@@ -72,20 +85,8 @@ export default function RequestApprovalDetail({
       router.replace(ROLE_ROUTES[currentUser.role] || '/login');
       return;
     }
-    if (id) fetchRequest();
-  }, [id, requiredRole, router]);
-
-  const fetchRequest = async () => {
-    try {
-      setLoading(true);
-      const data = await requestApi.getRequestById(Number(id));
-      setRequest(data);
-    } catch (err: any) {
-      setError(err.message || 'ไม่สามารถโหลดข้อมูลคำขอได้');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchRequest();
+  }, [fetchRequest, requiredRole, router]);
 
   const handleActionClick = (type: 'APPROVE' | 'REJECT' | 'RETURN') => {
     setActionType(type);

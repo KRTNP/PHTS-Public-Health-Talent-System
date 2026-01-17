@@ -5,6 +5,7 @@
  */
 
 import type { Metadata, Viewport } from 'next';
+import { Sarabun } from 'next/font/google';
 import ThemeRegistry from '@/theme/ThemeRegistry';
 
 export const metadata: Metadata = {
@@ -17,6 +18,12 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+const sarabun = Sarabun({
+  subsets: ['thai', 'latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+});
+
 export default function RootLayout({
   children,
 }: {
@@ -24,19 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body style={{ margin: 0, padding: 0 }}>
+      <body className={sarabun.className} style={{ margin: 0, padding: 0 }}>
         <ThemeRegistry>{children}</ThemeRegistry>
       </body>
     </html>

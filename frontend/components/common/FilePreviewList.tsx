@@ -82,14 +82,14 @@ export default function FilePreviewList({ files, onPreview, onRemove, readOnly }
           sx={{ width: '100%', height: { xs: 360, md: 520 }, borderRadius: 1 }}
         >
           <Typography variant="body2" color="text.secondary">
-            ไม่สามารถพรีวิวไฟล์ PDF ได้ในเบราเซอร์นี้ โปรดกด "เปิดในแท็บใหม่"
+            ไม่สามารถพรีวิวไฟล์ PDF ได้ในเบราเซอร์นี้ โปรดกด &quot;เปิดในแท็บใหม่&quot;
           </Typography>
         </Box>
       );
     }
     return (
       <Typography variant="body2" color="text.secondary">
-        ไม่รองรับการพรีวิวไฟล์ประเภทนี้ กด "เปิดในแท็บใหม่" เพื่อดาวน์โหลด/ดูไฟล์
+        ไม่รองรับการพรีวิวไฟล์ประเภทนี้ กด &quot;เปิดในแท็บใหม่&quot; เพื่อดาวน์โหลด/ดูไฟล์
       </Typography>
     );
   };

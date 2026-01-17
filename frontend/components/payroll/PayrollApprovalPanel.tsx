@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Button, Card, CardContent, Stack, Typography, Alert, Chip } from '@mui/material';
 import * as payrollApi from '@/lib/api/payrollApi';
 
@@ -24,7 +24,7 @@ export default function PayrollApprovalPanel({
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadPeriods = async () => {
+  const loadPeriods = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -36,11 +36,11 @@ export default function PayrollApprovalPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [requiredStatus]);
 
   useEffect(() => {
     loadPeriods();
-  }, []);
+  }, [loadPeriods]);
 
   const handleApprove = async () => {
     if (!period) return;

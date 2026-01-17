@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   AppBar,
@@ -40,7 +40,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const user = useMemo(() => {
+    if (!AuthService.isAuthenticated()) return null;
+    return AuthService.getCurrentUser();
+  }, []);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifAnchorEl, setNotifAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -48,21 +51,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [notifError, setNotifError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!AuthService.isAuthenticated()) {
+    if (!user) {
       router.replace('/login');
       return;
     }
-    const currentUser = AuthService.getCurrentUser();
-    if (!currentUser) {
-      router.replace('/login');
-      return;
-    }
-    setUser(currentUser);
-    const allowedBase = ROLE_ROUTES[currentUser.role];
+    const allowedBase = ROLE_ROUTES[user.role];
     if (allowedBase && pathname && !pathname.startsWith(allowedBase)) {
       router.replace(allowedBase);
     }
-  }, [pathname, router]);
+  }, [pathname, router, user]);
 
   useEffect(() => {
     if (!user) return;
