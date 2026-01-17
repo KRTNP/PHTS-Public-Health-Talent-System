@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+process.env.NODE_ENV = 'test';
+process.env.START_SERVER = 'false';
+
 // 🔥 แยก Database สำหรับ Request Test โดยเฉพาะ เพื่อไม่ให้ตีกับ Payroll
 export const DB_NAME = 'phts_test_request';
 export const JWT_SECRET =
@@ -22,8 +25,7 @@ export async function createTestPool(): Promise<Pool> {
     multipleStatements: true,
   });
 
-  // Reset DB: ลบและสร้างใหม่เสมอเพื่อให้ Schema สดใหม่
-  await pool.query(`DROP DATABASE IF EXISTS \`${DB_NAME}\``);
+  // Reset DB: สร้างเฉพาะถ้ายังไม่มี
   await pool.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
   await pool.query(`USE \`${DB_NAME}\``);
 
@@ -115,6 +117,25 @@ export async function setupSchema(pool: Pool) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+}
+
+export async function cleanTables(pool: Pool) {
+  const tables = [
+    'pts_request_actions',
+    'pts_requests',
+    'pts_user_signatures',
+    'pts_employee_eligibility',
+    'pts_master_rates',
+    'pts_employees',
+    'pts_notifications',
+    'users',
+  ];
+  const statements = ['SET FOREIGN_KEY_CHECKS = 0'];
+  for (const t of tables) {
+    statements.push(`TRUNCATE TABLE ${t}`);
+  }
+  statements.push('SET FOREIGN_KEY_CHECKS = 1');
+  await pool.query(statements.join('; '));
 }
 
 export async function seedMasterRates(pool: Pool) {

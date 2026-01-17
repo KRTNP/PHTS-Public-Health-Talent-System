@@ -196,7 +196,7 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 });
 
 // Start the server
-if (NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && process.env.START_SERVER !== 'false') {
   startServer();
 }
 

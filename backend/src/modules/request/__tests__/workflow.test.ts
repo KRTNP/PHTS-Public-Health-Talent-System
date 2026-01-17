@@ -1,6 +1,6 @@
 import { Pool } from 'mysql2/promise';
 import path from 'path';
-import { createTestPool, setupSchema, DB_NAME } from './utils.ts';
+import { createTestPool, setupSchema, cleanTables, DB_NAME } from './utils.ts';
 import type { BatchApproveResult } from '../request.types.js';
 
 let pool: Pool;
@@ -16,6 +16,7 @@ beforeAll(async () => {
   process.env.DB_NAME = DB_NAME;
   pool = await createTestPool();
   await setupSchema(pool);
+  await cleanTables(pool);
 
   // Load App (for any route-level dependencies)
   const appPath = path.join(process.cwd(), 'src/index.ts');

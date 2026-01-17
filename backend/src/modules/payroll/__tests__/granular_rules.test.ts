@@ -1,23 +1,42 @@
-﻿import request from 'supertest';
-import path from 'path';
-import { Pool } from 'mysql2/promise';
-import { createTestPool, setupSchema, seedBaseData, cleanTables, signAdminToken } from './utils.js';
+﻿import { Pool } from 'mysql2/promise';
+import {
+  createTestPool,
+  setupSchema,
+  seedBaseData,
+  cleanTables,
+} from './utils.js';
+import { calculateMonthly } from '../core/calculator.js';
 
 let pool: Pool;
-let app: any;
+let baseRateId: number;
 
 beforeAll(async () => {
   pool = await createTestPool();
   await setupSchema(pool);
+  await cleanTables(pool);
   await seedBaseData(pool);
-  const appPath = path.join(process.cwd(), 'src/index.ts');
-  const imported = await import(appPath);
-  app = imported.default;
+  const [rates]: any[] = await pool.query(
+    `SELECT rate_id FROM pts_master_rates WHERE amount = 5000`,
+  );
+  baseRateId = rates[0].rate_id;
 });
 
 afterEach(async () => {
-  await cleanTables(pool);
-  await seedBaseData(pool);
+  const statements = [
+    'SET FOREIGN_KEY_CHECKS = 0',
+    'TRUNCATE TABLE pts_payout_items',
+    'TRUNCATE TABLE pts_payouts',
+    'TRUNCATE TABLE pts_periods',
+    'TRUNCATE TABLE pts_employee_eligibility',
+    'TRUNCATE TABLE pts_leave_requests',
+    'TRUNCATE TABLE pts_leave_quotas',
+    'TRUNCATE TABLE pts_holidays',
+    "DELETE FROM pts_employee_licenses WHERE citizen_id NOT IN ('DOC1')",
+    "DELETE FROM pts_employees WHERE citizen_id NOT IN ('DOC1')",
+    "DELETE FROM users WHERE citizen_id NOT IN ('ADMIN1','DOC1')",
+    'SET FOREIGN_KEY_CHECKS = 1',
+  ];
+  await pool.query(statements.join('; '));
 });
 
 afterAll(async () => {
@@ -25,19 +44,15 @@ afterAll(async () => {
 });
 
 describe('Payroll Integration: Granular Rules & Edge Cases', () => {
-  const adminToken = signAdminToken();
-
   // แก้ไข: ใช้ปีงบประมาณ 2567 (สำหรับเดือน ก.ค. 2024)
   const FISCAL_YEAR = 2567;
 
   test('TC-LEV-07: Cross-Month Leave (ลาข้ามเดือน ต้องหักเฉพาะเดือนปัจจุบัน)', async () => {
     const cid = 'CROSS_MONTH';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
-    const [r5k]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 5000`);
-
     await pool.query(
       `INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
-      [cid, r5k[0].rate_id],
+      [cid, baseRateId],
     );
     await pool.query(
       `INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')`,
@@ -55,24 +70,16 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
       [cid, FISCAL_YEAR],
     );
 
-    const res = await request(app)
-      .post('/api/payroll/calculate')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ year: 2024, month: 7, citizen_id: cid })
-      .expect(200);
-
-    const data = res.body.data[0];
+    const data = await calculateMonthly(cid, 2024, 7, pool as any);
     expect(Number(data.totalDeductionDays)).toBe(5);
   });
 
   test('TC-ADV-05: Weekend Gap Safety (ลาศุกร์และจันทร์ ไม่หักเสาร์อาทิตย์)', async () => {
     const cid = 'WEEKEND_GAP';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
-    const [r5k]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 5000`);
-
     await pool.query(
       `INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
-      [cid, r5k[0].rate_id],
+      [cid, baseRateId],
     );
     await pool.query(
       `INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')`,
@@ -92,24 +99,16 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
       [cid, FISCAL_YEAR],
     );
 
-    const res = await request(app)
-      .post('/api/payroll/calculate')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ year: 2024, month: 7, citizen_id: cid })
-      .expect(200);
-
-    const data = res.body.data[0];
+    const data = await calculateMonthly(cid, 2024, 7, pool as any);
     expect(Number(data.totalDeductionDays)).toBe(2);
   });
 
   test('TC-LIC-06: Overlapping Licenses (ใบประกอบทับซ้อน ต้องไม่นับวันเบิ้ล)', async () => {
     const cid = 'LIC_OVERLAP';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
-    const [r5k]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 5000`);
-
     await pool.query(
       `INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
-      [cid, r5k[0].rate_id],
+      [cid, baseRateId],
     );
 
     await pool.query(
@@ -119,13 +118,7 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
       [cid, cid],
     );
 
-    const res = await request(app)
-      .post('/api/payroll/calculate')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ year: 2024, month: 7, citizen_id: cid })
-      .expect(200);
-
-    const data = res.body.data[0];
+    const data = await calculateMonthly(cid, 2024, 7, pool as any);
     expect(Number(data.validLicenseDays)).toBe(31);
   });
 
@@ -134,11 +127,9 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
   test('TC-LEV-06: Overlapping Leaves (ลาทับซ้อน ต้องไม่หักเงินซ้ำ)', async () => {
     const cid = 'LEAVE_OVERLAP';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
-    const [r5k]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 5000`);
-
     await pool.query(
       `INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
-      [cid, r5k[0].rate_id],
+      [cid, baseRateId],
     );
     await pool.query(
       `INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')`,
@@ -156,24 +147,16 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
       [cid, FISCAL_YEAR],
     );
 
-    const res = await request(app)
-      .post('/api/payroll/calculate')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ year: 2024, month: 7, citizen_id: cid })
-      .expect(200);
-
-    const data = res.body.data[0];
+    const data = await calculateMonthly(cid, 2024, 7, pool as any);
     expect(Number(data.totalDeductionDays)).toBe(5);
   });
 
   test('TC-LEV-08: Maternity Leave (ลาคลอด นับรวมวันหยุด)', async () => {
     const cid = 'MATERNITY';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
-    const [r5k]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 5000`);
-
     await pool.query(
       `INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
-      [cid, r5k[0].rate_id],
+      [cid, baseRateId],
     );
     await pool.query(
       `INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')`,
@@ -188,13 +171,7 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
       [cid, FISCAL_YEAR],
     );
 
-    const res = await request(app)
-      .post('/api/payroll/calculate')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ year: 2024, month: 7, citizen_id: cid })
-      .expect(200);
-
-    const data = res.body.data[0];
+    const data = await calculateMonthly(cid, 2024, 7, pool as any);
     expect(Number(data.totalDeductionDays)).toBe(0);
     expect(Number(data.netPayment)).toBe(5000);
   });

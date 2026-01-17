@@ -6,6 +6,7 @@ import {
   setupSchema,
   seedBaseData,
   cleanTables,
+  resetTestData,
   signAdminToken,
 } from './utils.js';
 
@@ -15,6 +16,7 @@ let app: any;
 beforeAll(async () => {
   pool = await createTestPool();
   await setupSchema(pool);
+  await cleanTables(pool);
   await seedBaseData(pool);
 
   const appPath = path.join(process.cwd(), 'src/index.ts');
@@ -23,8 +25,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await cleanTables(pool);
-  await seedBaseData(pool);
+  await resetTestData(pool);
 });
 
 afterAll(async () => {

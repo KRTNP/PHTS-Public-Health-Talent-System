@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+process.env.NODE_ENV = 'test';
+process.env.START_SERVER = 'false';
+
 export const DB_NAME = 'phts_test';
 export const JWT_SECRET =
   process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
@@ -21,7 +24,6 @@ export async function createTestPool(): Promise<Pool> {
     multipleStatements: true,
   });
 
-  await pool.query(`DROP DATABASE IF EXISTS \`${DB_NAME}\``);
   await pool.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
   await pool.query(`USE \`${DB_NAME}\``);
 
@@ -163,15 +165,51 @@ export async function cleanTables(pool: Pool) {
     'pts_holidays',
     'users',
   ];
-  await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+  const statements = ['SET FOREIGN_KEY_CHECKS = 0'];
   for (const t of tables) {
-    try {
-      await pool.query(`TRUNCATE TABLE ${t}`);
-    } catch {
-      // ignore
-    }
+    statements.push(`TRUNCATE TABLE ${t}`);
   }
-  await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+  statements.push('SET FOREIGN_KEY_CHECKS = 1');
+  await pool.query(statements.join('; '));
+}
+
+export async function resetTestData(pool: Pool) {
+  const statements = [
+    'SET FOREIGN_KEY_CHECKS = 0',
+    'TRUNCATE TABLE pts_payout_items',
+    'TRUNCATE TABLE pts_payouts',
+    'TRUNCATE TABLE pts_periods',
+    'TRUNCATE TABLE pts_employee_eligibility',
+    'TRUNCATE TABLE pts_leave_requests',
+    'TRUNCATE TABLE pts_leave_quotas',
+    'TRUNCATE TABLE pts_holidays',
+    "DELETE FROM pts_employee_movements WHERE citizen_id NOT IN ('DOC1')",
+    "DELETE FROM pts_employee_licenses WHERE citizen_id NOT IN ('DOC1')",
+    "DELETE FROM pts_employees WHERE citizen_id NOT IN ('DOC1')",
+    "DELETE FROM users WHERE citizen_id NOT IN ('ADMIN1','DOC1')",
+    "DELETE FROM pts_master_rates WHERE NOT (profession_code = 'DOCTOR' AND group_no IN (1,2) AND amount IN (5000,10000))",
+    'SET FOREIGN_KEY_CHECKS = 1',
+  ];
+  await pool.query(statements.join('; '));
+
+  await pool.query(
+    `INSERT IGNORE INTO users (id, citizen_id, role, is_active) VALUES (99, 'ADMIN1', 'ADMIN', 1)`,
+  );
+  await pool.query(`INSERT IGNORE INTO users (citizen_id, role) VALUES ('DOC1', 'USER')`);
+  await pool.query(
+    `INSERT IGNORE INTO pts_employees (citizen_id, position_name) VALUES ('DOC1', 'นายแพทย์ปฏิบัติการ')`,
+  );
+  await pool.query(
+    `INSERT IGNORE INTO pts_employee_movements (citizen_id, movement_type, effective_date) VALUES ('DOC1', 'ENTRY', '2023-01-01')`,
+  );
+  await pool.query(
+    `INSERT IGNORE INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES ('DOC1', '2023-01-01', '2030-12-31', 'ACTIVE')`,
+  );
+  await pool.query(`
+    INSERT IGNORE INTO pts_master_rates (profession_code, group_no, amount) VALUES
+    ('DOCTOR', 1, 5000),
+    ('DOCTOR', 2, 10000);
+  `);
 }
 
 export function signAdminToken() {

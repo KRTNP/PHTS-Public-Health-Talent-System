@@ -3,23 +3,60 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const redisClient = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379', 10),
-  password: process.env.REDIS_PASSWORD || undefined,
-  db: parseInt(process.env.REDIS_DB || '0', 10),
-  retryStrategy: (times: number) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-});
+type RedisClient = Pick<Redis, 'get' | 'set' | 'del' | 'on' | 'quit' | 'disconnect'>;
 
-redisClient.on('connect', () => {
-  console.log('[Redis] Connected successfully');
-});
+const isTestEnv = process.env.NODE_ENV === 'test';
 
-redisClient.on('error', (err: Error) => {
-  console.error('[Redis] Connection error:', err);
-});
+const createTestRedisClient = (): RedisClient => {
+  const store = new Map<string, string>();
+  return {
+    get: async (key: string) => store.get(key) ?? null,
+    set: async (key: string, value: string, ...args: Array<string | number>) => {
+      const hasNx = args.some((arg) => String(arg).toUpperCase() === 'NX');
+      if (hasNx && store.has(key)) {
+        return null;
+      }
+      store.set(key, value);
+      return 'OK';
+    },
+    del: async (...keys: string[]) => {
+      let removed = 0;
+      for (const key of keys) {
+        if (store.delete(key)) {
+          removed += 1;
+        }
+      }
+      return removed;
+    },
+    on: () => redisClient,
+    quit: async () => 'OK',
+    disconnect: () => {},
+  };
+};
+
+const createLiveRedisClient = (): RedisClient => {
+  const client = new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+    db: parseInt(process.env.REDIS_DB || '0', 10),
+    retryStrategy: (times: number) => {
+      const delay = Math.min(times * 50, 2000);
+      return delay;
+    },
+  });
+
+  client.on('connect', () => {
+    console.log('[Redis] Connected successfully');
+  });
+
+  client.on('error', (err: Error) => {
+    console.error('[Redis] Connection error:', err);
+  });
+
+  return client;
+};
+
+const redisClient: RedisClient = isTestEnv ? createTestRedisClient() : createLiveRedisClient();
 
 export default redisClient;
