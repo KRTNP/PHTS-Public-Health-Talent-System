@@ -40,13 +40,13 @@ function includesAny(value: string, patterns: string[]): boolean {
 /**
  * Get employee data source table/view name based on environment
  * - Production: uses 'employees' view (real-time sync from HRMS)
- * - Test: uses 'pts_employees' table (test data)
+ * - Test: uses 'emp_profiles' table (test data)
  */
 function getEmployeeDataSource(): string {
-  // ใช้ pts_employees สำหรับ test environment
+  // ใช้ emp_profiles สำหรับ test environment
   // ใช้ employees view (HRMS sync) สำหรับ production
   const isTestEnv = process.env.NODE_ENV === 'test' || process.env.DB_NAME?.includes('test');
-  return isTestEnv ? 'pts_employees' : 'employees';
+  return isTestEnv ? 'emp_profiles' : 'employees';
 }
 
 /**
@@ -56,7 +56,7 @@ function getEmployeeDataSource(): string {
 export async function findRecommendedRate(citizenId: string): Promise<MasterRate | null> {
   const dataSource = getEmployeeDataSource();
 
-  // Note: employees view uses 'start_current_position', pts_employees uses 'start_work_date'
+  // Note: employees view uses 'start_current_position', emp_profiles uses 'start_work_date'
   const rows = await query<RowDataPacket[]>(
     `SELECT citizen_id, position_name, specialist, expert, sub_department
      FROM ${dataSource} WHERE citizen_id = ?`,
@@ -158,7 +158,7 @@ export async function findRecommendedRate(citizenId: string): Promise<MasterRate
   if (!targetProfession) return null;
 
   // SQL Query with Item Hinting Logic
-  let sql = `SELECT * FROM pts_master_rates 
+  let sql = `SELECT * FROM cfg_payment_rates 
        WHERE profession_code = ? AND group_no = ?
        AND is_active = 1`;
   const params: any[] = [targetProfession, targetGroup];
@@ -176,7 +176,7 @@ export async function findRecommendedRate(citizenId: string): Promise<MasterRate
 }
 
 export async function getAllActiveMasterRates(): Promise<RowDataPacket[]> {
-  return await query<RowDataPacket[]>(`SELECT * FROM pts_master_rates WHERE is_active = 1`);
+  return await query<RowDataPacket[]>(`SELECT * FROM cfg_payment_rates WHERE is_active = 1`);
 }
 
 export async function classifyEmployee(employee: EmployeeProfile): Promise<ClassificationResult | null> {

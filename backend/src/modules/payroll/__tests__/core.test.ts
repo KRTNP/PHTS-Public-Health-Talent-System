@@ -37,11 +37,11 @@ describe('Payroll Integration: Core Scenarios', () => {
 
   test('TC-PAY-01: Basic Calculation (Current Month)', async () => {
     const [rates]: any[] = await pool.query(
-      `SELECT rate_id FROM pts_master_rates WHERE amount = 5000`,
+      `SELECT rate_id FROM cfg_payment_rates WHERE amount = 5000`,
     );
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active)
       VALUES ('DOC1', ?, '2024-01-01', 1)
     `,
       [rates[0].rate_id],
@@ -62,16 +62,16 @@ describe('Payroll Integration: Core Scenarios', () => {
     const cid = 'NEW_STAFF';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
     await pool.query(
-      `INSERT INTO pts_employees (citizen_id, position_name) VALUES (?, 'พนักงานทั่วไป')`,
+      `INSERT INTO emp_profiles (citizen_id, position_name) VALUES (?, 'พนักงานทั่วไป')`,
       [cid],
     );
 
-    await pool.query(`INSERT INTO pts_master_rates (amount) VALUES (31000)`);
-    const [rate]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 31000`);
+    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (31000)`);
+    const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 31000`);
 
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active)
       VALUES (?, ?, '2024-01-01', 1)
     `,
       [cid, rate[0].rate_id],
@@ -79,7 +79,7 @@ describe('Payroll Integration: Core Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_movements (citizen_id, movement_type, effective_date)
+      INSERT INTO emp_movements (citizen_id, movement_type, effective_date)
       VALUES (?, 'ENTRY', '2024-01-16')
     `,
       [cid],
@@ -87,7 +87,7 @@ describe('Payroll Integration: Core Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) 
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) 
       VALUES (?, '2024-01-01', '2030-12-31', 'ACTIVE')
     `,
       [cid],
@@ -108,12 +108,12 @@ describe('Payroll Integration: Core Scenarios', () => {
     const cid = 'SWAP_USER';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
 
-    await pool.query(`INSERT INTO pts_master_rates (amount) VALUES (31000)`);
-    const [rate]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 31000`);
+    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (31000)`);
+    const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 31000`);
 
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active)
       VALUES (?, ?, '2024-01-01', 1)
     `,
       [cid, rate[0].rate_id],
@@ -121,7 +121,7 @@ describe('Payroll Integration: Core Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_movements (citizen_id, movement_type, effective_date) VALUES 
+      INSERT INTO emp_movements (citizen_id, movement_type, effective_date) VALUES 
       (?, 'ENTRY', '2024-01-01'),
       (?, 'RESIGN', '2024-01-15'),
       (?, 'ENTRY', '2024-01-15')
@@ -131,7 +131,7 @@ describe('Payroll Integration: Core Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) 
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) 
       VALUES (?, '2024-01-01', '2030-12-31', 'ACTIVE')
     `,
       [cid],

@@ -115,7 +115,7 @@ export interface AuditSearchFilter {
  */
 export async function logAuditEvent(dto: CreateAuditEventDTO): Promise<number> {
   const sql = `
-    INSERT INTO pts_audit_events
+    INSERT INTO audit_logs
     (event_type, entity_type, entity_id, actor_id, actor_role, action_detail, ip_address, user_agent)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
@@ -196,7 +196,7 @@ export async function searchAuditEvents(
   const whereClause = whereClauses.join(' AND ');
 
   // Count total
-  const countSql = `SELECT COUNT(*) as total FROM pts_audit_events a WHERE ${whereClause}`;
+  const countSql = `SELECT COUNT(*) as total FROM audit_logs a WHERE ${whereClause}`;
   const countResult = await query<RowDataPacket[]>(countSql, params);
   const total = (countResult as any)[0]?.total || 0;
 
@@ -206,10 +206,10 @@ export async function searchAuditEvents(
     SELECT a.*,
            COALESCE(e.first_name, s.first_name, '') AS actor_first_name,
            COALESCE(e.last_name, s.last_name, '') AS actor_last_name
-    FROM pts_audit_events a
+    FROM audit_logs a
     LEFT JOIN users u ON a.actor_id = u.id
-    LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-    LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+    LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+    LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
     WHERE ${whereClause}
     ORDER BY a.created_at DESC
     LIMIT ${limit} OFFSET ${offset}
@@ -279,7 +279,7 @@ export async function getAuditSummary(
 ): Promise<{ event_type: string; count: number }[]> {
   let sql = `
     SELECT event_type, COUNT(*) as count
-    FROM pts_audit_events
+    FROM audit_logs
     WHERE 1=1
   `;
 

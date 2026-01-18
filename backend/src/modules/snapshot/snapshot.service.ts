@@ -51,8 +51,8 @@ export interface Snapshot {
 export async function getPeriodWithSnapshot(periodId: number): Promise<PeriodWithSnapshot | null> {
   const sql = `
     SELECT p.*,
-           (SELECT COUNT(*) FROM pts_period_snapshots WHERE period_id = p.period_id) AS snapshot_count
-    FROM pts_periods p
+           (SELECT COUNT(*) FROM pay_snapshots WHERE period_id = p.period_id) AS snapshot_count
+    FROM pay_periods p
     WHERE p.period_id = ?
   `;
 
@@ -77,7 +77,7 @@ export async function getPeriodWithSnapshot(periodId: number): Promise<PeriodWit
  * Check if period is frozen
  */
 export async function isPeriodFrozen(periodId: number): Promise<boolean> {
-  const sql = 'SELECT is_frozen FROM pts_periods WHERE period_id = ?';
+  const sql = 'SELECT is_frozen FROM pay_periods WHERE period_id = ?';
   const rows = await query<RowDataPacket[]>(sql, [periodId]);
 
   if (rows.length === 0) return false;
@@ -98,7 +98,7 @@ export async function freezePeriod(
 
     // Check period exists and is closed
     const [periods] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_periods WHERE period_id = ? FOR UPDATE',
+      'SELECT * FROM pay_periods WHERE period_id = ? FOR UPDATE',
       [periodId],
     );
 
@@ -127,10 +127,10 @@ export async function freezePeriod(
              mr.group_no,
              mr.item_no,
              mr.profession_code
-      FROM pts_payouts po
-      LEFT JOIN pts_employees e ON po.citizen_id = e.citizen_id
-      LEFT JOIN pts_support_employees s ON po.citizen_id = s.citizen_id
-      LEFT JOIN pts_master_rates mr ON po.master_rate_id = mr.rate_id
+      FROM pay_results po
+      LEFT JOIN emp_profiles e ON po.citizen_id = e.citizen_id
+      LEFT JOIN emp_support_staff s ON po.citizen_id = s.citizen_id
+      LEFT JOIN cfg_payment_rates mr ON po.master_rate_id = mr.rate_id
       WHERE po.period_id = ?
       ORDER BY last_name, first_name
     `, [periodId]);
@@ -143,7 +143,7 @@ export async function freezePeriod(
 
     // Create payout snapshot
     await connection.execute(
-      `INSERT INTO pts_period_snapshots
+      `INSERT INTO pay_snapshots
        (period_id, snapshot_type, snapshot_data, record_count, total_amount)
        VALUES (?, 'PAYOUT', ?, ?, ?)`,
       [periodId, JSON.stringify(payouts), payouts.length, totalAmount],
@@ -161,7 +161,7 @@ export async function freezePeriod(
     };
 
     await connection.execute(
-      `INSERT INTO pts_period_snapshots
+      `INSERT INTO pay_snapshots
        (period_id, snapshot_type, snapshot_data, record_count, total_amount)
        VALUES (?, 'SUMMARY', ?, ?, ?)`,
       [periodId, JSON.stringify(summary), payouts.length, totalAmount],
@@ -169,7 +169,7 @@ export async function freezePeriod(
 
     // Mark period as frozen
     await connection.execute(
-      `UPDATE pts_periods
+      `UPDATE pay_periods
        SET is_frozen = 1, frozen_at = NOW(), frozen_by = ?
        WHERE period_id = ?`,
       [frozenBy, periodId],
@@ -232,7 +232,7 @@ export async function getSnapshot(
   snapshotType: SnapshotType,
 ): Promise<Snapshot | null> {
   const sql = `
-    SELECT * FROM pts_period_snapshots
+    SELECT * FROM pay_snapshots
     WHERE period_id = ? AND snapshot_type = ?
     ORDER BY created_at DESC LIMIT 1
   `;
@@ -292,10 +292,10 @@ export async function getPayoutDataForReport(periodId: number): Promise<{
            mr.group_no,
            mr.item_no,
            mr.profession_code
-    FROM pts_payouts po
-    LEFT JOIN pts_employees e ON po.citizen_id = e.citizen_id
-    LEFT JOIN pts_support_employees s ON po.citizen_id = s.citizen_id
-    LEFT JOIN pts_master_rates mr ON po.master_rate_id = mr.rate_id
+    FROM pay_results po
+    LEFT JOIN emp_profiles e ON po.citizen_id = e.citizen_id
+    LEFT JOIN emp_support_staff s ON po.citizen_id = s.citizen_id
+    LEFT JOIN cfg_payment_rates mr ON po.master_rate_id = mr.rate_id
     WHERE po.period_id = ?
     ORDER BY last_name, first_name
   `;
@@ -344,7 +344,7 @@ export async function getSummaryDataForReport(periodId: number): Promise<{
 
   // Get period info
   const periodRows = await query<RowDataPacket[]>(
-    'SELECT * FROM pts_periods WHERE period_id = ?',
+    'SELECT * FROM pay_periods WHERE period_id = ?',
     [periodId],
   );
 
@@ -382,7 +382,7 @@ export async function unfreezePeriod(
 
     // Check period is frozen
     const [periods] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_periods WHERE period_id = ? FOR UPDATE',
+      'SELECT * FROM pay_periods WHERE period_id = ? FOR UPDATE',
       [periodId],
     );
 
@@ -398,7 +398,7 @@ export async function unfreezePeriod(
 
     // Unfreeze (keep snapshots for audit trail)
     await connection.execute(
-      `UPDATE pts_periods
+      `UPDATE pay_periods
        SET is_frozen = 0, frozen_at = NULL, frozen_by = NULL
        WHERE period_id = ?`,
       [periodId],
@@ -431,7 +431,7 @@ export async function unfreezePeriod(
  */
 export async function getSnapshotsForPeriod(periodId: number): Promise<Snapshot[]> {
   const sql = `
-    SELECT * FROM pts_period_snapshots
+    SELECT * FROM pay_snapshots
     WHERE period_id = ?
     ORDER BY created_at DESC
   `;

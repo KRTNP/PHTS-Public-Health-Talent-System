@@ -28,7 +28,7 @@ export class PayrollService {
    */
   static async getOrCreatePeriod(year: number, month: number): Promise<PeriodSummary> {
     const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT * FROM pts_periods WHERE period_month = ? AND period_year = ?',
+      'SELECT * FROM pay_periods WHERE period_month = ? AND period_year = ?',
       [month, year],
     );
 
@@ -37,12 +37,12 @@ export class PayrollService {
     }
 
     const [res] = await db.execute<ResultSetHeader>(
-      'INSERT INTO pts_periods (period_month, period_year, status) VALUES (?, ?, ?)',
+      'INSERT INTO pay_periods (period_month, period_year, status) VALUES (?, ?, ?)',
       [month, year, PeriodStatus.OPEN],
     );
 
     const [newRows] = await db.query<RowDataPacket[]>(
-      'SELECT * FROM pts_periods WHERE period_id = ?',
+      'SELECT * FROM pay_periods WHERE period_id = ?',
       [res.insertId],
     );
     return newRows[0] as PeriodSummary;
@@ -57,7 +57,7 @@ export class PayrollService {
       await conn.beginTransaction();
 
     const [period] = await conn.query<RowDataPacket[]>(
-      'SELECT * FROM pts_periods WHERE period_id = ? FOR UPDATE',
+      'SELECT * FROM pay_periods WHERE period_id = ? FOR UPDATE',
       [periodId],
     );
 
@@ -69,11 +69,11 @@ export class PayrollService {
       const year = period[0].period_year;
       const month = period[0].period_month;
 
-      await conn.execute('DELETE FROM pts_payouts WHERE period_id = ?', [periodId]);
+      await conn.execute('DELETE FROM pay_results WHERE period_id = ?', [periodId]);
 
       const [eligibleUsers] = await conn.query<RowDataPacket[]>(
         `
-        SELECT DISTINCT citizen_id FROM pts_employee_eligibility 
+        SELECT DISTINCT citizen_id FROM req_eligibility 
         WHERE is_active = 1 
         AND effective_date <= LAST_DAY(STR_TO_DATE(CONCAT(?, '-', ?, '-01'), '%Y-%m-%d'))
       `,
@@ -123,7 +123,7 @@ export class PayrollService {
       }
 
       await conn.execute(
-        'UPDATE pts_periods SET total_amount = ?, total_headcount = ?, created_at = NOW() WHERE period_id = ?',
+        'UPDATE pay_periods SET total_amount = ?, total_headcount = ?, created_at = NOW() WHERE period_id = ?',
         [totalAmount, headCount, periodId],
       );
 
@@ -150,7 +150,7 @@ export class PayrollService {
       await conn.beginTransaction();
 
       const [rows] = await conn.query<RowDataPacket[]>(
-        'SELECT * FROM pts_periods WHERE period_id = ? FOR UPDATE',
+        'SELECT * FROM pay_periods WHERE period_id = ? FOR UPDATE',
         [periodId],
       );
       if (!rows.length) throw new Error('Period not found');
@@ -197,7 +197,7 @@ export class PayrollService {
         throw new Error(`Invalid action '${action}' for status '${currentStatus}'`);
       }
 
-      let sql = 'UPDATE pts_periods SET status = ?';
+      let sql = 'UPDATE pay_periods SET status = ?';
       const params: any[] = [nextStatus];
 
       if (nextStatus === PeriodStatus.CLOSED) {
@@ -224,7 +224,7 @@ export class PayrollService {
    */
   static async getPeriodById(periodId: number) {
     const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT * FROM pts_periods WHERE period_id = ?',
+      'SELECT * FROM pay_periods WHERE period_id = ?',
       [periodId],
     );
     return rows[0] || null;
@@ -235,7 +235,7 @@ export class PayrollService {
    */
   static async getAllPeriods(): Promise<PeriodSummary[]> {
     const [rows] = await db.query<RowDataPacket[]>(
-      'SELECT * FROM pts_periods ORDER BY period_year DESC, period_month DESC',
+      'SELECT * FROM pay_periods ORDER BY period_year DESC, period_month DESC',
     );
     return rows as PeriodSummary[];
   }
@@ -257,8 +257,8 @@ export class PayrollService {
         p.pts_rate_snapshot as rate,
         p.total_payable,
         p.remark
-      FROM pts_payouts p
-      LEFT JOIN pts_employees e ON e.citizen_id = p.citizen_id
+      FROM pay_results p
+      LEFT JOIN emp_profiles e ON e.citizen_id = p.citizen_id
       WHERE p.period_id = ?
       ORDER BY e.first_name ASC, e.last_name ASC, p.citizen_id ASC
       `,

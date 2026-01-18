@@ -50,7 +50,7 @@ async function getUserWithProfile(userId: number): Promise<UserProfile | null> {
        emp_type as employee_type,
        mission_group,
        start_work_date as start_current_position
-     FROM pts_employees WHERE citizen_id = ? LIMIT 1`,
+     FROM emp_profiles WHERE citizen_id = ? LIMIT 1`,
     [user.citizen_id]
   );
 
@@ -65,7 +65,7 @@ async function getUserWithProfile(userId: number): Promise<UserProfile | null> {
          emp_type as employee_type,
          NULL as mission_group,
          NULL as start_current_position
-       FROM pts_support_employees WHERE citizen_id = ? LIMIT 1`,
+       FROM emp_support_staff WHERE citizen_id = ? LIMIT 1`,
       [user.citizen_id]
     );
   }

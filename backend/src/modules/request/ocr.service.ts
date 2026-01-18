@@ -35,7 +35,7 @@ export async function getOcrRecord(
   attachmentId: number,
 ): Promise<AttachmentOcrRecord | null> {
   const rows = await query<RowDataPacket[]>(
-    'SELECT * FROM pts_attachment_ocr WHERE attachment_id = ? LIMIT 1',
+    'SELECT * FROM req_ocr_results WHERE attachment_id = ? LIMIT 1',
     [attachmentId],
   );
 
@@ -48,8 +48,8 @@ export async function assertOcrAccess(
 ): Promise<void> {
   const rows = await query<RowDataPacket[]>(
     `SELECT r.request_id, r.status, r.current_step, r.assigned_officer_id
-     FROM pts_attachments a
-     JOIN pts_requests r ON a.request_id = r.request_id
+     FROM req_attachments a
+     JOIN req_submissions r ON a.request_id = r.request_id
      WHERE a.attachment_id = ? LIMIT 1`,
     [attachmentId],
   );
@@ -74,7 +74,7 @@ export async function ensureOcrRecord(
   attachmentId: number,
 ): Promise<AttachmentOcrRecord> {
   const attachments = await query<RowDataPacket[]>(
-    'SELECT attachment_id FROM pts_attachments WHERE attachment_id = ? LIMIT 1',
+    'SELECT attachment_id FROM req_attachments WHERE attachment_id = ? LIMIT 1',
     [attachmentId],
   );
   if (!attachments.length) {
@@ -82,7 +82,7 @@ export async function ensureOcrRecord(
   }
 
   await query<ResultSetHeader>(
-    `INSERT INTO pts_attachment_ocr (attachment_id, provider, status)
+    `INSERT INTO req_ocr_results (attachment_id, provider, status)
      VALUES (?, ?, 'PENDING')
      ON DUPLICATE KEY UPDATE provider = VALUES(provider)`,
     [attachmentId, OCR_PROVIDER],
@@ -111,7 +111,7 @@ export async function requestOcrProcessing(
 
 async function getAttachmentPath(attachmentId: number): Promise<string> {
   const rows = await query<RowDataPacket[]>(
-    'SELECT file_path FROM pts_attachments WHERE attachment_id = ? LIMIT 1',
+    'SELECT file_path FROM req_attachments WHERE attachment_id = ? LIMIT 1',
     [attachmentId],
   );
 
@@ -189,7 +189,7 @@ async function updateOcrRecord(
 
   params.push(attachmentId);
   await query(
-    `UPDATE pts_attachment_ocr SET ${fields.join(', ')}, updated_at = NOW() WHERE attachment_id = ?`,
+    `UPDATE req_ocr_results SET ${fields.join(', ')}, updated_at = NOW() WHERE attachment_id = ?`,
     params,
   );
 }

@@ -39,16 +39,16 @@ describe('Payroll Integration: Special Scenarios', () => {
     const cid = 'DOC_LIFE';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
     await pool.query(
-      `INSERT INTO pts_employees (citizen_id, position_name) VALUES (?, 'นายแพทย์ชำนาญการ')`,
+      `INSERT INTO emp_profiles (citizen_id, position_name) VALUES (?, 'นายแพทย์ชำนาญการ')`,
       [cid],
     );
 
     const [r10k]: any[] = await pool.query(
-      `SELECT rate_id FROM pts_master_rates WHERE amount = 10000`,
+      `SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`,
     );
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active)
       VALUES (?, ?, '2024-01-01', 1)
     `,
       [cid, r10k[0].rate_id],
@@ -56,7 +56,7 @@ describe('Payroll Integration: Special Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status, license_name, occupation_name) 
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status, license_name, occupation_name) 
       VALUES (?, '2010-01-01', '2020-01-01', 'EXPIRED', 'ใบประกอบวิชาชีพเวชกรรม (นายแพทย์)', 'นายแพทย์')
     `,
       [cid],
@@ -77,12 +77,12 @@ describe('Payroll Integration: Special Scenarios', () => {
     const cid = 'DOC_PROMO';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
 
-    const [r5k]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 5000`);
-    const [r10k]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 10000`);
+    const [r5k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 5000`);
+    const [r10k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
 
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, expiry_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, expiry_date, is_active)
       VALUES (?, ?, '2024-01-01', '2024-09-15', 1)
     `,
       [cid, r5k[0].rate_id],
@@ -90,7 +90,7 @@ describe('Payroll Integration: Special Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, expiry_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, expiry_date, is_active)
       VALUES (?, ?, '2024-09-16', NULL, 1)
     `,
       [cid, r10k[0].rate_id],
@@ -98,7 +98,7 @@ describe('Payroll Integration: Special Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status, occupation_name) 
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status, occupation_name) 
       VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE', 'นายแพทย์')
     `,
       [cid],
@@ -118,12 +118,12 @@ describe('Payroll Integration: Special Scenarios', () => {
   test('TC-BRUTAL-02: Leap Year 2024 & License Gap', async () => {
     const cid = 'LEAP_GAP';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
-    await pool.query(`INSERT INTO pts_master_rates (amount) VALUES (29000)`);
-    const [rate]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 29000`);
+    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (29000)`);
+    const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 29000`);
 
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active)
       VALUES (?, ?, '2024-01-01', 1)
     `,
       [cid, rate[0].rate_id],
@@ -131,7 +131,7 @@ describe('Payroll Integration: Special Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) 
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) 
       VALUES (?, '2024-01-01', '2024-02-14', 'ACTIVE')
     `,
       [cid],
@@ -139,7 +139,7 @@ describe('Payroll Integration: Special Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) 
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) 
       VALUES (?, '2024-02-20', '2024-12-31', 'ACTIVE')
     `,
       [cid],

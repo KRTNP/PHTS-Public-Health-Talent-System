@@ -3,13 +3,22 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-type RedisClient = Pick<Redis, 'get' | 'set' | 'del' | 'on' | 'quit' | 'disconnect'>;
+interface RedisClient {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ...args: Array<string | number>): Promise<'OK' | null>;
+  del(...keys: string[]): Promise<number>;
+  on(event: string, listener: (...args: unknown[]) => void): RedisClient;
+  quit(): Promise<'OK'>;
+  disconnect(): void;
+}
 
 const isTestEnv = process.env.NODE_ENV === 'test';
 
+let redisClient: RedisClient;
+
 const createTestRedisClient = (): RedisClient => {
   const store = new Map<string, string>();
-  return {
+  const client: RedisClient = {
     get: async (key: string) => store.get(key) ?? null,
     set: async (key: string, value: string, ...args: Array<string | number>) => {
       const hasNx = args.some((arg) => String(arg).toUpperCase() === 'NX');
@@ -28,10 +37,11 @@ const createTestRedisClient = (): RedisClient => {
       }
       return removed;
     },
-    on: () => redisClient,
+    on: () => client,
     quit: async () => 'OK',
     disconnect: () => {},
   };
+  return client;
 };
 
 const createLiveRedisClient = (): RedisClient => {
@@ -54,9 +64,9 @@ const createLiveRedisClient = (): RedisClient => {
     console.error('[Redis] Connection error:', err);
   });
 
-  return client;
+  return client as unknown as RedisClient;
 };
 
-const redisClient: RedisClient = isTestEnv ? createTestRedisClient() : createLiveRedisClient();
+redisClient = isTestEnv ? createTestRedisClient() : createLiveRedisClient();
 
 export default redisClient;

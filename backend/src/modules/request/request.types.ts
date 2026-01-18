@@ -114,7 +114,7 @@ export interface PTSRequest {
   main_duty: string | null;
   work_attributes: WorkAttributes | null;
   applicant_signature?: string | null; // Path to digital signature image (legacy)
-  applicant_signature_id?: number | null; // FK to pts_user_signatures
+  applicant_signature_id?: number | null; // FK to sig_images
 
   // Request Details
   request_type: RequestType;

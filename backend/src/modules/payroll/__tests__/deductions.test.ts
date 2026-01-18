@@ -39,15 +39,15 @@ describe('Payroll Integration: Deductions & Leave', () => {
     const cid = 'SICK_USER';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
 
-    const [existingRate]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 31000`);
+    const [existingRate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 31000`);
     if (!existingRate || existingRate.length === 0) {
-      await pool.query(`INSERT INTO pts_master_rates (amount) VALUES (31000)`);
+      await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (31000)`);
     }
-    const [rateNew]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 31000`);
+    const [rateNew]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 31000`);
 
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active)
       VALUES (?, ?, '2024-01-01', 1)
     `,
       [cid, rateNew[0].rate_id],
@@ -55,7 +55,7 @@ describe('Payroll Integration: Deductions & Leave', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_leave_quotas (citizen_id, fiscal_year, quota_sick)
+      INSERT INTO leave_quotas (citizen_id, fiscal_year, quota_sick)
       VALUES (?, 2567, 0)
     `,
       [cid],
@@ -63,14 +63,14 @@ describe('Payroll Integration: Deductions & Leave', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_leave_requests (citizen_id, leave_type, start_date, end_date, duration_days, fiscal_year)
+      INSERT INTO leave_records (citizen_id, leave_type, start_date, end_date, duration_days, fiscal_year)
       VALUES (?, 'sick', '2024-01-25', '2024-01-26', 2, 2567)
     `,
       [cid],
     );
 
     await pool.query(
-      `INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')`,
+      `INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')`,
       [cid],
     );
 
@@ -89,10 +89,10 @@ describe('Payroll Integration: Deductions & Leave', () => {
     const cid = 'STUDY_DOC';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
 
-    const [rate]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 10000`);
+    const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active)
       VALUES (?, ?, '2024-01-01', 1)
     `,
       [cid, rate[0].rate_id],
@@ -100,14 +100,14 @@ describe('Payroll Integration: Deductions & Leave', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_movements (citizen_id, movement_type, effective_date)
+      INSERT INTO emp_movements (citizen_id, movement_type, effective_date)
       VALUES (?, 'STUDY', '2024-01-01')
     `,
       [cid],
     );
 
     await pool.query(
-      `INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')`,
+      `INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')`,
       [cid],
     );
 
@@ -126,12 +126,12 @@ describe('Payroll Integration: Deductions & Leave', () => {
     const cid = 'NURSE_TRAIN';
     await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
 
-    await pool.query(`INSERT INTO pts_master_rates (amount) VALUES (1500)`);
-    const [rate]: any[] = await pool.query(`SELECT rate_id FROM pts_master_rates WHERE amount = 1500`);
+    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (1500)`);
+    const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 1500`);
 
     await pool.query(
       `
-      INSERT INTO pts_employee_eligibility (citizen_id, master_rate_id, effective_date, is_active)
+      INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active)
       VALUES (?, ?, '2024-01-01', 1)
     `,
       [cid, rate[0].rate_id],
@@ -139,7 +139,7 @@ describe('Payroll Integration: Deductions & Leave', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) 
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) 
       VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')
     `,
       [cid],
@@ -147,7 +147,7 @@ describe('Payroll Integration: Deductions & Leave', () => {
 
     await pool.query(
       `
-      INSERT INTO pts_leave_requests (citizen_id, leave_type, start_date, end_date, duration_days, fiscal_year)
+      INSERT INTO leave_records (citizen_id, leave_type, start_date, end_date, duration_days, fiscal_year)
       VALUES (?, 'education', '2024-11-30', '2025-03-28', 119, 2568)
     `,
       [cid],

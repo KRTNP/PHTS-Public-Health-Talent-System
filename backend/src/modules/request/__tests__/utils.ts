@@ -41,7 +41,7 @@ export async function setupSchema(pool: Pool) {
       is_active TINYINT(1) DEFAULT 1
     );
 
-    CREATE TABLE IF NOT EXISTS pts_employees (
+    CREATE TABLE IF NOT EXISTS emp_profiles (
       citizen_id VARCHAR(20) PRIMARY KEY,
       position_name VARCHAR(100),
       department VARCHAR(100),
@@ -52,7 +52,7 @@ export async function setupSchema(pool: Pool) {
       last_name VARCHAR(100)
     );
 
-    CREATE TABLE IF NOT EXISTS pts_master_rates (
+    CREATE TABLE IF NOT EXISTS cfg_payment_rates (
       rate_id INT AUTO_INCREMENT PRIMARY KEY,
       profession_code VARCHAR(20),
       group_no INT,
@@ -63,7 +63,7 @@ export async function setupSchema(pool: Pool) {
     );
 
     -- [FIXED] เพิ่ม user_id และ applicant_signature_id ให้ครบ
-    CREATE TABLE IF NOT EXISTS pts_requests (
+    CREATE TABLE IF NOT EXISTS req_submissions (
       request_id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT, 
       citizen_id VARCHAR(20),
@@ -79,7 +79,7 @@ export async function setupSchema(pool: Pool) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS pts_request_actions (
+    CREATE TABLE IF NOT EXISTS req_approvals (
       action_id INT AUTO_INCREMENT PRIMARY KEY,
       request_id INT,
       actor_id INT,
@@ -90,14 +90,14 @@ export async function setupSchema(pool: Pool) {
       action_date DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS pts_user_signatures (
+    CREATE TABLE IF NOT EXISTS sig_images (
       signature_id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT,
       signature_image LONGBLOB,
       updated_at DATETIME
     );
 
-    CREATE TABLE IF NOT EXISTS pts_employee_eligibility (
+    CREATE TABLE IF NOT EXISTS req_eligibility (
       eligibility_id INT AUTO_INCREMENT PRIMARY KEY,
       citizen_id VARCHAR(20),
       master_rate_id INT,
@@ -106,7 +106,7 @@ export async function setupSchema(pool: Pool) {
       is_active TINYINT(1) DEFAULT 1
     );
 
-    CREATE TABLE IF NOT EXISTS pts_notifications (
+    CREATE TABLE IF NOT EXISTS ntf_messages (
       notification_id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT,
       title VARCHAR(255),
@@ -121,13 +121,13 @@ export async function setupSchema(pool: Pool) {
 
 export async function cleanTables(pool: Pool) {
   const tables = [
-    'pts_request_actions',
-    'pts_requests',
-    'pts_user_signatures',
-    'pts_employee_eligibility',
-    'pts_master_rates',
-    'pts_employees',
-    'pts_notifications',
+    'req_approvals',
+    'req_submissions',
+    'sig_images',
+    'req_eligibility',
+    'cfg_payment_rates',
+    'emp_profiles',
+    'ntf_messages',
     'users',
   ];
   const statements = ['SET FOREIGN_KEY_CHECKS = 0'];
@@ -154,7 +154,7 @@ export async function seedMasterRates(pool: Pool) {
 
   for (const r of rates) {
     await pool.query(
-      `INSERT INTO pts_master_rates (profession_code, group_no, item_no, amount) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO cfg_payment_rates (profession_code, group_no, item_no, amount) VALUES (?, ?, ?, ?)`,
       [r.p, r.g, r.i, r.a],
     );
   }

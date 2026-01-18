@@ -12,7 +12,7 @@ export class NotificationService {
     type: string = 'INFO',
   ) {
     await query(
-      `INSERT INTO pts_notifications (user_id, title, message, link, type) VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO ntf_messages (user_id, title, message, link, type) VALUES (?, ?, ?, ?, ?)`,
       [userId, title, message, link, type],
     );
   }
@@ -35,7 +35,7 @@ export class NotificationService {
         const placeholders = batch.map(() => '(?, ?, ?, ?, ?)').join(', ');
         const flatValues = batch.flat();
         await query(
-          `INSERT INTO pts_notifications (user_id, title, message, link, type) VALUES ${placeholders}`,
+          `INSERT INTO ntf_messages (user_id, title, message, link, type) VALUES ${placeholders}`,
           flatValues,
         );
       }
@@ -45,14 +45,14 @@ export class NotificationService {
   static async getMyNotifications(userId: number, limit = 20) {
     const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
     return query(
-      `SELECT * FROM pts_notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ${safeLimit}`,
+      `SELECT * FROM ntf_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ${safeLimit}`,
       [userId],
     );
   }
 
   static async getUnreadCount(userId: number) {
     const rows = await query<RowDataPacket[]>(
-      `SELECT COUNT(*) as count FROM pts_notifications WHERE user_id = ? AND is_read = 0`,
+      `SELECT COUNT(*) as count FROM ntf_messages WHERE user_id = ? AND is_read = 0`,
       [userId],
     );
     return rows[0].count;
@@ -60,12 +60,12 @@ export class NotificationService {
 
   static async markAsRead(notificationId: number, userId: number) {
     await query(
-      `UPDATE pts_notifications SET is_read = 1 WHERE id = ? AND user_id = ?`,
+      `UPDATE ntf_messages SET is_read = 1 WHERE id = ? AND user_id = ?`,
       [notificationId, userId],
     );
   }
 
   static async markAllAsRead(userId: number) {
-    await query(`UPDATE pts_notifications SET is_read = 1 WHERE user_id = ?`, [userId]);
+    await query(`UPDATE ntf_messages SET is_read = 1 WHERE user_id = ?`, [userId]);
   }
 }

@@ -23,7 +23,7 @@ export async function calculateRetroactive(
     const dbConn: Pick<PoolConnection, 'query'> = connection ?? pool;
 
     const [periodRows] = await dbConn.query<RowDataPacket[]>(
-      `SELECT period_id, status FROM pts_periods WHERE period_month = ? AND period_year = ?`,
+      `SELECT period_id, status FROM pay_periods WHERE period_month = ? AND period_year = ?`,
       [targetMonth, targetYear],
     );
     if (!Array.isArray(periodRows) || periodRows.length === 0) continue;
@@ -31,7 +31,7 @@ export async function calculateRetroactive(
     if (period.status && period.status !== 'CLOSED') continue;
 
     const [payoutRows] = await dbConn.query<RowDataPacket[]>(
-      `SELECT calculated_amount FROM pts_payouts WHERE citizen_id = ? AND period_id = ?`,
+      `SELECT calculated_amount FROM pay_results WHERE citizen_id = ? AND period_id = ?`,
       [citizenId, period.period_id],
     );
     const originalPaid = payoutRows.length ? Number((payoutRows[0] as any).calculated_amount) : 0;
@@ -39,8 +39,8 @@ export async function calculateRetroactive(
     const [adjustmentRows] = await dbConn.query<RowDataPacket[]>(
       `
         SELECT pi.item_type, pi.amount
-        FROM pts_payout_items pi
-        JOIN pts_payouts p ON pi.payout_id = p.payout_id
+        FROM pay_result_items pi
+        JOIN pay_results p ON pi.payout_id = p.payout_id
         WHERE p.citizen_id = ?
           AND pi.reference_month = ?
           AND pi.reference_year = ?

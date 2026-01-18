@@ -2,7 +2,7 @@
  * PHTS System - Scope Resolution Service
  *
  * Provides database integration for scope-based filtering.
- * Uses special_position from pts_employees to determine approver scopes.
+ * Uses special_position from emp_profiles to determine approver scopes.
  */
 
 import { RowDataPacket } from 'mysql2/promise';
@@ -24,7 +24,7 @@ const scopeCache = new Map<string, ApproverScopes>();
 /**
  * Get approver scopes from database based on special_position
  *
- * The special_position field in pts_employees contains role assignments like:
+ * The special_position field in emp_profiles contains role assignments like:
  * - "หัวหน้าตึก/หัวหน้างาน-งานไตเทียม" -> HEAD_WARD scope
  * - "หัวหน้ากลุ่มงาน-กลุ่มงานเภสัชกรรม" -> HEAD_DEPT scope
  *
@@ -54,16 +54,16 @@ export async function getApproverScopes(
 
   const citizenId = (userRows[0] as any).citizen_id;
 
-  // Try to get from pts_employees special_position
+  // Try to get from emp_profiles special_position
   const empRows = await query<RowDataPacket[]>(
-    `SELECT special_position FROM pts_employees WHERE citizen_id = ? LIMIT 1`,
+    `SELECT special_position FROM emp_profiles WHERE citizen_id = ? LIMIT 1`,
     [citizenId],
   );
 
   if (!empRows.length) {
-    // Fallback: try pts_support_employees
+    // Fallback: try emp_support_staff
     const supportRows = await query<RowDataPacket[]>(
-      `SELECT special_position FROM pts_support_employees WHERE citizen_id = ? LIMIT 1`,
+      `SELECT special_position FROM emp_support_staff WHERE citizen_id = ? LIMIT 1`,
       [citizenId],
     );
 

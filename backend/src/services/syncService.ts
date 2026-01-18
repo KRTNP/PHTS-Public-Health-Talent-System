@@ -162,7 +162,7 @@ export class SyncService {
       // 2. Employees
       console.log('[SyncService] Processing employees...');
       const [existingEmps] = await conn.query<RowDataPacket[]>(
-        'SELECT citizen_id, position_name, level, department FROM pts_employees',
+        'SELECT citizen_id, position_name, level, department FROM emp_profiles',
       );
       const empMap = new Map(existingEmps.map((e) => [e.citizen_id, e]));
 
@@ -184,7 +184,7 @@ export class SyncService {
 
         await conn.execute(
           `
-          INSERT INTO pts_employees (
+          INSERT INTO emp_profiles (
             citizen_id, title, first_name, last_name, sex, birth_date,
             position_name, position_number, level, special_position, emp_type,
             department, sub_department, mission_group, specialist, expert, 
@@ -232,7 +232,7 @@ export class SyncService {
         `SELECT citizen_id, title, first_name, last_name, position_name,
                 level, special_position, emp_type, department,
                 is_currently_active
-         FROM pts_support_employees`,
+         FROM emp_support_staff`,
       );
       const supEmpMap = new Map(existingSupEmps.map((e) => [e.citizen_id, e]));
 
@@ -261,7 +261,7 @@ export class SyncService {
 
         await conn.execute(
           `
-          INSERT INTO pts_support_employees (
+          INSERT INTO emp_support_staff (
             citizen_id, title, first_name, last_name,
             position_name, level, special_position, emp_type,
             department, is_currently_active, last_synced_at
@@ -297,7 +297,7 @@ export class SyncService {
       // 3. Signatures
       console.log('[SyncService] Processing signatures...');
       const [existingSigs] = await conn.query<RowDataPacket[]>(
-        'SELECT user_id FROM pts_user_signatures',
+        'SELECT user_id FROM sig_images',
       );
       const sigSet = new Set(existingSigs.map((s) => s.user_id));
 
@@ -316,7 +316,7 @@ export class SyncService {
         }
         await conn.execute(
           `
-          INSERT INTO pts_user_signatures (user_id, signature_image, updated_at) VALUES (?, ?, NOW())
+          INSERT INTO sig_images (user_id, signature_image, updated_at) VALUES (?, ?, NOW())
         `,
           [vSig.user_id, vSig.signature_blob],
         );
@@ -326,7 +326,7 @@ export class SyncService {
       // 4. Licenses & Quotas
       console.log('[SyncService] Processing licenses and quotas...');
       await conn.query(`
-        INSERT INTO pts_employee_licenses (citizen_id, license_no, valid_from, valid_until, status, synced_at)
+        INSERT INTO emp_licenses (citizen_id, license_no, valid_from, valid_until, status, synced_at)
         SELECT l.citizen_id, l.license_no, l.valid_from, l.valid_until, l.status, NOW()
         FROM employee_licenses l
         JOIN users u ON CONVERT(l.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
@@ -343,7 +343,7 @@ export class SyncService {
       for (const q of viewQuotas) {
         await conn.execute(
           `
-          INSERT INTO pts_leave_quotas (citizen_id, fiscal_year, quota_vacation, updated_at)
+          INSERT INTO leave_quotas (citizen_id, fiscal_year, quota_vacation, updated_at)
           VALUES (?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE quota_vacation = VALUES(quota_vacation), updated_at = NOW()
         `,
@@ -355,7 +355,7 @@ export class SyncService {
       // 5. Leave Requests
       console.log('[SyncService] Processing leave requests...');
       const [existingLeaves] = await conn.query<RowDataPacket[]>(
-        'SELECT ref_id, status, start_date, end_date, is_no_pay FROM pts_leave_requests WHERE ref_id IS NOT NULL',
+        'SELECT ref_id, status, start_date, end_date, is_no_pay FROM leave_records WHERE ref_id IS NOT NULL',
       );
       const leaveMap = new Map(existingLeaves.map((l) => [l.ref_id, l]));
 
@@ -384,7 +384,7 @@ export class SyncService {
 
         await conn.execute(
           `
-          INSERT INTO pts_leave_requests (
+          INSERT INTO leave_records (
             ref_id, citizen_id, leave_type, start_date, end_date, 
             duration_days, fiscal_year, remark, status, is_no_pay, synced_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
@@ -415,7 +415,7 @@ export class SyncService {
       // 6. Movements
       console.log('[SyncService] Processing movements...');
       await conn.query(`
-        INSERT INTO pts_employee_movements (citizen_id, movement_type, effective_date, remark, synced_at)
+        INSERT INTO emp_movements (citizen_id, movement_type, effective_date, remark, synced_at)
         SELECT m.citizen_id, m.movement_type, m.effective_date, m.remark, NOW()
         FROM employee_movements m
         JOIN users u ON CONVERT(m.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id

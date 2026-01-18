@@ -46,7 +46,7 @@ export interface RequestSLAInfo {
  * Get all SLA configurations
  */
 export async function getSLAConfigs(): Promise<SLAConfig[]> {
-  const sql = `SELECT * FROM pts_sla_config WHERE is_active = 1 ORDER BY step_no`;
+  const sql = `SELECT * FROM cfg_sla_rules WHERE is_active = 1 ORDER BY step_no`;
   const rows = await query<RowDataPacket[]>(sql);
   return rows as SLAConfig[];
 }
@@ -55,7 +55,7 @@ export async function getSLAConfigs(): Promise<SLAConfig[]> {
  * Get SLA config for a specific step
  */
 export async function getSLAConfigForStep(stepNo: number): Promise<SLAConfig | null> {
-  const sql = `SELECT * FROM pts_sla_config WHERE step_no = ? AND is_active = 1`;
+  const sql = `SELECT * FROM cfg_sla_rules WHERE step_no = ? AND is_active = 1`;
   const rows = await query<RowDataPacket[]>(sql, [stepNo]);
   return rows.length > 0 ? (rows[0] as SLAConfig) : null;
 }
@@ -69,7 +69,7 @@ export async function updateSLAConfig(
   reminderBeforeDays?: number,
   reminderAfterDays?: number,
 ): Promise<void> {
-  let sql = `UPDATE pts_sla_config SET sla_days = ?`;
+  let sql = `UPDATE cfg_sla_rules SET sla_days = ?`;
   const params: any[] = [slaDays];
 
   if (reminderBeforeDays !== undefined) {
@@ -152,8 +152,8 @@ export async function getPendingRequestsWithSLA(): Promise<RequestSLAInfo[]> {
   const sql = `
     SELECT r.request_id, r.request_no, r.current_step, r.step_started_at, r.assigned_officer_id,
            c.sla_days
-    FROM pts_requests r
-    LEFT JOIN pts_sla_config c ON r.current_step = c.step_no AND c.is_active = 1
+    FROM req_submissions r
+    LEFT JOIN cfg_sla_rules c ON r.current_step = c.step_no AND c.is_active = 1
     WHERE r.status = 'PENDING' AND r.step_started_at IS NOT NULL
     ORDER BY r.step_started_at ASC
   `;
@@ -231,7 +231,7 @@ async function wasReminderSentToday(
 ): Promise<boolean> {
   const sql = `
     SELECT COUNT(*) as count
-    FROM pts_sla_reminders
+    FROM wf_sla_reminders
     WHERE request_id = ? AND step_no = ? AND reminder_type = ?
       AND DATE(sent_at) = CURDATE()
   `;
@@ -251,7 +251,7 @@ async function logReminderSent(
   sentVia: 'IN_APP' | 'EMAIL' | 'BOTH' = 'IN_APP',
 ): Promise<void> {
   const sql = `
-    INSERT INTO pts_sla_reminders (request_id, step_no, target_user_id, reminder_type, sent_via)
+    INSERT INTO wf_sla_reminders (request_id, step_no, target_user_id, reminder_type, sent_via)
     VALUES (?, ?, ?, ?, ?)
   `;
 

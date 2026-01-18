@@ -6,7 +6,7 @@ import { query } from '../../config/database.js';
 export const getHolidays = async (req: Request, res: Response) => {
   try {
     const { year } = req.query;
-    let sql = 'SELECT * FROM pts_holidays';
+    let sql = 'SELECT * FROM cfg_holidays';
     const params: any[] = [];
 
     if (year) {
@@ -26,7 +26,7 @@ export const addHoliday = async (req: Request, res: Response) => {
   try {
     const { date, name } = req.body;
     await query<ResultSetHeader>(
-      'INSERT INTO pts_holidays (holiday_date, holiday_name, is_active) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE holiday_name = VALUES(holiday_name)',
+      'INSERT INTO cfg_holidays (holiday_date, holiday_name, is_active) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE holiday_name = VALUES(holiday_name)',
       [date, name],
     );
     res.json({ success: true, message: 'Holiday saved successfully' });
@@ -38,7 +38,7 @@ export const addHoliday = async (req: Request, res: Response) => {
 export const deleteHoliday = async (req: Request, res: Response) => {
   try {
     const { date } = req.params;
-    await query<ResultSetHeader>('DELETE FROM pts_holidays WHERE holiday_date = ?', [date]);
+    await query<ResultSetHeader>('DELETE FROM cfg_holidays WHERE holiday_date = ?', [date]);
     res.json({ success: true, message: 'Holiday deleted successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -49,7 +49,7 @@ export const deleteHoliday = async (req: Request, res: Response) => {
 export const getMasterRates = async (_req: Request, res: Response) => {
   try {
     const rates = await query<RowDataPacket[]>(
-      'SELECT * FROM pts_master_rates ORDER BY profession_code, group_no, item_no',
+      'SELECT * FROM cfg_payment_rates ORDER BY profession_code, group_no, item_no',
     );
     res.json({ success: true, data: rates });
   } catch (error: any) {
@@ -63,7 +63,7 @@ export const updateMasterRate = async (req: Request, res: Response) => {
     const { amount, condition_desc, is_active } = req.body;
 
     await query<ResultSetHeader>(
-      'UPDATE pts_master_rates SET amount = ?, condition_desc = ?, is_active = ? WHERE rate_id = ?',
+      'UPDATE cfg_payment_rates SET amount = ?, condition_desc = ?, is_active = ? WHERE rate_id = ?',
       [amount, condition_desc, is_active, rateId],
     );
     res.json({ success: true, message: 'Rate updated successfully' });
@@ -80,7 +80,7 @@ export const adjustLeaveRequest = async (req: Request, res: Response) => {
 
     await query<ResultSetHeader>(
       `
-      UPDATE pts_leave_requests 
+      UPDATE leave_records 
       SET manual_start_date = ?, 
           manual_end_date = ?, 
           manual_duration_days = ?, 

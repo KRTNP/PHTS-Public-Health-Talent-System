@@ -28,7 +28,7 @@ describe('Classification Logic (Strict Check)', () => {
     subDept: string = '',
   ) => {
     await pool.query(
-      `INSERT INTO pts_employees (citizen_id, position_name, specialist, expert, sub_department) VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO emp_profiles (citizen_id, position_name, specialist, expert, sub_department) VALUES (?, ?, ?, ?, ?)`,
       [cid, pos, spec, expert, subDept],
     );
   };

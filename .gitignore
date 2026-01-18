@@ -49,11 +49,27 @@ temp/
 .vercel
 
 # Editor and OS files
-.vscode/
-.idea/
-.history/
+**/.vscode/
+**/.idea/
+**/.history/
 .DS_Store
 Thumbs.db
+
+# Certificates and secrets
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Database dumps and local DBs
+*.sql
+*.dump
+*.bak
+*.backup
+*.sqlite
+*.sqlite3
+*.db
 
 # AI assistant files (may contain credentials)
 CLAUDE.md
@@ -67,3 +83,6 @@ uploads/
 .cache/
 .githooks/
 scripts/
+
+# SonarScanner
+.scannerwork/

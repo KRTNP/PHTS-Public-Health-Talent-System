@@ -47,7 +47,7 @@ type MasterRateRow = {
 
 async function getPeriodId(year: number, month: number): Promise<number> {
   const rows = await query<RowDataPacket[]>(
-    'SELECT period_id FROM pts_periods WHERE period_year = ? AND period_month = ? LIMIT 1',
+    'SELECT period_id FROM pay_periods WHERE period_year = ? AND period_month = ? LIMIT 1',
     [year, month],
   );
 
@@ -63,7 +63,7 @@ async function getMasterRateMap(rateIds: number[]): Promise<Map<number, MasterRa
   const placeholders = rateIds.map(() => '?').join(', ');
   const rows = await query<RowDataPacket[]>(
     `SELECT rate_id, amount, group_no, item_no, profession_code
-     FROM pts_master_rates
+     FROM cfg_payment_rates
      WHERE rate_id IN (${placeholders})`,
     rateIds,
   );

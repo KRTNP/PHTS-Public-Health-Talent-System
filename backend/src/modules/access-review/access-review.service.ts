@@ -94,7 +94,7 @@ function getQuarterDates(quarter: number, year: number): { startDate: Date; dueD
  * Get all review cycles
  */
 export async function getReviewCycles(year?: number): Promise<ReviewCycle[]> {
-  let sql = 'SELECT * FROM pts_access_review_cycles';
+  let sql = 'SELECT * FROM audit_review_cycles';
   const params: any[] = [];
 
   if (year) {
@@ -112,7 +112,7 @@ export async function getReviewCycles(year?: number): Promise<ReviewCycle[]> {
  * Get a specific review cycle
  */
 export async function getReviewCycle(cycleId: number): Promise<ReviewCycle | null> {
-  const sql = 'SELECT * FROM pts_access_review_cycles WHERE cycle_id = ?';
+  const sql = 'SELECT * FROM audit_review_cycles WHERE cycle_id = ?';
   const rows = await query<RowDataPacket[]>(sql, [cycleId]);
   return rows.length > 0 ? (rows[0] as ReviewCycle) : null;
 }
@@ -131,7 +131,7 @@ export async function createReviewCycle(): Promise<ReviewCycle> {
 
     // Check if cycle already exists
     const [existing] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_access_review_cycles WHERE quarter = ? AND year = ?',
+      'SELECT * FROM audit_review_cycles WHERE quarter = ? AND year = ?',
       [quarter, year],
     );
 
@@ -145,14 +145,14 @@ export async function createReviewCycle(): Promise<ReviewCycle> {
       SELECT u.id, u.citizen_id, u.role, u.last_login_at,
              COALESCE(e.employment_status, s.employment_status, 'unknown') AS employee_status
       FROM users u
-      LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-      LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+      LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+      LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
       WHERE u.role != 'ADMIN' AND u.is_active = 1
     `);
 
     // Create cycle
     const [cycleResult] = await connection.execute(
-      `INSERT INTO pts_access_review_cycles
+      `INSERT INTO audit_review_cycles
        (quarter, year, status, start_date, due_date, total_users)
        VALUES (?, ?, 'PENDING', ?, ?, ?)`,
       [quarter, year, startDate, dueDate, users.length],
@@ -163,7 +163,7 @@ export async function createReviewCycle(): Promise<ReviewCycle> {
     // Create review items for each user
     for (const user of users as any[]) {
       await connection.execute(
-        `INSERT INTO pts_access_review_items
+        `INSERT INTO audit_review_items
          (cycle_id, user_id, current_role, employee_status, last_login_at)
          VALUES (?, ?, ?, ?, ?)`,
         [cycleId, user.id, user.role, user.employee_status, user.last_login_at],
@@ -231,10 +231,10 @@ export async function getReviewItems(
     SELECT i.*, u.citizen_id,
            COALESCE(e.first_name, s.first_name, '') AS first_name,
            COALESCE(e.last_name, s.last_name, '') AS last_name
-    FROM pts_access_review_items i
+    FROM audit_review_items i
     JOIN users u ON i.user_id = u.id
-    LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-    LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+    LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+    LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
     WHERE i.cycle_id = ?
   `;
 
@@ -283,8 +283,8 @@ export async function updateReviewItem(
     // Get item and cycle info
     const [items] = await connection.query<RowDataPacket[]>(
       `SELECT i.*, c.cycle_id
-       FROM pts_access_review_items i
-       JOIN pts_access_review_cycles c ON i.cycle_id = c.cycle_id
+       FROM audit_review_items i
+       JOIN audit_review_cycles c ON i.cycle_id = c.cycle_id
        WHERE i.item_id = ? FOR UPDATE`,
       [itemId],
     );
@@ -297,7 +297,7 @@ export async function updateReviewItem(
 
     // Update review item
     await connection.execute(
-      `UPDATE pts_access_review_items
+      `UPDATE audit_review_items
        SET review_result = ?, reviewed_at = NOW(), reviewed_by = ?, review_note = ?
        WHERE item_id = ?`,
       [result, reviewerId, note || null, itemId],
@@ -335,9 +335,9 @@ export async function updateReviewItem(
 
     // Update cycle statistics
     await connection.execute(
-      `UPDATE pts_access_review_cycles c
-       SET reviewed_users = (SELECT COUNT(*) FROM pts_access_review_items WHERE cycle_id = c.cycle_id AND review_result != 'PENDING'),
-           disabled_users = (SELECT COUNT(*) FROM pts_access_review_items WHERE cycle_id = c.cycle_id AND review_result = 'DISABLE')
+      `UPDATE audit_review_cycles c
+       SET reviewed_users = (SELECT COUNT(*) FROM audit_review_items WHERE cycle_id = c.cycle_id AND review_result != 'PENDING'),
+           disabled_users = (SELECT COUNT(*) FROM audit_review_items WHERE cycle_id = c.cycle_id AND review_result = 'DISABLE')
        WHERE c.cycle_id = ?`,
       [item.cycle_id],
     );
@@ -366,7 +366,7 @@ export async function completeReviewCycle(
     // Check if all items are reviewed
     const [pending] = await connection.query<RowDataPacket[]>(
       `SELECT COUNT(*) as count
-       FROM pts_access_review_items
+       FROM audit_review_items
        WHERE cycle_id = ? AND review_result = 'PENDING'`,
       [cycleId],
     );
@@ -377,7 +377,7 @@ export async function completeReviewCycle(
 
     // Update cycle status
     await connection.execute(
-      `UPDATE pts_access_review_cycles
+      `UPDATE audit_review_cycles
        SET status = 'COMPLETED', completed_at = NOW(), completed_by = ?
        WHERE cycle_id = ?`,
       [completedBy, cycleId],
@@ -418,7 +418,7 @@ export async function autoDisableTerminatedUsers(): Promise<{
     // Get current cycle
     const { quarter, year } = getCurrentQuarter();
     const [cycles] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_access_review_cycles WHERE quarter = ? AND year = ? AND status != ?',
+      'SELECT * FROM audit_review_cycles WHERE quarter = ? AND year = ? AND status != ?',
       [quarter, year, 'COMPLETED'],
     );
 
@@ -433,7 +433,7 @@ export async function autoDisableTerminatedUsers(): Promise<{
     // Find users with terminated status in review items
     const [items] = await connection.query<RowDataPacket[]>(`
       SELECT i.item_id, i.user_id, i.employee_status
-      FROM pts_access_review_items i
+      FROM audit_review_items i
       WHERE i.cycle_id = ? AND i.review_result = 'PENDING'
         AND i.employee_status IN ('resigned', 'terminated', 'retired', 'deceased')
     `, [cycle.cycle_id]);
@@ -442,7 +442,7 @@ export async function autoDisableTerminatedUsers(): Promise<{
       try {
         // Auto-disable
         await connection.execute(
-          `UPDATE pts_access_review_items
+          `UPDATE audit_review_items
            SET review_result = 'DISABLE', reviewed_at = NOW(), auto_disabled = 1,
                review_note = ?
            WHERE item_id = ?`,
@@ -474,9 +474,9 @@ export async function autoDisableTerminatedUsers(): Promise<{
 
     // Update cycle statistics
     await connection.execute(
-      `UPDATE pts_access_review_cycles c
-       SET reviewed_users = (SELECT COUNT(*) FROM pts_access_review_items WHERE cycle_id = c.cycle_id AND review_result != 'PENDING'),
-           disabled_users = (SELECT COUNT(*) FROM pts_access_review_items WHERE cycle_id = c.cycle_id AND review_result = 'DISABLE')
+      `UPDATE audit_review_cycles c
+       SET reviewed_users = (SELECT COUNT(*) FROM audit_review_items WHERE cycle_id = c.cycle_id AND review_result != 'PENDING'),
+           disabled_users = (SELECT COUNT(*) FROM audit_review_items WHERE cycle_id = c.cycle_id AND review_result = 'DISABLE')
        WHERE c.cycle_id = ?`,
       [cycle.cycle_id],
     );
@@ -500,7 +500,7 @@ export async function sendReviewReminders(): Promise<number> {
 
   // Find cycles due in 7 days
   const sql = `
-    SELECT * FROM pts_access_review_cycles
+    SELECT * FROM audit_review_cycles
     WHERE status IN ('PENDING', 'IN_PROGRESS')
       AND DATEDIFF(due_date, CURDATE()) <= 7
       AND DATEDIFF(due_date, CURDATE()) >= 0

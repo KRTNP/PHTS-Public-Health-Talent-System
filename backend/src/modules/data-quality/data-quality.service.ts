@@ -123,14 +123,14 @@ export async function getIssues(
   const whereClause = whereClauses.join(' AND ');
 
   // Count total
-  const countSql = `SELECT COUNT(*) as total FROM pts_data_quality_issues WHERE ${whereClause}`;
+  const countSql = `SELECT COUNT(*) as total FROM dq_issues WHERE ${whereClause}`;
   const countResult = await query<RowDataPacket[]>(countSql, params);
   const total = (countResult as any)[0]?.total || 0;
 
   // Get issues
   const offset = (page - 1) * limit;
   const sql = `
-    SELECT * FROM pts_data_quality_issues
+    SELECT * FROM dq_issues
     WHERE ${whereClause}
     ORDER BY FIELD(severity, 'HIGH', 'MEDIUM', 'LOW'), detected_at DESC
     LIMIT ? OFFSET ?
@@ -232,7 +232,7 @@ export async function createIssue(
   affectsCalc: boolean = false,
 ): Promise<number> {
   const sql = `
-    INSERT INTO pts_data_quality_issues
+    INSERT INTO dq_issues
     (issue_type, severity, entity_type, entity_id, citizen_id, description, affected_calculation)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
@@ -259,7 +259,7 @@ export async function updateIssueStatus(
   resolvedBy?: number,
   note?: string,
 ): Promise<void> {
-  let sql = 'UPDATE pts_data_quality_issues SET status = ?';
+  let sql = 'UPDATE dq_issues SET status = ?';
   const params: any[] = [status];
 
   if (status === IssueStatus.RESOLVED && resolvedBy) {
@@ -299,11 +299,11 @@ export async function runDataQualityChecks(): Promise<{
     try {
       const [expiredLicenses] = await connection.query<RowDataPacket[]>(`
         SELECT e.citizen_id, e.first_name, e.last_name, e.license_end_date
-        FROM pts_employees e
+        FROM emp_profiles e
         WHERE e.license_end_date IS NOT NULL
           AND e.license_end_date < CURDATE()
           AND NOT EXISTS (
-            SELECT 1 FROM pts_data_quality_issues i
+            SELECT 1 FROM dq_issues i
             WHERE i.citizen_id = e.citizen_id
               AND i.issue_type = 'LICENSE_EXPIRED'
               AND i.status IN ('OPEN', 'IN_PROGRESS')
@@ -312,9 +312,9 @@ export async function runDataQualityChecks(): Promise<{
 
       for (const emp of expiredLicenses as any[]) {
         await connection.execute(
-          `INSERT INTO pts_data_quality_issues
+          `INSERT INTO dq_issues
            (issue_type, severity, entity_type, citizen_id, description, affected_calculation)
-           VALUES ('LICENSE_EXPIRED', 'HIGH', 'pts_employees', ?,
+           VALUES ('LICENSE_EXPIRED', 'HIGH', 'emp_profiles', ?,
                    ?, 1)`,
           [
             emp.citizen_id,
@@ -332,10 +332,10 @@ export async function runDataQualityChecks(): Promise<{
     try {
       const [missingWard] = await connection.query<RowDataPacket[]>(`
         SELECT e.citizen_id, e.first_name, e.last_name
-        FROM pts_employees e
+        FROM emp_profiles e
         WHERE (e.sub_department IS NULL OR e.sub_department = '')
           AND NOT EXISTS (
-            SELECT 1 FROM pts_data_quality_issues i
+            SELECT 1 FROM dq_issues i
             WHERE i.citizen_id = e.citizen_id
               AND i.issue_type = 'WARD_MAPPING_MISSING'
               AND i.status IN ('OPEN', 'IN_PROGRESS')
@@ -344,9 +344,9 @@ export async function runDataQualityChecks(): Promise<{
 
       for (const emp of missingWard as any[]) {
         await connection.execute(
-          `INSERT INTO pts_data_quality_issues
+          `INSERT INTO dq_issues
            (issue_type, severity, entity_type, citizen_id, description, affected_calculation)
-           VALUES ('WARD_MAPPING_MISSING', 'MEDIUM', 'pts_employees', ?,
+           VALUES ('WARD_MAPPING_MISSING', 'MEDIUM', 'emp_profiles', ?,
                    ?, 0)`,
           [emp.citizen_id, `${emp.first_name} ${emp.last_name} ไม่มีข้อมูล ward/sub_department`],
         );
@@ -361,11 +361,11 @@ export async function runDataQualityChecks(): Promise<{
     try {
       const [incomplete] = await connection.query<RowDataPacket[]>(`
         SELECT e.citizen_id, e.first_name, e.last_name
-        FROM pts_employees e
+        FROM emp_profiles e
         WHERE (e.position_name IS NULL OR e.position_name = ''
                OR e.department IS NULL OR e.department = '')
           AND NOT EXISTS (
-            SELECT 1 FROM pts_data_quality_issues i
+            SELECT 1 FROM dq_issues i
             WHERE i.citizen_id = e.citizen_id
               AND i.issue_type = 'EMPLOYEE_DATA_INCOMPLETE'
               AND i.status IN ('OPEN', 'IN_PROGRESS')
@@ -374,9 +374,9 @@ export async function runDataQualityChecks(): Promise<{
 
       for (const emp of incomplete as any[]) {
         await connection.execute(
-          `INSERT INTO pts_data_quality_issues
+          `INSERT INTO dq_issues
            (issue_type, severity, entity_type, citizen_id, description, affected_calculation)
-           VALUES ('EMPLOYEE_DATA_INCOMPLETE', 'MEDIUM', 'pts_employees', ?,
+           VALUES ('EMPLOYEE_DATA_INCOMPLETE', 'MEDIUM', 'emp_profiles', ?,
                    ?, 1)`,
           [emp.citizen_id, `${emp.first_name} ${emp.last_name} ข้อมูลไม่ครบ (ตำแหน่ง/หน่วยงาน)`],
         );
@@ -409,8 +409,8 @@ export async function autoResolveFixedIssues(): Promise<number> {
 
     // Resolve license expired issues where license is now valid
     const [result1] = await connection.execute(`
-      UPDATE pts_data_quality_issues i
-      JOIN pts_employees e ON i.citizen_id = e.citizen_id
+      UPDATE dq_issues i
+      JOIN emp_profiles e ON i.citizen_id = e.citizen_id
       SET i.status = 'RESOLVED',
           i.resolved_at = NOW(),
           i.resolution_note = 'Auto-resolved: License renewed'
@@ -422,8 +422,8 @@ export async function autoResolveFixedIssues(): Promise<number> {
 
     // Resolve ward mapping issues where ward is now set
     const [result2] = await connection.execute(`
-      UPDATE pts_data_quality_issues i
-      JOIN pts_employees e ON i.citizen_id = e.citizen_id
+      UPDATE dq_issues i
+      JOIN emp_profiles e ON i.citizen_id = e.citizen_id
       SET i.status = 'RESOLVED',
           i.resolved_at = NOW(),
           i.resolution_note = 'Auto-resolved: Ward mapping added'
@@ -436,8 +436,8 @@ export async function autoResolveFixedIssues(): Promise<number> {
 
     // Resolve incomplete data issues where data is now complete
     const [result3] = await connection.execute(`
-      UPDATE pts_data_quality_issues i
-      JOIN pts_employees e ON i.citizen_id = e.citizen_id
+      UPDATE dq_issues i
+      JOIN emp_profiles e ON i.citizen_id = e.citizen_id
       SET i.status = 'RESOLVED',
           i.resolved_at = NOW(),
           i.resolution_note = 'Auto-resolved: Data completed'

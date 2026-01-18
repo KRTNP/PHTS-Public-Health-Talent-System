@@ -13,8 +13,8 @@ export const searchUsers = async (req: Request, res: Response) => {
              COALESCE(e.first_name, s.first_name) as first_name,
              COALESCE(e.last_name, s.last_name) as last_name
       FROM users u
-      LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-      LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+      LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+      LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
       WHERE u.citizen_id LIKE ? OR e.first_name LIKE ? OR e.last_name LIKE ?
       LIMIT 50
     `;

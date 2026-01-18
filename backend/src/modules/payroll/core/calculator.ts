@@ -72,8 +72,8 @@ export async function calculateMonthly(
   const [eligibilityRows] = await dbConn.query<RowDataPacket[]>(
     `
       SELECT e.effective_date, e.expiry_date, m.amount as rate, m.rate_id
-      FROM pts_employee_eligibility e
-      JOIN pts_master_rates m ON e.master_rate_id = m.rate_id
+      FROM req_eligibility e
+      JOIN cfg_payment_rates m ON e.master_rate_id = m.rate_id
       WHERE e.citizen_id = ? AND e.is_active = 1
       AND e.effective_date <= ? 
       AND (e.expiry_date IS NULL OR e.expiry_date >= ?)
@@ -84,7 +84,7 @@ export async function calculateMonthly(
 
   const [movementRows] = await dbConn.query<RowDataPacket[]>(
     `
-      SELECT * FROM pts_employee_movements 
+      SELECT * FROM emp_movements 
       WHERE citizen_id = ? AND effective_date <= ?
       ORDER BY effective_date ASC, created_at ASC
     `,
@@ -92,18 +92,18 @@ export async function calculateMonthly(
   );
 
   const [employeeRows] = await dbConn.query<RowDataPacket[]>(
-    `SELECT position_name FROM pts_employees WHERE citizen_id = ? LIMIT 1`,
+    `SELECT position_name FROM emp_profiles WHERE citizen_id = ? LIMIT 1`,
     [citizenId],
   );
 
   const [licenseRows] = await dbConn.query<RowDataPacket[]>(
-    `SELECT * FROM pts_employee_licenses WHERE citizen_id = ?`,
+    `SELECT * FROM emp_licenses WHERE citizen_id = ?`,
     [citizenId],
   );
 
   const [leaveRows] = await dbConn.query<RowDataPacket[]>(
     `
-      SELECT * FROM pts_leave_requests 
+      SELECT * FROM leave_records 
       WHERE citizen_id = ? AND fiscal_year = ?
       ORDER BY start_date ASC
     `,
@@ -111,12 +111,12 @@ export async function calculateMonthly(
   );
 
   const [quotaRows] = await dbConn.query<RowDataPacket[]>(
-    `SELECT * FROM pts_leave_quotas WHERE citizen_id = ? AND fiscal_year = ?`,
+    `SELECT * FROM leave_quotas WHERE citizen_id = ? AND fiscal_year = ?`,
     [citizenId, fiscalYear],
   );
 
   const [holidayRows] = await dbConn.query<RowDataPacket[]>(
-    `SELECT holiday_date FROM pts_holidays WHERE holiday_date BETWEEN ? AND ?`,
+    `SELECT holiday_date FROM cfg_holidays WHERE holiday_date BETWEEN ? AND ?`,
     [`${year - 1}-01-01`, `${year}-12-31`],
   );
 
@@ -228,7 +228,7 @@ export async function savePayout(
 
   const [res] = await conn.query<ResultSetHeader>(
     `
-      INSERT INTO pts_payouts 
+      INSERT INTO pay_results 
       (period_id, citizen_id, master_rate_id, pts_rate_snapshot, calculated_amount, total_payable, deducted_days, eligible_days, remark)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
@@ -250,7 +250,7 @@ export async function savePayout(
   if (result.netPayment !== 0) {
     await conn.query(
       `
-        INSERT INTO pts_payout_items (payout_id, reference_month, reference_year, item_type, amount, description)
+        INSERT INTO pay_result_items (payout_id, reference_month, reference_year, item_type, amount, description)
         VALUES (?, ?, ?, 'CURRENT', ?, 'ค่าตอบแทนงวดปัจจุบัน')
       `,
       [payoutId, referenceMonth, referenceYear, result.netPayment],
@@ -262,7 +262,7 @@ export async function savePayout(
       const itemType = detail.diff > 0 ? 'RETROACTIVE_ADD' : 'RETROACTIVE_DEDUCT';
       await conn.query(
         `
-          INSERT INTO pts_payout_items (payout_id, reference_month, reference_year, item_type, amount, description)
+          INSERT INTO pay_result_items (payout_id, reference_month, reference_year, item_type, amount, description)
           VALUES (?, ?, ?, ?, ?, ?)
         `,
         [payoutId, detail.month, detail.year, itemType, Math.abs(detail.diff), detail.remark],
@@ -272,7 +272,7 @@ export async function savePayout(
     const itemType = result.retroactiveTotal > 0 ? 'RETROACTIVE_ADD' : 'RETROACTIVE_DEDUCT';
     await conn.query(
       `
-        INSERT INTO pts_payout_items (payout_id, reference_month, reference_year, item_type, amount, description)
+        INSERT INTO pay_result_items (payout_id, reference_month, reference_year, item_type, amount, description)
         VALUES (?, ?, ?, ?, ?, ?)
       `,
       [

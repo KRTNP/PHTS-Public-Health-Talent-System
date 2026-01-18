@@ -167,7 +167,7 @@ export async function createRequest(
     };
 
     const [empRows] = await pool.query<RowDataPacket[]>(
-      `SELECT * FROM pts_employees WHERE citizen_id = ?`,
+      `SELECT * FROM emp_profiles WHERE citizen_id = ?`,
       [req.user.citizenId],
     );
 
@@ -841,9 +841,9 @@ export async function getPreClassification(req: Request, res: Response): Promise
       return;
     }
 
-    // Auto-detect data source: pts_employees (test) or employees view (production/HRMS sync)
+    // Auto-detect data source: emp_profiles (test) or employees view (production/HRMS sync)
     const isTestEnv = process.env.NODE_ENV === 'test' || process.env.DB_NAME?.includes('test');
-    const dataSource = isTestEnv ? 'pts_employees' : 'employees';
+    const dataSource = isTestEnv ? 'emp_profiles' : 'employees';
     const startDateField = isTestEnv ? 'start_work_date' : 'start_current_position';
 
     const [empRows] = await pool.query<RowDataPacket[]>(

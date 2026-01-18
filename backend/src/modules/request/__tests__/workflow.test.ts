@@ -25,7 +25,7 @@ beforeAll(async () => {
 
   // Seed Data
   await pool.query(
-    `INSERT INTO pts_master_rates (profession_code, group_no, amount) VALUES ('NURSE', 1, 1500)`,
+    `INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES ('NURSE', 1, 1500)`,
   );
 
   const [userResult]: any = await pool.query(
@@ -34,7 +34,7 @@ beforeAll(async () => {
   headFinanceId = userResult.insertId;
 
   await pool.query(
-    `INSERT INTO pts_user_signatures (user_id, signature_image) VALUES (?, 'mock_blob_data')`,
+    `INSERT INTO sig_images (user_id, signature_image) VALUES (?, 'mock_blob_data')`,
     [headFinanceId],
   );
 
@@ -49,7 +49,7 @@ describe('Request Workflow & Batch Approval', () => {
   test('Batch Approve isolates transactions per request', async () => {
     const [res1]: any = await pool.query(
       `
-      INSERT INTO pts_requests (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
+      INSERT INTO req_submissions (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
       VALUES (1, 'PENDING', 5, 1500, '2024-01-01', 1)
     `,
     );
@@ -57,7 +57,7 @@ describe('Request Workflow & Batch Approval', () => {
 
     const [res2]: any = await pool.query(
       `
-      INSERT INTO pts_requests (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
+      INSERT INTO req_submissions (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
       VALUES (2, 'DRAFT', 1, 1500, '2024-01-01', 1)
     `,
     );
@@ -65,7 +65,7 @@ describe('Request Workflow & Batch Approval', () => {
 
     const [res3]: any = await pool.query(
       `
-      INSERT INTO pts_requests (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
+      INSERT INTO req_submissions (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
       VALUES (3, 'PENDING', 5, 1500, '2024-01-01', 1)
     `,
     );
@@ -81,20 +81,20 @@ describe('Request Workflow & Batch Approval', () => {
     expect(result.failed.find((f) => f.id === id2)).toBeDefined();
 
     const [rows1]: any = await pool.query(
-      `SELECT status, current_step FROM pts_requests WHERE request_id = ?`,
+      `SELECT status, current_step FROM req_submissions WHERE request_id = ?`,
       [id1],
     );
     expect(rows1[0].current_step).toBe(6);
 
     const [rows2]: any = await pool.query(
-      `SELECT status, current_step FROM pts_requests WHERE request_id = ?`,
+      `SELECT status, current_step FROM req_submissions WHERE request_id = ?`,
       [id2],
     );
     expect(rows2[0].status).toBe('DRAFT');
     expect(rows2[0].current_step).toBe(1);
 
     const [rows3]: any = await pool.query(
-      `SELECT status, current_step FROM pts_requests WHERE request_id = ?`,
+      `SELECT status, current_step FROM req_submissions WHERE request_id = ?`,
       [id3],
     );
     expect(rows3[0].current_step).toBe(6);

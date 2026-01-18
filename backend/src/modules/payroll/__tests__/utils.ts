@@ -39,7 +39,7 @@ export async function setupSchema(pool: Pool) {
       password_hash VARCHAR(100),
       is_active TINYINT(1) DEFAULT 1
     );
-    CREATE TABLE IF NOT EXISTS pts_master_rates (
+    CREATE TABLE IF NOT EXISTS cfg_payment_rates (
       rate_id INT AUTO_INCREMENT PRIMARY KEY,
       profession_code VARCHAR(20),
       group_no INT,
@@ -47,12 +47,12 @@ export async function setupSchema(pool: Pool) {
       amount DECIMAL(10,2),
       is_active TINYINT(1) DEFAULT 1
     );
-    CREATE TABLE IF NOT EXISTS pts_employees (
+    CREATE TABLE IF NOT EXISTS emp_profiles (
       citizen_id VARCHAR(20) PRIMARY KEY,
       position_name VARCHAR(100),
       department VARCHAR(100)
     );
-    CREATE TABLE IF NOT EXISTS pts_employee_eligibility (
+    CREATE TABLE IF NOT EXISTS req_eligibility (
       eligibility_id INT AUTO_INCREMENT PRIMARY KEY,
       citizen_id VARCHAR(20),
       master_rate_id INT,
@@ -60,7 +60,7 @@ export async function setupSchema(pool: Pool) {
       expiry_date DATE DEFAULT NULL,
       is_active TINYINT(1) DEFAULT 1
     );
-    CREATE TABLE IF NOT EXISTS pts_periods (
+    CREATE TABLE IF NOT EXISTS pay_periods (
       period_id INT AUTO_INCREMENT PRIMARY KEY,
       period_month INT,
       period_year INT,
@@ -68,7 +68,7 @@ export async function setupSchema(pool: Pool) {
       total_amount DECIMAL(15,2) DEFAULT 0,
       total_headcount INT DEFAULT 0
     );
-    CREATE TABLE IF NOT EXISTS pts_payouts (
+    CREATE TABLE IF NOT EXISTS pay_results (
       payout_id INT AUTO_INCREMENT PRIMARY KEY,
       period_id INT,
       citizen_id VARCHAR(20),
@@ -82,7 +82,7 @@ export async function setupSchema(pool: Pool) {
       remark TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS pts_payout_items (
+    CREATE TABLE IF NOT EXISTS pay_result_items (
       item_id INT AUTO_INCREMENT PRIMARY KEY,
       payout_id INT,
       reference_month INT,
@@ -91,14 +91,14 @@ export async function setupSchema(pool: Pool) {
       amount DECIMAL(10,2),
       description VARCHAR(255)
     );
-    CREATE TABLE IF NOT EXISTS pts_employee_movements (
+    CREATE TABLE IF NOT EXISTS emp_movements (
       movement_id INT AUTO_INCREMENT PRIMARY KEY,
       citizen_id VARCHAR(20),
       movement_type VARCHAR(20),
       effective_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE IF NOT EXISTS pts_employee_licenses (
+    CREATE TABLE IF NOT EXISTS emp_licenses (
       license_id INT AUTO_INCREMENT PRIMARY KEY,
       citizen_id VARCHAR(20),
       valid_from DATE,
@@ -108,7 +108,7 @@ export async function setupSchema(pool: Pool) {
       license_type VARCHAR(255),
       occupation_name VARCHAR(255)
     );
-    CREATE TABLE IF NOT EXISTS pts_leave_requests (
+    CREATE TABLE IF NOT EXISTS leave_records (
       id INT PRIMARY KEY AUTO_INCREMENT,
       citizen_id VARCHAR(20),
       leave_type VARCHAR(50),
@@ -117,7 +117,7 @@ export async function setupSchema(pool: Pool) {
       duration_days DECIMAL(5,2),
       fiscal_year INT
     );
-    CREATE TABLE IF NOT EXISTS pts_leave_quotas (
+    CREATE TABLE IF NOT EXISTS leave_quotas (
       id INT PRIMARY KEY AUTO_INCREMENT,
       citizen_id VARCHAR(20),
       fiscal_year INT,
@@ -125,13 +125,13 @@ export async function setupSchema(pool: Pool) {
       quota_personal DECIMAL(5,2) DEFAULT 45,
       quota_sick DECIMAL(5,2) DEFAULT 60
     );
-    CREATE TABLE IF NOT EXISTS pts_holidays (holiday_date DATE PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS cfg_holidays (holiday_date DATE PRIMARY KEY);
   `);
 }
 
 export async function seedBaseData(pool: Pool) {
   await pool.query(`
-    INSERT INTO pts_master_rates (profession_code, group_no, amount) VALUES
+    INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES
     ('DOCTOR', 1, 5000),
     ('DOCTOR', 2, 10000);
   `);
@@ -140,29 +140,29 @@ export async function seedBaseData(pool: Pool) {
   );
   await pool.query(`INSERT INTO users (citizen_id, role) VALUES ('DOC1', 'USER')`);
   await pool.query(
-    `INSERT INTO pts_employees (citizen_id, position_name) VALUES ('DOC1', 'นายแพทย์ปฏิบัติการ')`,
+    `INSERT INTO emp_profiles (citizen_id, position_name) VALUES ('DOC1', 'นายแพทย์ปฏิบัติการ')`,
   );
   await pool.query(
-    `INSERT INTO pts_employee_movements (citizen_id, movement_type, effective_date) VALUES ('DOC1', 'ENTRY', '2023-01-01')`,
+    `INSERT INTO emp_movements (citizen_id, movement_type, effective_date) VALUES ('DOC1', 'ENTRY', '2023-01-01')`,
   );
   await pool.query(
-    `INSERT INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES ('DOC1', '2023-01-01', '2030-12-31', 'ACTIVE')`,
+    `INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) VALUES ('DOC1', '2023-01-01', '2030-12-31', 'ACTIVE')`,
   );
 }
 
 export async function cleanTables(pool: Pool) {
   const tables = [
-    'pts_payout_items',
-    'pts_payouts',
-    'pts_periods',
-    'pts_employee_eligibility',
-    'pts_employee_movements',
-    'pts_employee_licenses',
-    'pts_master_rates',
-    'pts_employees',
-    'pts_leave_requests',
-    'pts_leave_quotas',
-    'pts_holidays',
+    'pay_result_items',
+    'pay_results',
+    'pay_periods',
+    'req_eligibility',
+    'emp_movements',
+    'emp_licenses',
+    'cfg_payment_rates',
+    'emp_profiles',
+    'leave_records',
+    'leave_quotas',
+    'cfg_holidays',
     'users',
   ];
   const statements = ['SET FOREIGN_KEY_CHECKS = 0'];
@@ -176,18 +176,18 @@ export async function cleanTables(pool: Pool) {
 export async function resetTestData(pool: Pool) {
   const statements = [
     'SET FOREIGN_KEY_CHECKS = 0',
-    'TRUNCATE TABLE pts_payout_items',
-    'TRUNCATE TABLE pts_payouts',
-    'TRUNCATE TABLE pts_periods',
-    'TRUNCATE TABLE pts_employee_eligibility',
-    'TRUNCATE TABLE pts_leave_requests',
-    'TRUNCATE TABLE pts_leave_quotas',
-    'TRUNCATE TABLE pts_holidays',
-    "DELETE FROM pts_employee_movements WHERE citizen_id NOT IN ('DOC1')",
-    "DELETE FROM pts_employee_licenses WHERE citizen_id NOT IN ('DOC1')",
-    "DELETE FROM pts_employees WHERE citizen_id NOT IN ('DOC1')",
+    'TRUNCATE TABLE pay_result_items',
+    'TRUNCATE TABLE pay_results',
+    'TRUNCATE TABLE pay_periods',
+    'TRUNCATE TABLE req_eligibility',
+    'TRUNCATE TABLE leave_records',
+    'TRUNCATE TABLE leave_quotas',
+    'TRUNCATE TABLE cfg_holidays',
+    "DELETE FROM emp_movements WHERE citizen_id NOT IN ('DOC1')",
+    "DELETE FROM emp_licenses WHERE citizen_id NOT IN ('DOC1')",
+    "DELETE FROM emp_profiles WHERE citizen_id NOT IN ('DOC1')",
     "DELETE FROM users WHERE citizen_id NOT IN ('ADMIN1','DOC1')",
-    "DELETE FROM pts_master_rates WHERE NOT (profession_code = 'DOCTOR' AND group_no IN (1,2) AND amount IN (5000,10000))",
+    "DELETE FROM cfg_payment_rates WHERE NOT (profession_code = 'DOCTOR' AND group_no IN (1,2) AND amount IN (5000,10000))",
     'SET FOREIGN_KEY_CHECKS = 1',
   ];
   await pool.query(statements.join('; '));
@@ -197,16 +197,16 @@ export async function resetTestData(pool: Pool) {
   );
   await pool.query(`INSERT IGNORE INTO users (citizen_id, role) VALUES ('DOC1', 'USER')`);
   await pool.query(
-    `INSERT IGNORE INTO pts_employees (citizen_id, position_name) VALUES ('DOC1', 'นายแพทย์ปฏิบัติการ')`,
+    `INSERT IGNORE INTO emp_profiles (citizen_id, position_name) VALUES ('DOC1', 'นายแพทย์ปฏิบัติการ')`,
   );
   await pool.query(
-    `INSERT IGNORE INTO pts_employee_movements (citizen_id, movement_type, effective_date) VALUES ('DOC1', 'ENTRY', '2023-01-01')`,
+    `INSERT IGNORE INTO emp_movements (citizen_id, movement_type, effective_date) VALUES ('DOC1', 'ENTRY', '2023-01-01')`,
   );
   await pool.query(
-    `INSERT IGNORE INTO pts_employee_licenses (citizen_id, valid_from, valid_until, status) VALUES ('DOC1', '2023-01-01', '2030-12-31', 'ACTIVE')`,
+    `INSERT IGNORE INTO emp_licenses (citizen_id, valid_from, valid_until, status) VALUES ('DOC1', '2023-01-01', '2030-12-31', 'ACTIVE')`,
   );
   await pool.query(`
-    INSERT IGNORE INTO pts_master_rates (profession_code, group_no, amount) VALUES
+    INSERT IGNORE INTO cfg_payment_rates (profession_code, group_no, amount) VALUES
     ('DOCTOR', 1, 5000),
     ('DOCTOR', 2, 10000);
   `);

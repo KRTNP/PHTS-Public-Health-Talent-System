@@ -80,8 +80,8 @@ export async function markPayoutAsPaid(
     // Verify payout exists and is pending
     const [payouts] = await connection.query<RowDataPacket[]>(
       `SELECT po.*, p.period_month, p.period_year
-       FROM pts_payouts po
-       JOIN pts_periods p ON po.period_id = p.period_id
+       FROM pay_results po
+       JOIN pay_periods p ON po.period_id = p.period_id
        WHERE po.payout_id = ? FOR UPDATE`,
       [payoutId],
     );
@@ -102,7 +102,7 @@ export async function markPayoutAsPaid(
 
     // Update payment status
     await connection.execute(
-      `UPDATE pts_payouts
+      `UPDATE pay_results
        SET payment_status = ?, paid_at = NOW(), paid_by = ?
        WHERE payout_id = ?`,
       [PaymentStatus.PAID, paidByUserId, payoutId],
@@ -176,7 +176,7 @@ export async function cancelPayout(
     await connection.beginTransaction();
 
     const [payouts] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_payouts WHERE payout_id = ? FOR UPDATE',
+      'SELECT * FROM pay_results WHERE payout_id = ? FOR UPDATE',
       [payoutId],
     );
 
@@ -191,7 +191,7 @@ export async function cancelPayout(
     }
 
     await connection.execute(
-      `UPDATE pts_payouts
+      `UPDATE pay_results
        SET payment_status = ?, remark = CONCAT(IFNULL(remark, ''), '\n[ยกเลิก: ', ?, ']')
        WHERE payout_id = ?`,
       [PaymentStatus.CANCELLED, reason, payoutId],
@@ -220,10 +220,10 @@ export async function getPayoutsByPeriod(
            COALESCE(e.first_name, s.first_name, '') AS first_name,
            COALESCE(e.last_name, s.last_name, '') AS last_name,
            COALESCE(e.department, s.department, '') AS department
-    FROM pts_payouts po
-    JOIN pts_periods p ON po.period_id = p.period_id
-    LEFT JOIN pts_employees e ON po.citizen_id = e.citizen_id
-    LEFT JOIN pts_support_employees s ON po.citizen_id = s.citizen_id
+    FROM pay_results po
+    JOIN pay_periods p ON po.period_id = p.period_id
+    LEFT JOIN emp_profiles e ON po.citizen_id = e.citizen_id
+    LEFT JOIN emp_support_staff s ON po.citizen_id = s.citizen_id
     WHERE po.period_id = ?
   `;
 

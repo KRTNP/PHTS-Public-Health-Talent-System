@@ -41,7 +41,7 @@ export interface SignatureResponse {
 export async function getSignatureByUserId(userId: number): Promise<SignatureResponse | null> {
   const rows = await query<RowDataPacket[]>(
     `SELECT signature_id, user_id, signature_image, created_at, updated_at
-     FROM pts_user_signatures
+     FROM sig_images
      WHERE user_id = ?`,
     [userId],
   );
@@ -102,7 +102,7 @@ export async function saveSignature(
 
     // Check if signature already exists
     const [existing] = await connection.query<RowDataPacket[]>(
-      'SELECT signature_id FROM pts_user_signatures WHERE user_id = ?',
+      'SELECT signature_id FROM sig_images WHERE user_id = ?',
       [userId],
     );
 
@@ -111,7 +111,7 @@ export async function saveSignature(
     if (existing.length > 0) {
       // Update existing signature
       await connection.execute(
-        `UPDATE pts_user_signatures
+        `UPDATE sig_images
          SET signature_image = ?, updated_at = NOW()
          WHERE user_id = ?`,
         [imageBuffer, userId],
@@ -120,7 +120,7 @@ export async function saveSignature(
     } else {
       // Insert new signature
       const [result] = await connection.execute<ResultSetHeader>(
-        `INSERT INTO pts_user_signatures (user_id, signature_image)
+        `INSERT INTO sig_images (user_id, signature_image)
          VALUES (?, ?)`,
         [userId, imageBuffer],
       );
@@ -161,7 +161,7 @@ export async function saveSignatureFromBase64(userId: number, base64Data: string
  * @returns True if deleted, false if not found
  */
 export async function deleteSignature(userId: number): Promise<boolean> {
-  const result = await query<ResultSetHeader>('DELETE FROM pts_user_signatures WHERE user_id = ?', [
+  const result = await query<ResultSetHeader>('DELETE FROM sig_images WHERE user_id = ?', [
     userId,
   ]);
 
@@ -176,7 +176,7 @@ export async function deleteSignature(userId: number): Promise<boolean> {
  */
 export async function hasSignature(userId: number): Promise<boolean> {
   const rows = await query<RowDataPacket[]>(
-    'SELECT 1 FROM pts_user_signatures WHERE user_id = ? LIMIT 1',
+    'SELECT 1 FROM sig_images WHERE user_id = ? LIMIT 1',
     [userId],
   );
 

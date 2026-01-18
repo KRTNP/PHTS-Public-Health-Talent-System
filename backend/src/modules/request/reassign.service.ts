@@ -41,8 +41,8 @@ export async function getAvailableOfficers(
            COALESCE(e.first_name, s.first_name, '') AS first_name,
            COALESCE(e.last_name, s.last_name, '') AS last_name
     FROM users u
-    LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-    LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+    LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+    LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
     WHERE u.role = ? AND u.is_active = 1
   `;
 
@@ -96,7 +96,7 @@ export async function reassignRequest(
     // 1) Verify request exists and is at step 3 (PTS_OFFICER)
     const [requests] = await connection.query<RowDataPacket[]>(
       `SELECT r.*, r.assigned_officer_id
-       FROM pts_requests r
+       FROM req_submissions r
        WHERE r.request_id = ? FOR UPDATE`,
       [requestId],
     );
@@ -140,7 +140,7 @@ export async function reassignRequest(
 
     // 3) Update the assigned_officer_id
     await connection.execute(
-      `UPDATE pts_requests
+      `UPDATE req_submissions
        SET assigned_officer_id = ?, updated_at = NOW()
        WHERE request_id = ?`,
       [targetOfficerId, requestId],
@@ -148,7 +148,7 @@ export async function reassignRequest(
 
     // 4) Log the reassign action
     await connection.execute(
-      `INSERT INTO pts_request_actions
+      `INSERT INTO req_approvals
        (request_id, actor_id, step_no, action, comment)
        VALUES (?, ?, ?, 'REASSIGN', ?)`,
       [requestId, fromOfficerId, ptsOfficerStep, reason],
@@ -197,10 +197,10 @@ export async function getPendingForOfficer(
            COALESCE(e.first_name, s.first_name) AS req_first_name,
            COALESCE(e.last_name, s.last_name) AS req_last_name,
            COALESCE(e.position_name, s.position_name) AS req_position
-    FROM pts_requests r
+    FROM req_submissions r
     JOIN users u ON r.user_id = u.id
-    LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-    LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+    LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+    LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
     WHERE r.status = ?
       AND r.current_step = ?
       AND (r.assigned_officer_id IS NULL OR r.assigned_officer_id = ?)
@@ -227,10 +227,10 @@ export async function getReassignmentHistory(
            u.citizen_id AS actor_citizen_id,
            COALESCE(e.first_name, s.first_name, '') AS actor_first_name,
            COALESCE(e.last_name, s.last_name, '') AS actor_last_name
-    FROM pts_request_actions a
+    FROM req_approvals a
     JOIN users u ON a.actor_id = u.id
-    LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-    LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+    LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+    LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
     WHERE a.request_id = ? AND a.action = 'REASSIGN'
     ORDER BY a.created_at DESC
   `;

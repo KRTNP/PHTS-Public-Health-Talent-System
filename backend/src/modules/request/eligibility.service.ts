@@ -20,14 +20,14 @@ export async function createEligibility(
   const effectiveDateStr = toDateString(effectiveDate);
 
   await connection.execute(
-    `UPDATE pts_employee_eligibility 
+    `UPDATE req_eligibility 
        SET is_active = 0, expiry_date = DATE_SUB(?, INTERVAL 1 DAY)
        WHERE citizen_id = ? AND is_active = 1 AND effective_date <= ?`,
     [effectiveDateStr, citizenId, effectiveDateStr]
   );
 
   await connection.execute(
-    `INSERT INTO pts_employee_eligibility
+    `INSERT INTO req_eligibility
        (citizen_id, master_rate_id, request_id, effective_date, is_active)
        VALUES (?, ?, ?, ?, 1)`,
     [citizenId, masterRateId, requestId, effectiveDateStr]

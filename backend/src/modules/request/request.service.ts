@@ -2,7 +2,7 @@
  * PHTS System - Request Service Layer (V2.0)
  *
  * Aligns request workflow with Database V2.0:
- * - Uses applicant_signature_id from pts_user_signatures
+ * - Uses applicant_signature_id from sig_images
  * - Stores approver signature snapshots as BLOB
  * - Finalization creates eligibility records (no legacy rate_adjustments table)
  */
@@ -47,8 +47,8 @@ const REQUESTER_FIELDS = `
 
 const REQUESTER_JOINS = `
   JOIN users u ON r.user_id = u.id
-  LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-  LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+  LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+  LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
 `;
 
 /**
@@ -167,8 +167,8 @@ async function hydrateRequests(requestRows: any[]): Promise<RequestWithDetails[]
             o.confidence AS ocr_confidence,
             o.provider AS ocr_provider,
             o.processed_at AS ocr_processed_at
-     FROM pts_attachments a
-     LEFT JOIN pts_attachment_ocr o ON a.attachment_id = o.attachment_id
+     FROM req_attachments a
+     LEFT JOIN req_ocr_results o ON a.attachment_id = o.attachment_id
      WHERE a.request_id IN (${clause})
      ORDER BY a.uploaded_at DESC`,
     params,
@@ -180,10 +180,10 @@ async function hydrateRequests(requestRows: any[]): Promise<RequestWithDetails[]
             u.role as actor_role,
             COALESCE(e.first_name, s.first_name) as actor_first_name,
             COALESCE(e.last_name, s.last_name) as actor_last_name
-     FROM pts_request_actions a
+     FROM req_approvals a
      JOIN users u ON a.actor_id = u.id
-     LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-     LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+     LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+     LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
      WHERE a.request_id IN (${clause})
      ORDER BY a.created_at ASC`,
     params,
@@ -311,7 +311,7 @@ export async function createRequest(
       signatureId = await saveSignature(userId, sigBuffer, connection);
     } else {
       const [sigs] = await connection.query<RowDataPacket[]>(
-        'SELECT signature_id FROM pts_user_signatures WHERE user_id = ?',
+        'SELECT signature_id FROM sig_images WHERE user_id = ?',
         [userId],
       );
       signatureId = sigs.length ? (sigs[0] as any).signature_id : null;
@@ -338,7 +338,7 @@ export async function createRequest(
     // 3) Insert request (V2 schema)
     const requestNo = generateRequestNo();
     const [result] = await connection.execute<ResultSetHeader>(
-      `INSERT INTO pts_requests
+      `INSERT INTO req_submissions
        (user_id, citizen_id, request_no, personnel_type, current_position_number, current_department,
         work_attributes, applicant_signature_id, request_type, requested_amount,
         effective_date, status, current_step, submission_data)
@@ -370,7 +370,7 @@ export async function createRequest(
         if (file.fieldname === 'license_file') fileType = FileType.LICENSE;
 
         await connection.execute<ResultSetHeader>(
-          `INSERT INTO pts_attachments
+          `INSERT INTO req_attachments
            (request_id, file_type, file_path, file_name)
            VALUES (?, ?, ?, ?)`,
           [requestId, fileType, file.path, file.originalname],
@@ -399,7 +399,7 @@ export async function submitRequest(requestId: number, userId: number): Promise<
     await connection.beginTransaction();
 
     const [requests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ? AND user_id = ?',
+      'SELECT * FROM req_submissions WHERE request_id = ? AND user_id = ?',
       [requestId, userId],
     );
 
@@ -414,14 +414,14 @@ export async function submitRequest(requestId: number, userId: number): Promise<
     }
 
     await connection.execute(
-      `UPDATE pts_requests
+      `UPDATE req_submissions
        SET status = ?, current_step = ?, updated_at = NOW()
        WHERE request_id = ?`,
       [RequestStatus.PENDING, 1, requestId],
     );
 
     await connection.execute(
-      `INSERT INTO pts_request_actions
+      `INSERT INTO req_approvals
        (request_id, actor_id, step_no, action, comment)
        VALUES (?, ?, ?, ?, ?)`,
       [requestId, userId, 1, ActionType.SUBMIT, null],
@@ -437,7 +437,7 @@ export async function submitRequest(requestId: number, userId: number): Promise<
     );
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ?',
+      'SELECT * FROM req_submissions WHERE request_id = ?',
       [requestId],
     );
 
@@ -456,7 +456,7 @@ export async function submitRequest(requestId: number, userId: number): Promise<
 export async function getMyRequests(userId: number): Promise<RequestWithDetails[]> {
   const requests = await query<RowDataPacket[]>(
     `SELECT r.*, u.citizen_id, u.role
-     FROM pts_requests r
+     FROM req_submissions r
      JOIN users u ON r.user_id = u.id
      WHERE r.user_id = ?
      ORDER BY r.created_at DESC`,
@@ -471,7 +471,7 @@ export async function getMyRequests(userId: number): Promise<RequestWithDetails[
  * Get pending requests for a specific approver role with scope filtering
  *
  * For HEAD_WARD and HEAD_DEPT, requests are filtered based on the approver's
- * scope derived from their special_position in pts_employees.
+ * scope derived from their special_position in emp_profiles.
  *
  * @param userRole - The approver's role
  * @param userId - The approver's user ID (required for scope filtering)
@@ -489,11 +489,11 @@ export async function getPendingForApprover(
   }
 
   // Build base query with employee join for scope filtering
-  // Note: REQUESTER_JOINS already includes LEFT JOIN pts_employees e ON u.citizen_id
+  // Note: REQUESTER_JOINS already includes LEFT JOIN emp_profiles e ON u.citizen_id
   let sql = `SELECT ${REQUESTER_FIELDS},
        e.department AS emp_department,
        e.sub_department AS emp_sub_department
-     FROM pts_requests r
+     FROM req_submissions r
      ${REQUESTER_JOINS}
      WHERE r.status = ? AND r.current_step = ?`;
 
@@ -531,7 +531,7 @@ export async function getPendingForApprover(
 export async function getApprovalHistory(actorId: number): Promise<RequestWithDetails[]> {
   const historyIds = await query<RowDataPacket[]>(
     `SELECT request_id, MAX(created_at) as last_action_date
-     FROM pts_request_actions
+     FROM req_approvals
      WHERE actor_id = ?
        AND action IN ('APPROVE', 'REJECT', 'RETURN')
      GROUP BY request_id
@@ -546,7 +546,7 @@ export async function getApprovalHistory(actorId: number): Promise<RequestWithDe
 
   const fullRequests = await query<RowDataPacket[]>(
     `SELECT ${REQUESTER_FIELDS}
-     FROM pts_requests r
+     FROM req_submissions r
      ${REQUESTER_JOINS}
      WHERE r.request_id IN (${clause})
      ORDER BY r.updated_at DESC`,
@@ -568,7 +568,7 @@ export async function getRequestById(
     `SELECT ${REQUESTER_FIELDS},
        e.department AS emp_department,
        e.sub_department AS emp_sub_department
-     FROM pts_requests r
+     FROM req_submissions r
      ${REQUESTER_JOINS}
      WHERE r.request_id = ?`,
     [requestId],
@@ -604,7 +604,7 @@ export async function getRequestById(
 
   if (!isOwner && !isApprover && !isAdmin) {
     const actionRows = await query<RowDataPacket[]>(
-      'SELECT 1 FROM pts_request_actions WHERE request_id = ? AND actor_id = ? LIMIT 1',
+      'SELECT 1 FROM req_approvals WHERE request_id = ? AND actor_id = ? LIMIT 1',
       [requestId, userId],
     );
     const isActor = actionRows.length > 0;
@@ -642,8 +642,8 @@ export async function approveRequest(
 
     const [requests] = await connection.query<RowDataPacket[]>(
       `SELECT r.*, e.department AS emp_department, e.sub_department AS emp_sub_department
-       FROM pts_requests r
-       LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
+       FROM req_submissions r
+       LEFT JOIN emp_profiles e ON r.citizen_id = e.citizen_id
        WHERE r.request_id = ?`,
       [requestId],
     );
@@ -689,7 +689,7 @@ export async function approveRequest(
 
     // Approver signature snapshot (BLOB)
     const [sigRows] = await connection.query<RowDataPacket[]>(
-      'SELECT signature_image FROM pts_user_signatures WHERE user_id = ? LIMIT 1',
+      'SELECT signature_image FROM sig_images WHERE user_id = ? LIMIT 1',
       [actorId],
     );
     const signatureSnapshot = sigRows.length ? (sigRows[0] as any).signature_image : null;
@@ -711,7 +711,7 @@ export async function approveRequest(
     await connection.commit();
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ?',
+      'SELECT * FROM req_submissions WHERE request_id = ?',
       [requestId],
     );
 
@@ -740,8 +740,8 @@ export async function rejectRequest(
 
     const [requests] = await connection.query<RowDataPacket[]>(
       `SELECT r.*, e.department AS emp_department, e.sub_department AS emp_sub_department
-       FROM pts_requests r
-       LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
+       FROM req_submissions r
+       LEFT JOIN emp_profiles e ON r.citizen_id = e.citizen_id
        WHERE r.request_id = ?`,
       [requestId],
     );
@@ -783,14 +783,14 @@ export async function rejectRequest(
     const currentStep = request.current_step;
 
     await connection.execute(
-      `INSERT INTO pts_request_actions
+      `INSERT INTO req_approvals
        (request_id, actor_id, step_no, action, comment)
        VALUES (?, ?, ?, ?, ?)`,
       [requestId, actorId, currentStep, ActionType.REJECT, comment],
     );
 
     await connection.execute(
-      `UPDATE pts_requests
+      `UPDATE req_submissions
        SET status = ?, updated_at = NOW()
        WHERE request_id = ?`,
       [RequestStatus.REJECTED, requestId],
@@ -807,7 +807,7 @@ export async function rejectRequest(
     );
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ?',
+      'SELECT * FROM req_submissions WHERE request_id = ?',
       [requestId],
     );
 
@@ -836,8 +836,8 @@ export async function returnRequest(
 
     const [requests] = await connection.query<RowDataPacket[]>(
       `SELECT r.*, e.department AS emp_department, e.sub_department AS emp_sub_department
-       FROM pts_requests r
-       LEFT JOIN pts_employees e ON r.citizen_id = e.citizen_id
+       FROM req_submissions r
+       LEFT JOIN emp_profiles e ON r.citizen_id = e.citizen_id
        WHERE r.request_id = ?`,
       [requestId],
     );
@@ -884,14 +884,14 @@ export async function returnRequest(
     const previousStep = currentStep - 1;
 
     await connection.execute(
-      `INSERT INTO pts_request_actions
+      `INSERT INTO req_approvals
        (request_id, actor_id, step_no, action, comment)
        VALUES (?, ?, ?, ?, ?)`,
       [requestId, actorId, currentStep, ActionType.RETURN, comment],
     );
 
     await connection.execute(
-      `UPDATE pts_requests
+      `UPDATE req_submissions
        SET status = ?, current_step = ?, updated_at = NOW()
        WHERE request_id = ?`,
       [RequestStatus.RETURNED, previousStep, requestId],
@@ -908,7 +908,7 @@ export async function returnRequest(
     );
 
     const [updatedRequests] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_requests WHERE request_id = ?',
+      'SELECT * FROM req_submissions WHERE request_id = ?',
       [requestId],
     );
 
@@ -949,7 +949,7 @@ export async function approveBatch(
   try {
     // Fetch approver signature once (same approver for all)
     const [sigRows] = await connection.query<RowDataPacket[]>(
-      'SELECT signature_image FROM pts_user_signatures WHERE user_id = ? LIMIT 1',
+      'SELECT signature_image FROM sig_images WHERE user_id = ? LIMIT 1',
       [actorId],
     );
     const signatureSnapshot = sigRows.length ? (sigRows[0] as any).signature_image : null;
@@ -966,7 +966,7 @@ export async function approveBatch(
         await connection.beginTransaction();
 
         const [rows] = await connection.query<RowDataPacket[]>(
-          'SELECT * FROM pts_requests WHERE request_id = ? FOR UPDATE',
+          'SELECT * FROM req_submissions WHERE request_id = ? FOR UPDATE',
           [requestId],
         );
 
@@ -1033,7 +1033,7 @@ async function _performApproval(
   const nextStep = currentStep + 1;
 
   await connection.execute(
-    `INSERT INTO pts_request_actions
+    `INSERT INTO req_approvals
      (request_id, actor_id, step_no, action, comment, signature_snapshot)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [requestId, actorId, currentStep, ActionType.APPROVE, comment, signatureSnapshot],
@@ -1042,7 +1042,7 @@ async function _performApproval(
   if (nextStep > 6) {
     // All 6 steps completed - finalize request
     await connection.execute(
-      `UPDATE pts_requests
+      `UPDATE req_submissions
        SET status = ?, current_step = 7, updated_at = NOW()
        WHERE request_id = ?`,
       [RequestStatus.APPROVED, requestId],
@@ -1057,7 +1057,7 @@ async function _performApproval(
     );
   } else {
     await connection.execute(
-      `UPDATE pts_requests
+      `UPDATE req_submissions
        SET current_step = ?, updated_at = NOW()
        WHERE request_id = ?`,
       [nextStep, requestId],
@@ -1084,7 +1084,7 @@ export async function finalizeRequest(
 ): Promise<void> {
   const [requests] = await connection.query<RowDataPacket[]>(
     `SELECT r.*, u.citizen_id
-     FROM pts_requests r
+     FROM req_submissions r
      JOIN users u ON r.user_id = u.id
      WHERE r.request_id = ?`,
     [requestId],
@@ -1111,7 +1111,7 @@ export async function finalizeRequest(
       targetRateId = recommendedRate.rate_id;
     } else {
       const professionCode = (recommendedRate as any)?.profession_code;
-      let sql = `SELECT rate_id FROM pts_master_rates WHERE amount = ? AND is_active = 1`;
+      let sql = `SELECT rate_id FROM cfg_payment_rates WHERE amount = ? AND is_active = 1`;
       const params: (string | number | null)[] = [request.requested_amount];
       if (professionCode) {
         sql += ` AND profession_code = ?`;
@@ -1140,7 +1140,7 @@ export async function finalizeRequest(
  * Helper: request details with attachments & actions
  */
 async function getRequestDetails(requestId: number): Promise<RequestWithDetails> {
-  const requests = await query<RowDataPacket[]>('SELECT * FROM pts_requests WHERE request_id = ?', [
+  const requests = await query<RowDataPacket[]>('SELECT * FROM req_submissions WHERE request_id = ?', [
     requestId,
   ]);
 
@@ -1156,8 +1156,8 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
             o.confidence AS ocr_confidence,
             o.provider AS ocr_provider,
             o.processed_at AS ocr_processed_at
-     FROM pts_attachments a
-     LEFT JOIN pts_attachment_ocr o ON a.attachment_id = o.attachment_id
+     FROM req_attachments a
+     LEFT JOIN req_ocr_results o ON a.attachment_id = o.attachment_id
      WHERE a.request_id = ?
      ORDER BY a.uploaded_at DESC`,
     [requestId],
@@ -1169,10 +1169,10 @@ async function getRequestDetails(requestId: number): Promise<RequestWithDetails>
             u.role as actor_role,
             COALESCE(e.first_name, s.first_name) as actor_first_name,
             COALESCE(e.last_name, s.last_name) as actor_last_name
-     FROM pts_request_actions a
+     FROM req_approvals a
     JOIN users u ON a.actor_id = u.id
-     LEFT JOIN pts_employees e ON u.citizen_id = e.citizen_id
-     LEFT JOIN pts_support_employees s ON u.citizen_id = s.citizen_id
+     LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+     LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
      WHERE a.request_id = ?
      ORDER BY a.created_at ASC`,
     [requestId],

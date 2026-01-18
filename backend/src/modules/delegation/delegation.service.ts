@@ -76,13 +76,13 @@ export async function getUserDelegations(
            COALESCE(e1.last_name, s1.last_name, '') AS delegator_last_name,
            COALESCE(e2.first_name, s2.first_name, '') AS delegate_first_name,
            COALESCE(e2.last_name, s2.last_name, '') AS delegate_last_name
-    FROM pts_delegations d
+    FROM wf_delegations d
     JOIN users u1 ON d.delegator_id = u1.id
     JOIN users u2 ON d.delegate_id = u2.id
-    LEFT JOIN pts_employees e1 ON u1.citizen_id = e1.citizen_id
-    LEFT JOIN pts_support_employees s1 ON u1.citizen_id = s1.citizen_id
-    LEFT JOIN pts_employees e2 ON u2.citizen_id = e2.citizen_id
-    LEFT JOIN pts_support_employees s2 ON u2.citizen_id = s2.citizen_id
+    LEFT JOIN emp_profiles e1 ON u1.citizen_id = e1.citizen_id
+    LEFT JOIN emp_support_staff s1 ON u1.citizen_id = s1.citizen_id
+    LEFT JOIN emp_profiles e2 ON u2.citizen_id = e2.citizen_id
+    LEFT JOIN emp_support_staff s2 ON u2.citizen_id = s2.citizen_id
     WHERE (d.delegator_id = ? OR d.delegate_id = ?)
   `;
 
@@ -127,13 +127,13 @@ export async function getActiveDelegationsForDelegate(
            COALESCE(e1.last_name, s1.last_name, '') AS delegator_last_name,
            COALESCE(e2.first_name, s2.first_name, '') AS delegate_first_name,
            COALESCE(e2.last_name, s2.last_name, '') AS delegate_last_name
-    FROM pts_delegations d
+    FROM wf_delegations d
     JOIN users u1 ON d.delegator_id = u1.id
     JOIN users u2 ON d.delegate_id = u2.id
-    LEFT JOIN pts_employees e1 ON u1.citizen_id = e1.citizen_id
-    LEFT JOIN pts_support_employees s1 ON u1.citizen_id = s1.citizen_id
-    LEFT JOIN pts_employees e2 ON u2.citizen_id = e2.citizen_id
-    LEFT JOIN pts_support_employees s2 ON u2.citizen_id = s2.citizen_id
+    LEFT JOIN emp_profiles e1 ON u1.citizen_id = e1.citizen_id
+    LEFT JOIN emp_support_staff s1 ON u1.citizen_id = s1.citizen_id
+    LEFT JOIN emp_profiles e2 ON u2.citizen_id = e2.citizen_id
+    LEFT JOIN emp_support_staff s2 ON u2.citizen_id = s2.citizen_id
     WHERE d.delegate_id = ?
       AND d.status = 'ACTIVE'
       AND CURDATE() BETWEEN d.start_date AND d.end_date
@@ -172,7 +172,7 @@ export async function canActAsRole(
 ): Promise<{ canAct: boolean; delegationId: number | null; delegatorId: number | null }> {
   let sql = `
     SELECT delegation_id, delegator_id
-    FROM pts_delegations
+    FROM wf_delegations
     WHERE delegate_id = ?
       AND delegated_role = ?
       AND status = 'ACTIVE'
@@ -242,7 +242,7 @@ export async function createDelegation(
 
     // Check for overlapping delegations
     const [existing] = await connection.query<RowDataPacket[]>(
-      `SELECT * FROM pts_delegations
+      `SELECT * FROM wf_delegations
        WHERE delegator_id = ? AND delegate_id = ? AND delegated_role = ?
          AND status = 'ACTIVE'
          AND NOT (end_date < ? OR start_date > ?)`,
@@ -255,7 +255,7 @@ export async function createDelegation(
 
     // Create delegation
     const [result] = await connection.execute(
-      `INSERT INTO pts_delegations
+      `INSERT INTO wf_delegations
        (delegator_id, delegate_id, delegated_role, scope_type, scope_value,
         start_date, end_date, reason, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
@@ -324,7 +324,7 @@ export async function cancelDelegation(
 
     // Get delegation
     const [delegations] = await connection.query<RowDataPacket[]>(
-      'SELECT * FROM pts_delegations WHERE delegation_id = ? FOR UPDATE',
+      'SELECT * FROM wf_delegations WHERE delegation_id = ? FOR UPDATE',
       [delegationId],
     );
 
@@ -356,7 +356,7 @@ export async function cancelDelegation(
 
     // Cancel delegation
     await connection.execute(
-      `UPDATE pts_delegations
+      `UPDATE wf_delegations
        SET status = 'CANCELLED', cancelled_at = NOW(), cancelled_by = ?
        WHERE delegation_id = ?`,
       [cancelledBy, delegationId],
@@ -398,7 +398,7 @@ export async function cancelDelegation(
  */
 export async function expireOldDelegations(): Promise<number> {
   const sql = `
-    UPDATE pts_delegations
+    UPDATE wf_delegations
     SET status = 'EXPIRED'
     WHERE status = 'ACTIVE' AND end_date < CURDATE()
   `;
@@ -430,13 +430,13 @@ export async function getAllActiveDelegations(): Promise<Delegation[]> {
            COALESCE(e1.last_name, s1.last_name, '') AS delegator_last_name,
            COALESCE(e2.first_name, s2.first_name, '') AS delegate_first_name,
            COALESCE(e2.last_name, s2.last_name, '') AS delegate_last_name
-    FROM pts_delegations d
+    FROM wf_delegations d
     JOIN users u1 ON d.delegator_id = u1.id
     JOIN users u2 ON d.delegate_id = u2.id
-    LEFT JOIN pts_employees e1 ON u1.citizen_id = e1.citizen_id
-    LEFT JOIN pts_support_employees s1 ON u1.citizen_id = s1.citizen_id
-    LEFT JOIN pts_employees e2 ON u2.citizen_id = e2.citizen_id
-    LEFT JOIN pts_support_employees s2 ON u2.citizen_id = s2.citizen_id
+    LEFT JOIN emp_profiles e1 ON u1.citizen_id = e1.citizen_id
+    LEFT JOIN emp_support_staff s1 ON u1.citizen_id = s1.citizen_id
+    LEFT JOIN emp_profiles e2 ON u2.citizen_id = e2.citizen_id
+    LEFT JOIN emp_support_staff s2 ON u2.citizen_id = s2.citizen_id
     WHERE d.status = 'ACTIVE'
       AND CURDATE() BETWEEN d.start_date AND d.end_date
     ORDER BY d.delegated_role, d.start_date
