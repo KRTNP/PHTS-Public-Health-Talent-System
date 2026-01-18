@@ -6,7 +6,10 @@
 
 import { RowDataPacket } from 'mysql2/promise';
 import { query, getConnection } from '../../config/database.js';
+import { delCache, getJsonCache, setJsonCache } from '../../utils/cache.js';
 import { NotificationService } from '../notification/notification.service.js';
+
+const FINANCE_DASHBOARD_CACHE_KEY = 'finance:dashboard';
 
 /**
  * Payment status enum
@@ -109,6 +112,7 @@ export async function markPayoutAsPaid(
     );
 
     await connection.commit();
+    await delCache(FINANCE_DASHBOARD_CACHE_KEY);
 
     // Notify the employee
     const [users] = await connection.query<RowDataPacket[]>(
@@ -198,6 +202,7 @@ export async function cancelPayout(
     );
 
     await connection.commit();
+    await delCache(FINANCE_DASHBOARD_CACHE_KEY);
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -337,6 +342,16 @@ export async function getFinanceDashboard(): Promise<{
   yearToDate: YearlySummary | null;
   recentPeriods: FinanceSummary[];
 }> {
+  const cached = await getJsonCache<{
+    currentMonth: FinanceSummary | null;
+    yearToDate: YearlySummary | null;
+    recentPeriods: FinanceSummary[];
+  }>(FINANCE_DASHBOARD_CACHE_KEY);
+
+  if (cached) {
+    return cached;
+  }
+
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
@@ -352,9 +367,13 @@ export async function getFinanceDashboard(): Promise<{
   // Get last 6 periods
   const recentPeriods = await getFinanceSummary();
 
-  return {
+  const result = {
     currentMonth: currentMonthData,
     yearToDate: yearToDateData,
     recentPeriods: recentPeriods.slice(0, 6),
   };
+
+  await setJsonCache(FINANCE_DASHBOARD_CACHE_KEY, result, 120);
+
+  return result;
 }
