@@ -44,7 +44,7 @@ import { SignatureApi, SignatureData } from '@/lib/api/signatureApi';
 
 type SignatureMode = 'draw' | 'stored';
 
-interface SignaturePadProps {
+type SignaturePadProps = Readonly<{
   label?: string;
   onChange?: (file: File | null) => void;
   onSignatureChange?: (hasSignature: boolean) => void;
@@ -59,7 +59,7 @@ interface SignaturePadProps {
   helperText?: string;
   initialSignature?: string; // Base64 or URL to load existing signature
   enableStoredSignature?: boolean; // Enable "Use Stored Signature" mode
-}
+}>;
 
 export default function SignaturePad({
   label = 'ลงชื่อ',
@@ -88,6 +88,18 @@ export default function SignaturePad({
   const [storedSignature, setStoredSignature] = useState<SignatureData | null>(null);
   const [loadingStored, setLoadingStored] = useState(false);
   const [hasStoredSignature, setHasStoredSignature] = useState(false);
+  const borderColor = (() => {
+    if (error) return 'error.main';
+    if (hasSignature && isSaved) return 'success.main';
+    return 'divider';
+  })();
+  const hoverBorderColor = (() => {
+    if (disabled) return undefined;
+    if (error) return 'error.main';
+    return theme.palette.primary.main;
+  })();
+  const savedLabel = mode === 'stored' ? 'ใช้ลายเซ็นที่บันทึกไว้' : 'บันทึกแล้ว';
+  const showPlaceholder = !hasSignature && !disabled && mode === 'draw';
 
   /**
    * Check if user has a stored signature on mount
@@ -292,7 +304,7 @@ export default function SignaturePad({
         }
       },
       'image/png',
-      1.0
+      1
     );
   };
 
@@ -303,8 +315,8 @@ export default function SignaturePad({
     if (initialSignature && canvasRef.current && mode === 'draw') {
       const ctx = canvasRef.current.getContext('2d');
       if (ctx) {
-        const img = typeof window !== 'undefined' ? new window.Image() : null;
-        if (!img) return;
+        if (globalThis.window === undefined) return;
+        const img = new globalThis.window.Image();
         img.onload = () => {
           ctx.drawImage(img, 0, 0);
           setHasSignature(true);
@@ -378,11 +390,7 @@ export default function SignaturePad({
           width: '100%',
           maxWidth: width,
           height: height,
-          borderColor: error
-            ? 'error.main'
-            : hasSignature && isSaved
-            ? 'success.main'
-            : 'divider',
+          borderColor: borderColor,
           borderWidth: error ? 2 : 1,
           borderStyle: 'dashed',
           borderRadius: 1,
@@ -390,11 +398,7 @@ export default function SignaturePad({
           backgroundColor: disabled ? 'action.disabledBackground' : '#fafafa',
           cursor: disabled || mode === 'stored' ? 'default' : 'crosshair',
           '&:hover': {
-            borderColor: disabled
-              ? undefined
-              : error
-              ? 'error.main'
-              : theme.palette.primary.main,
+            borderColor: hoverBorderColor,
           },
           '@media print': {
             borderStyle: 'solid',
@@ -470,7 +474,7 @@ export default function SignaturePad({
         />
 
         {/* Placeholder text when empty (draw mode only) */}
-        {!hasSignature && !disabled && mode === 'draw' && (
+        {showPlaceholder && (
           <Box
             sx={{
               position: 'absolute',
@@ -536,7 +540,7 @@ export default function SignaturePad({
           >
             <CheckIcon sx={{ fontSize: 14 }} />
             <Typography variant="caption" color="success.main">
-              {mode === 'stored' ? 'ใช้ลายเซ็นที่บันทึกไว้' : 'บันทึกแล้ว'}
+              {savedLabel}
             </Typography>
           </Box>
         )}
@@ -603,12 +607,19 @@ export default function SignaturePad({
  */
 export function base64ToFile(base64: string, filename: string): File {
   const arr = base64.split(',');
-  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+  const header = arr[0] || '';
+  const mime = (() => {
+    const start = header.indexOf(':');
+    const end = header.indexOf(';', start + 1);
+    if (start === -1 || end === -1) return 'image/png';
+    return header.slice(start + 1, end);
+  })();
   const bstr = atob(arr[1]);
   let n = bstr.length;
   const u8arr = new Uint8Array(n);
   while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
+    const codePoint = bstr.codePointAt(n);
+    u8arr[n] = codePoint ?? 0;
   }
   return new File([u8arr], filename, { type: mime });
 }
