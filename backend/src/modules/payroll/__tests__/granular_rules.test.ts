@@ -49,7 +49,7 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
 
   test('TC-LEV-07: Cross-Month Leave (ลาข้ามเดือน ต้องหักเฉพาะเดือนปัจจุบัน)', async () => {
     const cid = 'CROSS_MONTH';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     await pool.query(
       `INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
       [cid, baseRateId],
@@ -76,7 +76,7 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
 
   test('TC-ADV-05: Weekend Gap Safety (ลาศุกร์และจันทร์ ไม่หักเสาร์อาทิตย์)', async () => {
     const cid = 'WEEKEND_GAP';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     await pool.query(
       `INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
       [cid, baseRateId],
@@ -86,7 +86,10 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
       [cid],
     );
 
-    await pool.query(`INSERT INTO cfg_holidays (holiday_date) VALUES ('2024-07-06'), ('2024-07-07')`);
+    await pool.query(
+      `INSERT INTO cfg_holidays (holiday_date, holiday_name)
+       VALUES ('2024-07-06', 'Test Holiday'), ('2024-07-07', 'Test Holiday')`,
+    );
 
     await pool.query(
       `INSERT INTO leave_records (citizen_id, leave_type, start_date, end_date, duration_days, fiscal_year) VALUES 
@@ -105,7 +108,7 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
 
   test('TC-LIC-06: Overlapping Licenses (ใบประกอบทับซ้อน ต้องไม่นับวันเบิ้ล)', async () => {
     const cid = 'LIC_OVERLAP';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     await pool.query(
       `INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
       [cid, baseRateId],
@@ -126,7 +129,7 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
 
   test('TC-LEV-06: Overlapping Leaves (ลาทับซ้อน ต้องไม่หักเงินซ้ำ)', async () => {
     const cid = 'LEAVE_OVERLAP';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     await pool.query(
       `INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
       [cid, baseRateId],
@@ -153,7 +156,7 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
 
   test('TC-LEV-08: Maternity Leave (ลาคลอด นับรวมวันหยุด)', async () => {
     const cid = 'MATERNITY';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     await pool.query(
       `INSERT INTO req_eligibility (citizen_id, master_rate_id, effective_date, is_active) VALUES (?, ?, '2024-01-01', 1)`,
       [cid, baseRateId],
@@ -163,7 +166,10 @@ describe('Payroll Integration: Granular Rules & Edge Cases', () => {
       [cid],
     );
 
-    await pool.query(`INSERT INTO cfg_holidays (holiday_date) VALUES ('2024-07-06'), ('2024-07-07')`);
+    await pool.query(
+      `INSERT INTO cfg_holidays (holiday_date, holiday_name)
+       VALUES ('2024-07-06', 'Test Holiday'), ('2024-07-07', 'Test Holiday')`,
+    );
 
     await pool.query(
       `INSERT INTO leave_records (citizen_id, leave_type, start_date, end_date, duration_days, fiscal_year) 

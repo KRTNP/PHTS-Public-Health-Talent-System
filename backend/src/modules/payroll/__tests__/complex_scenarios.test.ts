@@ -37,7 +37,7 @@ describe('Payroll Integration: Advanced Complex Scenarios', () => {
 
   test('TC-RETRO-01: Retroactive Upgrade (underpaid last month -> top up this month)', async () => {
     const cid = 'RETRO_UP';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
 
     const [r10k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
 
@@ -55,7 +55,8 @@ describe('Payroll Integration: Advanced Complex Scenarios', () => {
     const [periodJuly]: any[] = await pool.query(`SELECT period_id FROM pay_periods WHERE period_month=7`);
 
     await pool.query(
-      `INSERT INTO pay_results (period_id, citizen_id, calculated_amount, total_payable) VALUES (?, ?, 5000, 5000)`,
+      `INSERT INTO pay_results (period_id, citizen_id, pts_rate_snapshot, calculated_amount, total_payable)
+       VALUES (?, ?, 5000, 5000, 5000)`,
       [periodJuly[0].period_id, cid],
     );
 
@@ -72,7 +73,7 @@ describe('Payroll Integration: Advanced Complex Scenarios', () => {
 
   test('TC-RETRO-02: Clawback (overpaid last month -> deduct this month)', async () => {
     const cid = 'RETRO_DOWN';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     const [r10k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
 
     await pool.query(
@@ -88,7 +89,8 @@ describe('Payroll Integration: Advanced Complex Scenarios', () => {
     await pool.query(`INSERT INTO pay_periods (period_month, period_year, status) VALUES (7, 2024, 'CLOSED')`);
     const [periodJuly]: any[] = await pool.query(`SELECT period_id FROM pay_periods WHERE period_month=7`);
     await pool.query(
-      `INSERT INTO pay_results (period_id, citizen_id, calculated_amount, total_payable) VALUES (?, ?, 10000, 10000)`,
+      `INSERT INTO pay_results (period_id, citizen_id, pts_rate_snapshot, calculated_amount, total_payable)
+       VALUES (?, ?, 10000, 10000, 10000)`,
       [periodJuly[0].period_id, cid],
     );
 
@@ -106,7 +108,7 @@ describe('Payroll Integration: Advanced Complex Scenarios', () => {
 
   test('TC-MOV-03: Employment Swap (resign 15, re-entry 16 -> full month)', async () => {
     const cid = 'SWAP_USER';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     const [r5k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 5000`);
 
     await pool.query(
@@ -139,7 +141,7 @@ describe('Payroll Integration: Advanced Complex Scenarios', () => {
 
   test('TC-MOV-04: Service Gap (resign 10, re-entry 20 -> prorated)', async () => {
     const cid = 'GAP_USER';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     const [r5k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 5000`);
 
     await pool.query(

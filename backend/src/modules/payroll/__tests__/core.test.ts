@@ -60,13 +60,13 @@ describe('Payroll Integration: Core Scenarios', () => {
 
   test('TC-PAY-04: Mid-Month Entry (Pro-rated)', async () => {
     const cid = 'NEW_STAFF';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     await pool.query(
       `INSERT INTO emp_profiles (citizen_id, position_name) VALUES (?, 'พนักงานทั่วไป')`,
       [cid],
     );
 
-    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (31000)`);
+    await pool.query(`INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES ('DOCTOR', 1, 31000)`);
     const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 31000`);
 
     await pool.query(
@@ -106,9 +106,9 @@ describe('Payroll Integration: Core Scenarios', () => {
 
   test('TC-PAY-05: Swap Contract (Resign & Entry Same Day)', async () => {
     const cid = 'SWAP_USER';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
 
-    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (31000)`);
+    await pool.query(`INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES ('DOCTOR', 1, 31000)`);
     const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 31000`);
 
     await pool.query(

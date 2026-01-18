@@ -57,6 +57,38 @@ interface WorkPeriod {
   end: Date;
 }
 
+const LIFETIME_KEYWORDS = LIFETIME_LICENSE_KEYWORDS.map((kw) =>
+  kw.trim().toLowerCase().normalize('NFC'),
+).filter(Boolean);
+
+function createLicenseChecker(licenses: LicenseRow[], positionName = ''): (dateStr: string) => boolean {
+  const normalizedPosition = positionName.toLowerCase().normalize('NFC');
+  if (normalizedPosition && LIFETIME_KEYWORDS.some((kw) => normalizedPosition.includes(kw))) {
+    return () => true;
+  }
+
+  const hasLifetimeLicense = licenses.some((lic) => {
+    if (!lic.license_name || LIFETIME_KEYWORDS.length === 0) return false;
+    const combined = `${lic.license_name} ${lic.license_type ?? ''} ${lic.occupation_name ?? ''}`
+      .toLowerCase()
+      .normalize('NFC');
+    return LIFETIME_KEYWORDS.some((kw) => combined.includes(kw));
+  });
+
+  if (hasLifetimeLicense) {
+    return () => true;
+  }
+
+  const ranges = licenses
+    .filter((lic) => (lic.status || '').toUpperCase() === 'ACTIVE')
+    .map((lic) => ({
+      start: formatLocalDate(lic.valid_from),
+      end: formatLocalDate(lic.valid_until),
+    }));
+
+  return (dateStr: string) => ranges.some((range) => dateStr >= range.start && dateStr <= range.end);
+}
+
 export async function calculateMonthly(
   citizenId: string,
   year: number,
@@ -120,7 +152,14 @@ export async function calculateMonthly(
     [`${year - 1}-01-01`, `${year}-12-31`],
   );
 
-  const eligibilities = eligibilityRows as EligibilityRow[];
+  const eligibilities = (eligibilityRows as EligibilityRow[])
+    .map((row) => ({
+      effectiveTs: new Date(row.effective_date).getTime(),
+      expiryTs: row.expiry_date ? new Date(row.expiry_date).getTime() : makeLocalDate(9999, 11, 31).getTime(),
+      rate: Number(row.rate),
+      rateId: (row as any).rate_id ?? null,
+    }))
+    .sort((a, b) => a.effectiveTs - b.effectiveTs);
   const movements = movementRows as MovementRow[];
   const employee = (employeeRows as EmployeeRow[])[0] || {};
   const licenses = licenseRows as LicenseRow[];
@@ -134,6 +173,14 @@ export async function calculateMonthly(
   }
 
   const deductionMap = calculateDeductions(leaves, quota, holidays, startOfMonth, endOfMonth);
+  const licenseChecker = createLicenseChecker(licenses, employee.position_name || '');
+  let eligibilityIndex = 0;
+  let currentEligibility: {
+    effectiveTs: number;
+    expiryTs: number;
+    rate: number;
+    rateId: number | null;
+  } | null = null;
 
   let totalPayment = new Decimal(0);
   let validLicenseDays = 0;
@@ -142,22 +189,28 @@ export async function calculateMonthly(
   let lastRateSnapshot = 0;
   let lastMasterRateId: number | null = null;
 
-  for (const period of periods) {
+  const orderedPeriods = [...periods].sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  for (const period of orderedPeriods) {
     for (let d = new Date(period.start); d <= period.end; d.setDate(d.getDate() + 1)) {
       const dateStr = formatLocalDate(d);
+      const dayTs = d.getTime();
 
-      const activeElig = eligibilities.find((e) => {
-        const eff = new Date(e.effective_date);
-        const exp = e.expiry_date ? new Date(e.expiry_date) : makeLocalDate(9999, 11, 31);
-        return d >= eff && d <= exp;
-      });
-      const currentRate = activeElig ? Number(activeElig.rate) : 0;
-      if (activeElig) {
-        lastRateSnapshot = currentRate;
-        lastMasterRateId = (activeElig as any).rate_id ?? null;
+      while (eligibilityIndex < eligibilities.length && eligibilities[eligibilityIndex].effectiveTs <= dayTs) {
+        currentEligibility = eligibilities[eligibilityIndex];
+        eligibilityIndex += 1;
       }
 
-      const hasLicense = checkLicense(licenses, dateStr, employee.position_name || '');
+      const activeEligibility =
+        currentEligibility && currentEligibility.expiryTs >= dayTs ? currentEligibility : null;
+      const currentRate = activeEligibility ? activeEligibility.rate : 0;
+
+      if (activeEligibility) {
+        lastRateSnapshot = currentRate;
+        lastMasterRateId = activeEligibility.rateId;
+      }
+
+      const hasLicense = licenseChecker(dateStr);
       if (hasLicense) validLicenseDays++;
 
       const deductionWeight = deductionMap.get(dateStr) || 0;
@@ -188,30 +241,7 @@ export async function calculateMonthly(
 }
 
 export function checkLicense(licenses: LicenseRow[], dateStr: string, positionName = ''): boolean {
-  const keywordList = LIFETIME_LICENSE_KEYWORDS.map((kw) =>
-    kw.trim().toLowerCase().normalize('NFC'),
-  ).filter(Boolean);
-
-  const normalizedPosition = positionName.toLowerCase().normalize('NFC');
-  if (normalizedPosition && keywordList.some((kw) => normalizedPosition.includes(kw))) {
-    return true;
-  }
-
-  return licenses.some((lic) => {
-    if (lic.license_name && keywordList.length > 0) {
-      const combined = `${lic.license_name} ${lic.license_type ?? ''} ${lic.occupation_name ?? ''}`
-        .toLowerCase()
-        .normalize('NFC');
-      if (keywordList.some((kw) => combined.includes(kw))) return true;
-    }
-
-    const start = formatLocalDate(lic.valid_from);
-    const end = formatLocalDate(lic.valid_until);
-    const statusOk = (lic.status || '').toUpperCase() === 'ACTIVE';
-    const withinRange = dateStr >= start && dateStr <= end;
-
-    return statusOk && withinRange;
-  });
+  return createLicenseChecker(licenses, positionName)(dateStr);
 }
 
 export async function savePayout(

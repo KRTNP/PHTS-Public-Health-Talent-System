@@ -37,7 +37,7 @@ describe('Payroll Integration: Special Scenarios', () => {
 
   test('TC-PAY-03: Lifetime License Check (Doctor)', async () => {
     const cid = 'DOC_LIFE';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     await pool.query(
       `INSERT INTO emp_profiles (citizen_id, position_name) VALUES (?, 'นายแพทย์ชำนาญการ')`,
       [cid],
@@ -56,8 +56,8 @@ describe('Payroll Integration: Special Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status, license_name, occupation_name) 
-      VALUES (?, '2010-01-01', '2020-01-01', 'EXPIRED', 'ใบประกอบวิชาชีพเวชกรรม (นายแพทย์)', 'นายแพทย์')
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) 
+      VALUES (?, '2010-01-01', '2020-01-01', 'EXPIRED')
     `,
       [cid],
     );
@@ -75,7 +75,7 @@ describe('Payroll Integration: Special Scenarios', () => {
 
   test('TC-REAL-03: Mid-Month Promotion (Rate Change)', async () => {
     const cid = 'DOC_PROMO';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
 
     const [r5k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 5000`);
     const [r10k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
@@ -98,8 +98,8 @@ describe('Payroll Integration: Special Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status, occupation_name) 
-      VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE', 'นายแพทย์')
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) 
+      VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')
     `,
       [cid],
     );
@@ -117,8 +117,8 @@ describe('Payroll Integration: Special Scenarios', () => {
 
   test('TC-BRUTAL-02: Leap Year 2024 & License Gap', async () => {
     const cid = 'LEAP_GAP';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
-    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (29000)`);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
+    await pool.query(`INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES ('DOCTOR', 1, 29000)`);
     const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 29000`);
 
     await pool.query(

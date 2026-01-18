@@ -37,8 +37,8 @@ describe('Payroll Integration: Advanced Edge Cases', () => {
 
   test('TC-PAY-09: Fiscal Year Reset (Leave Quota Reset on Oct 1st)', async () => {
     const cid = 'FISCAL_USER';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
-    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (30000)`);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
+    await pool.query(`INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES ('DOCTOR', 1, 30000)`);
     const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 30000`);
 
     await pool.query(
@@ -87,13 +87,13 @@ describe('Payroll Integration: Advanced Edge Cases', () => {
 
   test('TC-BRUTAL-03: Sequential Retroactive (Adjust on Adjust)', async () => {
     const cid = 'SEQ_RETRO';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
 
     const [r5k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 5000`);
     const [r10k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
     let [r15k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 15000`);
     if (!r15k || r15k.length === 0) {
-      await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (15000)`);
+      await pool.query(`INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES ('DOCTOR', 1, 15000)`);
       [r15k] = await pool.query<any[]>(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 15000`);
     }
 

@@ -79,7 +79,7 @@ describe('Payroll Integration: Retroactive Scenarios', () => {
 
   test('TC-PAY-08: Retroactive Deduction (Clawback/Overpayment)', async () => {
     const cid = 'CLAWBACK_USER';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
 
     const [r5k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 5000`);
     const [r10k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
@@ -125,7 +125,7 @@ describe('Payroll Integration: Retroactive Scenarios', () => {
 
   test('TC-REAL-01: Split Month & Retroactive (Case Study: Doctor Split Periods)', async () => {
     const cid = 'DOC_SPLIT';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     await pool.query(
       `INSERT INTO emp_profiles (citizen_id, position_name) VALUES (?, 'นายแพทย์ชำนาญการพิเศษ')`,
       [cid],
@@ -144,8 +144,8 @@ describe('Payroll Integration: Retroactive Scenarios', () => {
 
     await pool.query(
       `
-      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status, occupation_name) 
-      VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE', 'นายแพทย์')
+      INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) 
+      VALUES (?, '2020-01-01', '2030-12-31', 'ACTIVE')
     `,
       [cid],
     );
@@ -185,7 +185,7 @@ describe('Payroll Integration: Retroactive Scenarios', () => {
 
   test('TC-BRUTAL-01: The Double Retro Trap (Prevent Duplicate Payments)', async () => {
     const cid = 'DOUBLE_RETRO';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
     const [r5k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 5000`);
     const [r10k]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
 

@@ -37,11 +37,11 @@ describe('Payroll Integration: Deductions & Leave', () => {
 
   test('TC-PAY-06: Leave Deduction (Sick Leave > 60 days)', async () => {
     const cid = 'SICK_USER';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
 
     const [existingRate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 31000`);
     if (!existingRate || existingRate.length === 0) {
-      await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (31000)`);
+      await pool.query(`INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES ('DOCTOR', 1, 31000)`);
     }
     const [rateNew]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 31000`);
 
@@ -87,7 +87,7 @@ describe('Payroll Integration: Deductions & Leave', () => {
 
   test('TC-PAY-07: Study Leave (No Pay)', async () => {
     const cid = 'STUDY_DOC';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
 
     const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 10000`);
     await pool.query(
@@ -124,9 +124,9 @@ describe('Payroll Integration: Deductions & Leave', () => {
 
   test('TC-REAL-02: Long Term Training > 60 Days (Nurse Case)', async () => {
     const cid = 'NURSE_TRAIN';
-    await pool.query(`INSERT INTO users (citizen_id, role) VALUES (?, 'USER')`, [cid]);
+    await pool.query(`INSERT INTO users (citizen_id, role, password_hash) VALUES (?, 'USER', 'test-hash')`, [cid]);
 
-    await pool.query(`INSERT INTO cfg_payment_rates (amount) VALUES (1500)`);
+    await pool.query(`INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES ('DOCTOR', 1, 1500)`);
     const [rate]: any[] = await pool.query(`SELECT rate_id FROM cfg_payment_rates WHERE amount = 1500`);
 
     await pool.query(
