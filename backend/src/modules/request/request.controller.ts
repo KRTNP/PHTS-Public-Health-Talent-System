@@ -129,7 +129,7 @@ export async function createRequest(
       try {
         parsedWorkAttributes =
           typeof work_attributes === 'string' ? JSON.parse(work_attributes) : work_attributes;
-      } catch (error) {
+      } catch (_error) {
         res.status(400).json({
           success: false,
           error: 'Invalid work_attributes format. Must be valid JSON.',
@@ -144,7 +144,7 @@ export async function createRequest(
       try {
         parsedSubmissionData =
           typeof submission_data === 'string' ? JSON.parse(submission_data) : submission_data;
-      } catch (error) {
+      } catch (_error) {
         res.status(400).json({
           success: false,
           error: 'Invalid submission_data format. Must be valid JSON.',

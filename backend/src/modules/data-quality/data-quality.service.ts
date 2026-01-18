@@ -98,7 +98,7 @@ export async function getIssues(
   page: number = 1,
   limit: number = 50,
 ): Promise<{ issues: DataQualityIssue[]; total: number }> {
-  let whereClauses: string[] = ['1=1'];
+  const whereClauses: string[] = ['1=1'];
   const params: any[] = [];
 
   if (type) {

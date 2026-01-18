@@ -41,7 +41,7 @@ export function calculateDeductions(
     const end = new Date(leave.end_date);
 
     if (Number(leave.is_no_pay ?? 0) === 1) {
-      let cursor = new Date(start);
+      const cursor = new Date(start);
       while (cursor <= end) {
         const dateStr = formatLocalDate(cursor);
         if (cursor >= monthStart && cursor <= monthEnd) {
@@ -106,7 +106,7 @@ export function calculateDeductions(
         exceedDate = new Date(start);
       } else {
         let daysFound = 0;
-        let cursor = new Date(start);
+        const cursor = new Date(start);
         while (cursor <= end) {
           const dateStr = formatLocalDate(cursor);
           const isHol = isHoliday(dateStr, holidays);
@@ -127,7 +127,7 @@ export function calculateDeductions(
 
       if (exceedDate) {
         const weight = isHalfDay ? 0.5 : 1;
-        let penaltyCursor = new Date(exceedDate);
+        const penaltyCursor = new Date(exceedDate);
         while (penaltyCursor <= end) {
           const dateStr = formatLocalDate(penaltyCursor);
           const isHol = isHoliday(dateStr, holidays);

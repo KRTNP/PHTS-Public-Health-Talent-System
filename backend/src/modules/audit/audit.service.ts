@@ -144,7 +144,7 @@ export async function searchAuditEvents(
   const limit = Math.min(filter.limit || 50, 500);
   const offset = (page - 1) * limit;
 
-  let whereClauses: string[] = ['1=1'];
+  const whereClauses: string[] = ['1=1'];
   const params: any[] = [];
 
   // Event type filter

@@ -100,7 +100,7 @@ async function getUserWithProfile(userId: number): Promise<UserProfile | null> {
  * @access Public
  */
 export async function login(
-  req: Request<{}, {}, LoginRequest>,
+  req: Request<object, object, LoginRequest>,
   res: Response<LoginResponse | ApiResponse>
 ): Promise<void> {
   try {
