@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import type { RowDataPacket } from 'mysql2/promise';
+import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import db from '../config/database.js';
 import redis from '../config/redis.js';
 import { assignRoles } from './roleAssignmentService.js';
@@ -69,7 +69,7 @@ type UserSyncDecision = {
   roleForInsert: string;
 };
 
-const syncUsers = async (conn: typeof db, stats: SyncStats) => {
+const syncUsers = async (conn: PoolConnection, stats: SyncStats) => {
   console.log('[SyncService] Processing users...');
   const [existingUsers] = await conn.query<RowDataPacket[]>(
     'SELECT id, citizen_id, role, is_active, password_hash FROM users',
@@ -151,7 +151,7 @@ function evaluateUserSync(
 }
 
 const syncEmployees = async (
-  conn: typeof db,
+  conn: PoolConnection,
   stats: SyncStats,
   userIdMap: Map<string, number>,
 ) => {
@@ -229,7 +229,7 @@ const syncEmployees = async (
 };
 
 const syncSupportEmployees = async (
-  conn: typeof db,
+  conn: PoolConnection,
   stats: SyncStats,
   userIdMap: Map<string, number>,
 ) => {
@@ -308,7 +308,7 @@ const syncSupportEmployees = async (
   }
 };
 
-const syncSignatures = async (conn: typeof db, stats: SyncStats) => {
+const syncSignatures = async (conn: PoolConnection, stats: SyncStats) => {
   console.log('[SyncService] Processing signatures...');
   const [existingSigs] = await conn.query<RowDataPacket[]>(
     'SELECT user_id FROM sig_images',
@@ -338,7 +338,7 @@ const syncSignatures = async (conn: typeof db, stats: SyncStats) => {
   }
 };
 
-const syncLicensesAndQuotas = async (conn: typeof db, stats: SyncStats) => {
+const syncLicensesAndQuotas = async (conn: PoolConnection, stats: SyncStats) => {
   console.log('[SyncService] Processing licenses and quotas...');
   await conn.query(`
         INSERT INTO emp_licenses (citizen_id, license_no, valid_from, valid_until, status, synced_at)
@@ -368,7 +368,7 @@ const syncLicensesAndQuotas = async (conn: typeof db, stats: SyncStats) => {
   }
 };
 
-const syncLeaves = async (conn: typeof db, stats: SyncStats) => {
+const syncLeaves = async (conn: PoolConnection, stats: SyncStats) => {
   console.log('[SyncService] Processing leave requests...');
   const [existingLeaves] = await conn.query<RowDataPacket[]>(
     'SELECT ref_id, status, start_date, end_date, is_no_pay FROM leave_records WHERE ref_id IS NOT NULL',
@@ -429,7 +429,7 @@ const syncLeaves = async (conn: typeof db, stats: SyncStats) => {
   }
 };
 
-const syncMovements = async (conn: typeof db, stats: SyncStats) => {
+const syncMovements = async (conn: PoolConnection, _stats: SyncStats) => {
   console.log('[SyncService] Processing movements...');
   await conn.query(`
         INSERT INTO emp_movements (citizen_id, movement_type, effective_date, remark, synced_at)

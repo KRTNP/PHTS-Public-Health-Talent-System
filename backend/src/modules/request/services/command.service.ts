@@ -25,8 +25,10 @@ import {
 } from './helpers.js';
 import { getRequestDetails } from './query.service.js';
 
+type DbConnection = Awaited<ReturnType<typeof getConnection>>;
+
 const resolveSignatureId = async (
-  connection: ReturnType<typeof getConnection>,
+  connection: DbConnection,
   userId: number,
   signatureFile?: Express.Multer.File,
 ): Promise<number> => {
@@ -59,7 +61,7 @@ const buildSubmissionDataJson = (data: CreateRequestDTO): string | null => {
 };
 
 const insertAttachments = async (
-  connection: ReturnType<typeof getConnection>,
+  connection: DbConnection,
   requestId: number,
   files?: Express.Multer.File[],
 ) => {

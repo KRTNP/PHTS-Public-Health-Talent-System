@@ -42,6 +42,8 @@ export interface RequestSLAInfo {
   approver_ids: number[];
 }
 
+type PendingRequestWithSLA = RequestSLAInfo;
+
 /**
  * Get all SLA configurations
  */

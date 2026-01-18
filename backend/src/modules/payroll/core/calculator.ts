@@ -467,7 +467,7 @@ function applyMovement(state: WorkPeriodState, mov: MovementRow, ctx: MovementCo
   }
 
   if (mov.movement_type === 'ENTRY') {
-    handleEntryMovement(state, mov, date, ctx);
+    handleEntryMovement(state, date, ctx);
     state.prevMovement = mov;
     return;
   }
@@ -489,12 +489,7 @@ function handleStudyMovement(state: WorkPeriodState, date: Date, ctx: MovementCo
   state.remark = ctx.studyRemark;
 }
 
-function handleEntryMovement(
-  state: WorkPeriodState,
-  mov: MovementRow,
-  date: Date,
-  ctx: MovementContext,
-) {
+function handleEntryMovement(state: WorkPeriodState, date: Date, ctx: MovementContext) {
   const isSwap = isSwapEntry(state.prevMovement, date, ctx.swapTypes);
   if (isSwap && state.periods.length > 0) {
     restoreSwapStart(state, date);
