@@ -14,8 +14,6 @@ interface RedisClient {
 
 const isTestEnv = process.env.NODE_ENV === 'test';
 
-let redisClient: RedisClient;
-
 const createTestRedisClient = (): RedisClient => {
   const store = new Map<string, string>();
   const client: RedisClient = {
@@ -67,6 +65,6 @@ const createLiveRedisClient = (): RedisClient => {
   return client as unknown as RedisClient;
 };
 
-redisClient = isTestEnv ? createTestRedisClient() : createLiveRedisClient();
+const redisClient: RedisClient = isTestEnv ? createTestRedisClient() : createLiveRedisClient();
 
 export default redisClient;

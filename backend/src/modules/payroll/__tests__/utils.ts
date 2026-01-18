@@ -131,22 +131,22 @@ export async function setupSchema(pool: Pool) {
 
 export async function seedBaseData(pool: Pool) {
   await pool.query(`
-    INSERT INTO cfg_payment_rates (profession_code, group_no, amount) VALUES
+    INSERT IGNORE INTO cfg_payment_rates (profession_code, group_no, amount) VALUES
     ('DOCTOR', 1, 5000),
     ('DOCTOR', 2, 10000);
   `);
   await pool.query(
-    `INSERT INTO users (id, citizen_id, role, is_active) VALUES (99, 'ADMIN1', 'ADMIN', 1)`,
+    `INSERT IGNORE INTO users (id, citizen_id, role, is_active) VALUES (99, 'ADMIN1', 'ADMIN', 1)`,
   );
-  await pool.query(`INSERT INTO users (citizen_id, role) VALUES ('DOC1', 'USER')`);
+  await pool.query(`INSERT IGNORE INTO users (citizen_id, role) VALUES ('DOC1', 'USER')`);
   await pool.query(
-    `INSERT INTO emp_profiles (citizen_id, position_name) VALUES ('DOC1', 'นายแพทย์ปฏิบัติการ')`,
-  );
-  await pool.query(
-    `INSERT INTO emp_movements (citizen_id, movement_type, effective_date) VALUES ('DOC1', 'ENTRY', '2023-01-01')`,
+    `INSERT IGNORE INTO emp_profiles (citizen_id, position_name) VALUES ('DOC1', 'นายแพทย์ปฏิบัติการ')`,
   );
   await pool.query(
-    `INSERT INTO emp_licenses (citizen_id, valid_from, valid_until, status) VALUES ('DOC1', '2023-01-01', '2030-12-31', 'ACTIVE')`,
+    `INSERT IGNORE INTO emp_movements (citizen_id, movement_type, effective_date) VALUES ('DOC1', 'ENTRY', '2023-01-01')`,
+  );
+  await pool.query(
+    `INSERT IGNORE INTO emp_licenses (citizen_id, valid_from, valid_until, status) VALUES ('DOC1', '2023-01-01', '2030-12-31', 'ACTIVE')`,
   );
 }
 
