@@ -91,4 +91,4 @@ export function initializePassport() {
   return passport.initialize();
 }
 
-export default passport;
+export { default } from 'passport';

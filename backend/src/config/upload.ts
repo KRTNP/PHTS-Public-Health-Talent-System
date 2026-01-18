@@ -8,9 +8,9 @@
 
 import multer, { FileFilterCallback, StorageEngine } from 'multer';
 import { Request } from 'express';
-import path from 'path';
-import fs from 'fs';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 function ensureDirectoryExists(uploadPath: string, cb: (err: Error | null) => void) {
   try {
@@ -24,12 +24,8 @@ function ensureDirectoryExists(uploadPath: string, cb: (err: Error | null) => vo
 /**
  * Allowed MIME types for file uploads
  */
-const ALLOWED_MIME_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/jpg',
-];
+const ALLOWED_MIME_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']);
+const SIGNATURE_MIME_TYPES = new Set(['image/png', 'image/jpeg']);
 
 /**
  * Maximum file size: 5MB in bytes
@@ -53,7 +49,7 @@ const documentStorage = multer.diskStorage({
 
     // Generate filename: {userId}_{timestamp}_{originalname}
     const timestamp = Date.now();
-    const sanitizedOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const sanitizedOriginalName = file.originalname.replaceAll(/[^a-zA-Z0-9.-]/g, '_');
     const filename = `${userId}_${timestamp}_${sanitizedOriginalName}`;
 
     cb(null, filename);
@@ -94,8 +90,8 @@ type InternalStorageEngine = StorageEngine & {
 };
 
 class MixedRequestStorage implements StorageEngine {
-  private documentStorage: InternalStorageEngine;
-  private signatureStorage: InternalStorageEngine;
+  private readonly documentStorage: InternalStorageEngine;
+  private readonly signatureStorage: InternalStorageEngine;
 
   constructor(documentStore: StorageEngine, signatureStore: StorageEngine) {
     this.documentStorage = documentStore as InternalStorageEngine;
@@ -135,7 +131,7 @@ const fileFilter = (
   cb: FileFilterCallback
 ): void => {
   // Check if MIME type is allowed
-  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+  if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
     cb(null, true);
   } else {
     // Reject file with error message
@@ -177,7 +173,7 @@ export const signatureUpload = multer({
   storage: signatureStorage,
   fileFilter: (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     // Only allow PNG images for signatures
-    if (file.mimetype === 'image/png' || file.mimetype === 'image/jpeg') {
+    if (SIGNATURE_MIME_TYPES.has(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('Signature must be a PNG or JPEG image'));
@@ -194,19 +190,18 @@ export const signatureUpload = multer({
  * Handles both document files and signature
  */
 const requestDocumentStorage = multer.diskStorage({
-  destination: (_req: Request, file: Express.Multer.File, cb) => {
-    const req = _req as Request & { uploadSessionId?: string };
-    void file;
+  destination: (req: Request, _file: Express.Multer.File, cb) => {
+    const request = req as Request & { uploadSessionId?: string };
     const uploadRoot = path.join(process.cwd(), 'uploads/documents');
-    const sessionId = req.uploadSessionId ?? crypto.randomUUID();
-    req.uploadSessionId = sessionId;
+    const sessionId = request.uploadSessionId ?? crypto.randomUUID();
+    request.uploadSessionId = sessionId;
     const uploadPath = path.join(uploadRoot, sessionId);
     ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
     const userId = req.user?.userId || 'anonymous';
     const timestamp = Date.now();
-    const sanitizedOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const sanitizedOriginalName = file.originalname.replaceAll(/[^a-zA-Z0-9.-]/g, '_');
     const filename = `${userId}_${timestamp}_${sanitizedOriginalName}`;
     cb(null, filename);
   },
@@ -219,18 +214,16 @@ export const requestUpload = multer({
   fileFilter: (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     if (file.fieldname === 'applicant_signature') {
       // Signatures only allow PNG/JPEG
-      if (file.mimetype === 'image/png' || file.mimetype === 'image/jpeg') {
+      if (SIGNATURE_MIME_TYPES.has(file.mimetype)) {
         cb(null, true);
       } else {
         cb(new Error('Signature must be a PNG or JPEG image'));
       }
-    } else {
+    } else if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
       // Documents allow PDF and images
-      if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error(`Invalid file type. Only PDF, JPEG, and PNG files are allowed.`));
-      }
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type. Only PDF, JPEG, and PNG files are allowed.`));
     }
   },
   limits: {
@@ -257,7 +250,7 @@ export function handleUploadError(error: any): string {
     return `Upload error: ${error.message}`;
   }
 
-  if (error.message && error.message.includes('Invalid file type')) {
+  if (error.message?.includes('Invalid file type')) {
     return error.message;
   }
 
