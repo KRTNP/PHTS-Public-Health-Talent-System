@@ -16,7 +16,7 @@ const toNull = (val: any) => (val === undefined ? null : val);
 
 // Check bcrypt hash format ($2a/$2b/$2y).
 const isBcryptHash = (str: string): boolean =>
-  /^\$2[axy]\$[0-9]{2}\$[A-Za-z0-9./]{53}$/.test(str);
+  /^\$2[axy]\$\d{2}\$[A-Za-z0-9./]{53}$/.test(str);
 
 const toDateOnly = (value: any): string | null => {
   if (!value) return null;
@@ -27,7 +27,7 @@ const toDateOnly = (value: any): string | null => {
     return `${year}-${month}-${day}`;
   }
   if (typeof value === 'string') {
-    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
     if (match) return `${match[1]}-${match[2]}-${match[3]}`;
   }
   const parsed = new Date(value);
@@ -46,9 +46,402 @@ const isChanged = (oldVal: any, newVal: any) => {
     return oldDate !== newDate;
   }
   if (typeof oldVal === 'number' && typeof newVal === 'string') {
-    return oldVal !== parseFloat(newVal);
+    return oldVal !== Number.parseFloat(newVal);
   }
   return String(oldVal ?? '') !== String(newVal ?? '');
+};
+
+type SyncStats = {
+  users: { added: number; updated: number; skipped: number };
+  employees: { upserted: number; skipped: number };
+  support_employees: { upserted: number; skipped: number };
+  signatures: { added: number; skipped: number };
+  licenses: { upserted: number };
+  quotas: { upserted: number };
+  leaves: { upserted: number; skipped: number };
+  movements: { added: number };
+  roles: { updated: number; skipped: number; missing: number };
+};
+
+type UserSyncDecision = {
+  finalPass: string | null;
+  shouldHash: boolean;
+  roleForInsert: string;
+};
+
+const syncUsers = async (conn: typeof db, stats: SyncStats) => {
+  console.log('[SyncService] Processing users...');
+  const [existingUsers] = await conn.query<RowDataPacket[]>(
+    'SELECT id, citizen_id, role, is_active, password_hash FROM users',
+  );
+  const userMap = new Map(existingUsers.map((u) => [u.citizen_id, u]));
+  const userIdMap = new Map(existingUsers.map((u) => [u.citizen_id, u.id]));
+
+  const [viewUsers] = await conn.query<RowDataPacket[]>(
+    'SELECT * FROM vw_hrms_users_sync',
+  );
+
+  for (const vUser of viewUsers) {
+    const dbUser = userMap.get(vUser.citizen_id);
+    const decision = evaluateUserSync(dbUser, vUser, stats);
+    if (!decision) continue;
+
+    let { finalPass } = decision;
+    if (decision.shouldHash && finalPass && !isBcryptHash(String(finalPass))) {
+      finalPass = await bcrypt.hash(String(finalPass), SALT_ROUNDS);
+    }
+
+    await conn.execute(
+      `
+          INSERT INTO users (citizen_id, password_hash, role, is_active)
+          VALUES (?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE 
+            password_hash = VALUES(password_hash),
+            is_active = VALUES(is_active),
+            updated_at = NOW()
+        `,
+      [vUser.citizen_id, finalPass, decision.roleForInsert, vUser.is_active],
+    );
+  }
+
+  return userIdMap;
+};
+
+function evaluateUserSync(
+  dbUser: RowDataPacket | undefined,
+  vUser: RowDataPacket,
+  stats: SyncStats,
+): UserSyncDecision | null {
+  if (!dbUser) {
+    stats.users.added++;
+    return {
+      finalPass: vUser.plain_password,
+      shouldHash: true,
+      roleForInsert: 'USER',
+    };
+  }
+
+  let needsUpdate = false;
+  let finalPass = vUser.plain_password;
+  let shouldHash = true;
+
+  if (dbUser.role !== vUser.role) needsUpdate = true;
+  if (Number(dbUser.is_active) !== Number(vUser.is_active)) {
+    needsUpdate = true;
+  }
+
+  if (dbUser.password_hash && dbUser.password_hash.length > 0) {
+    shouldHash = false;
+    finalPass = dbUser.password_hash;
+  } else {
+    needsUpdate = true;
+  }
+
+  if (!needsUpdate) {
+    stats.users.skipped++;
+    return null;
+  }
+
+  stats.users.updated++;
+  return {
+    finalPass,
+    shouldHash,
+    roleForInsert: dbUser.role || 'USER',
+  };
+}
+
+const syncEmployees = async (
+  conn: typeof db,
+  stats: SyncStats,
+  userIdMap: Map<string, number>,
+) => {
+  console.log('[SyncService] Processing employees...');
+  const [existingEmps] = await conn.query<RowDataPacket[]>(
+    'SELECT citizen_id, position_name, level, department, special_position FROM emp_profiles',
+  );
+  const empMap = new Map(existingEmps.map((e) => [e.citizen_id, e]));
+
+  const [viewEmps] = await conn.query<RowDataPacket[]>(
+    'SELECT * FROM vw_hrms_employees',
+  );
+
+  for (const vEmp of viewEmps) {
+    const dbEmp = empMap.get(vEmp.citizen_id);
+    const specialChanged = dbEmp && isChanged(dbEmp.special_position, vEmp.special_position);
+    if (
+      dbEmp &&
+      !isChanged(dbEmp.position_name, vEmp.position_name) &&
+      !isChanged(dbEmp.level, vEmp.level) &&
+      !isChanged(dbEmp.department, vEmp.department) &&
+      !specialChanged
+    ) {
+      stats.employees.skipped++;
+      continue;
+    }
+
+    await conn.execute(
+      `
+          INSERT INTO emp_profiles (
+            citizen_id, title, first_name, last_name, sex, birth_date,
+            position_name, position_number, level, special_position, emp_type,
+            department, sub_department, mission_group, specialist, expert, 
+            start_work_date, first_entry_date, original_status, last_synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            position_name = VALUES(position_name),
+            level = VALUES(level),
+            special_position = VALUES(special_position),
+            department = VALUES(department),
+            sub_department = VALUES(sub_department),
+            specialist = VALUES(specialist),
+            expert = VALUES(expert),
+            last_synced_at = NOW()
+        `,
+      [
+        vEmp.citizen_id,
+        vEmp.title,
+        vEmp.first_name,
+        vEmp.last_name,
+        vEmp.sex,
+        vEmp.birth_date,
+        vEmp.position_name,
+        vEmp.position_number,
+        vEmp.level,
+        (vEmp.special_position || '').substring(0, 65535),
+        vEmp.employee_type,
+        vEmp.department,
+        vEmp.sub_department,
+        vEmp.mission_group,
+        vEmp.specialist,
+        vEmp.expert,
+        vEmp.start_current_position,
+        vEmp.first_entry_date,
+        vEmp.original_status,
+      ],
+    );
+    stats.employees.upserted++;
+
+    const userId = userIdMap.get(vEmp.citizen_id);
+    if (specialChanged && userId !== undefined) {
+      clearScopeCache(userId);
+    }
+  }
+};
+
+const syncSupportEmployees = async (
+  conn: typeof db,
+  stats: SyncStats,
+  userIdMap: Map<string, number>,
+) => {
+  console.log('[SyncService] Processing support employees...');
+
+  const [existingSupEmps] = await conn.query<RowDataPacket[]>(
+    `SELECT citizen_id, title, first_name, last_name, position_name,
+            level, special_position, emp_type, department,
+            is_currently_active
+     FROM emp_support_staff`,
+  );
+  const supEmpMap = new Map(existingSupEmps.map((e) => [e.citizen_id, e]));
+
+  const [viewSupEmps] = await conn.query<RowDataPacket[]>(
+    'SELECT * FROM vw_hrms_support_staff',
+  );
+
+  for (const vSup of viewSupEmps) {
+    const dbSup = supEmpMap.get(vSup.citizen_id);
+
+    const supportSpecialChanged = dbSup && isChanged(dbSup.special_position, vSup.special_position);
+    if (
+      dbSup &&
+      !isChanged(dbSup.title, vSup.title) &&
+      !isChanged(dbSup.first_name, vSup.first_name) &&
+      !isChanged(dbSup.last_name, vSup.last_name) &&
+      !isChanged(dbSup.position_name, vSup.position_name) &&
+      !isChanged(dbSup.level, vSup.level) &&
+      !supportSpecialChanged &&
+      !isChanged(dbSup.emp_type, vSup.employee_type) &&
+      !isChanged(dbSup.department, vSup.department) &&
+      Number(dbSup.is_currently_active) === Number(vSup.is_currently_active)
+    ) {
+      stats.support_employees.skipped++;
+      continue;
+    }
+
+    await conn.execute(
+      `
+          INSERT INTO emp_support_staff (
+            citizen_id, title, first_name, last_name,
+            position_name, level, special_position, emp_type,
+            department, is_currently_active, last_synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            first_name = VALUES(first_name),
+            last_name = VALUES(last_name),
+            position_name = VALUES(position_name),
+            level = VALUES(level),
+            special_position = VALUES(special_position),
+            emp_type = VALUES(emp_type),
+            department = VALUES(department),
+            is_currently_active = VALUES(is_currently_active),
+            last_synced_at = NOW()
+        `,
+      [
+        toNull(vSup.citizen_id),
+        toNull(vSup.title),
+        toNull(vSup.first_name),
+        toNull(vSup.last_name),
+        toNull(vSup.position_name),
+        toNull(vSup.level),
+        toNull(vSup.special_position),
+        toNull(vSup.employee_type),
+        toNull(vSup.department),
+        toNull(vSup.is_currently_active),
+      ],
+    );
+    stats.support_employees.upserted++;
+
+    const userId = userIdMap.get(vSup.citizen_id);
+    if (supportSpecialChanged && userId !== undefined) {
+      clearScopeCache(userId);
+    }
+  }
+};
+
+const syncSignatures = async (conn: typeof db, stats: SyncStats) => {
+  console.log('[SyncService] Processing signatures...');
+  const [existingSigs] = await conn.query<RowDataPacket[]>(
+    'SELECT user_id FROM sig_images',
+  );
+  const sigSet = new Set(existingSigs.map((s) => s.user_id));
+
+  const [viewSigs] = await conn.query<RowDataPacket[]>(
+    `
+        SELECT u.id as user_id, s.signature_blob
+        FROM vw_hrms_signatures s
+        JOIN users u ON CONVERT(s.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
+      `,
+  );
+
+  for (const vSig of viewSigs) {
+    if (sigSet.has(vSig.user_id)) {
+      stats.signatures.skipped++;
+      continue;
+    }
+    await conn.execute(
+      `
+          INSERT INTO sig_images (user_id, signature_image, updated_at) VALUES (?, ?, NOW())
+        `,
+      [vSig.user_id, vSig.signature_blob],
+    );
+    stats.signatures.added++;
+  }
+};
+
+const syncLicensesAndQuotas = async (conn: typeof db, stats: SyncStats) => {
+  console.log('[SyncService] Processing licenses and quotas...');
+  await conn.query(`
+        INSERT INTO emp_licenses (citizen_id, license_no, valid_from, valid_until, status, synced_at)
+        SELECT l.citizen_id, l.license_no, l.valid_from, l.valid_until, l.status, NOW()
+        FROM vw_hrms_licenses l
+        JOIN users u ON CONVERT(l.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
+        ON DUPLICATE KEY UPDATE valid_from=VALUES(valid_from), valid_until=VALUES(valid_until), status=VALUES(status), synced_at=NOW()
+      `);
+
+  const [viewQuotas] = await conn.query<RowDataPacket[]>(
+    `
+        SELECT q.citizen_id, q.fiscal_year, q.total_quota
+        FROM vw_hrms_leave_quotas q
+        JOIN users u ON CONVERT(q.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
+      `,
+  );
+  for (const q of viewQuotas) {
+    await conn.execute(
+      `
+          INSERT INTO leave_quotas (citizen_id, fiscal_year, quota_vacation, updated_at)
+          VALUES (?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE quota_vacation = VALUES(quota_vacation), updated_at = NOW()
+        `,
+      [q.citizen_id, q.fiscal_year, q.total_quota],
+    );
+    stats.quotas.upserted++;
+  }
+};
+
+const syncLeaves = async (conn: typeof db, stats: SyncStats) => {
+  console.log('[SyncService] Processing leave requests...');
+  const [existingLeaves] = await conn.query<RowDataPacket[]>(
+    'SELECT ref_id, status, start_date, end_date, is_no_pay FROM leave_records WHERE ref_id IS NOT NULL',
+  );
+  const leaveMap = new Map(existingLeaves.map((l) => [l.ref_id, l]));
+
+  const [viewLeaves] = await conn.query<RowDataPacket[]>(
+    `
+        SELECT lr.* FROM vw_hrms_leave_requests lr
+        JOIN users u ON CONVERT(lr.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
+      `,
+  );
+
+  for (const vLeave of viewLeaves) {
+    if (!vLeave.ref_id) continue;
+    const dbLeave = leaveMap.get(vLeave.ref_id);
+
+    if (dbLeave) {
+      const dateChanged =
+        isChanged(dbLeave.start_date, vLeave.start_date) ||
+        isChanged(dbLeave.end_date, vLeave.end_date);
+      const statusChanged = isChanged(dbLeave.status, vLeave.status);
+      const noPayChanged = isChanged(dbLeave.is_no_pay, vLeave.is_no_pay);
+      if (!dateChanged && !statusChanged && !noPayChanged) {
+        stats.leaves.skipped++;
+        continue;
+      }
+    }
+
+    await conn.execute(
+      `
+          INSERT INTO leave_records (
+            ref_id, citizen_id, leave_type, start_date, end_date, 
+            duration_days, fiscal_year, remark, status, is_no_pay, synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            status = VALUES(status),
+            start_date = VALUES(start_date),
+            end_date = VALUES(end_date),
+            duration_days = VALUES(duration_days),
+            is_no_pay = VALUES(is_no_pay),
+            synced_at = NOW()
+        `,
+      [
+        toNull(vLeave.ref_id),
+        toNull(vLeave.citizen_id),
+        toNull(vLeave.leave_type),
+        toNull(vLeave.start_date),
+        toNull(vLeave.end_date),
+        toNull(vLeave.duration_days),
+        toNull(vLeave.fiscal_year),
+        toNull(vLeave.remark),
+        toNull(vLeave.status),
+        toNull(vLeave.is_no_pay ?? 0),
+      ],
+    );
+    stats.leaves.upserted++;
+  }
+};
+
+const syncMovements = async (conn: typeof db, stats: SyncStats) => {
+  console.log('[SyncService] Processing movements...');
+  await conn.query(`
+        INSERT INTO emp_movements (citizen_id, movement_type, effective_date, remark, synced_at)
+        SELECT m.citizen_id, m.movement_type, m.effective_date, m.remark, NOW()
+        FROM vw_hrms_movements m
+        JOIN users u ON CONVERT(m.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
+        ON DUPLICATE KEY UPDATE
+          movement_type = VALUES(movement_type),
+          effective_date = VALUES(effective_date),
+          remark = VALUES(remark),
+          synced_at = NOW()
+      `);
 };
 
 export class SyncService {
@@ -103,343 +496,13 @@ export class SyncService {
     try {
       await conn.beginTransaction();
 
-      // 1. Users
-      console.log('[SyncService] Processing users...');
-      const [existingUsers] = await conn.query<RowDataPacket[]>(
-        'SELECT id, citizen_id, role, is_active, password_hash FROM users',
-      );
-      const userMap = new Map(existingUsers.map((u) => [u.citizen_id, u]));
-      const userIdMap = new Map(existingUsers.map((u) => [u.citizen_id, u.id]));
-
-      const [viewUsers] = await conn.query<RowDataPacket[]>(
-        'SELECT * FROM vw_hrms_users_sync',
-      );
-
-      for (const vUser of viewUsers) {
-        const dbUser = userMap.get(vUser.citizen_id);
-        const isNewUser = !dbUser;
-        let needsUpdate = isNewUser;
-        let finalPass = vUser.plain_password;
-        let shouldHash = true;
-        const roleForInsert = dbUser?.role || 'USER';
-
-        if (isNewUser) {
-          stats.users.added++;
-        } else {
-          if (dbUser.role !== vUser.role) needsUpdate = true;
-          if (Number(dbUser.is_active) !== Number(vUser.is_active))
-            needsUpdate = true;
-
-          if (dbUser.password_hash && dbUser.password_hash.length > 0) {
-            shouldHash = false;
-            finalPass = dbUser.password_hash;
-          } else {
-            needsUpdate = true;
-          }
-
-          if (!needsUpdate) {
-            stats.users.skipped++;
-            continue;
-          }
-          stats.users.updated++;
-        }
-
-        if (shouldHash && finalPass && !isBcryptHash(String(finalPass))) {
-          finalPass = await bcrypt.hash(String(finalPass), SALT_ROUNDS);
-        }
-
-        await conn.execute(
-          `
-          INSERT INTO users (citizen_id, password_hash, role, is_active)
-          VALUES (?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE 
-            password_hash = VALUES(password_hash),
-            is_active = VALUES(is_active),
-            updated_at = NOW()
-        `,
-          [vUser.citizen_id, finalPass, roleForInsert, vUser.is_active],
-        );
-      }
-
-      // 2. Employees
-      console.log('[SyncService] Processing employees...');
-      const [existingEmps] = await conn.query<RowDataPacket[]>(
-        'SELECT citizen_id, position_name, level, department, special_position FROM emp_profiles',
-      );
-      const empMap = new Map(existingEmps.map((e) => [e.citizen_id, e]));
-
-      const [viewEmps] = await conn.query<RowDataPacket[]>(
-        'SELECT * FROM vw_hrms_employees',
-      );
-
-      for (const vEmp of viewEmps) {
-        const dbEmp = empMap.get(vEmp.citizen_id);
-        const specialChanged = dbEmp && isChanged(dbEmp.special_position, vEmp.special_position);
-        if (
-          dbEmp &&
-          !isChanged(dbEmp.position_name, vEmp.position_name) &&
-          !isChanged(dbEmp.level, vEmp.level) &&
-          !isChanged(dbEmp.department, vEmp.department) &&
-          !specialChanged
-        ) {
-          stats.employees.skipped++;
-          continue;
-        }
-
-        await conn.execute(
-          `
-          INSERT INTO emp_profiles (
-            citizen_id, title, first_name, last_name, sex, birth_date,
-            position_name, position_number, level, special_position, emp_type,
-            department, sub_department, mission_group, specialist, expert, 
-            start_work_date, first_entry_date, original_status, last_synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            position_name = VALUES(position_name),
-            level = VALUES(level),
-            special_position = VALUES(special_position),
-            department = VALUES(department),
-            sub_department = VALUES(sub_department),
-            specialist = VALUES(specialist),
-            expert = VALUES(expert),
-            last_synced_at = NOW()
-        `,
-          [
-            vEmp.citizen_id,
-            vEmp.title,
-            vEmp.first_name,
-            vEmp.last_name,
-            vEmp.sex,
-            vEmp.birth_date,
-            vEmp.position_name,
-            vEmp.position_number,
-            vEmp.level,
-            (vEmp.special_position || '').substring(0, 65535),
-            vEmp.employee_type,
-            vEmp.department,
-            vEmp.sub_department,
-            vEmp.mission_group,
-            vEmp.specialist,
-            vEmp.expert,
-            vEmp.start_current_position,
-            vEmp.first_entry_date,
-            vEmp.original_status,
-          ],
-        );
-        stats.employees.upserted++;
-
-        const userId = userIdMap.get(vEmp.citizen_id);
-        if (specialChanged && userId !== undefined) {
-          clearScopeCache(userId);
-        }
-      }
-
-      // 2.5 Support Employees (Contract/Government employees)
-      console.log('[SyncService] Processing support employees...');
-
-      const [existingSupEmps] = await conn.query<RowDataPacket[]>(
-        `SELECT citizen_id, title, first_name, last_name, position_name,
-                level, special_position, emp_type, department,
-                is_currently_active
-         FROM emp_support_staff`,
-      );
-      const supEmpMap = new Map(existingSupEmps.map((e) => [e.citizen_id, e]));
-
-      const [viewSupEmps] = await conn.query<RowDataPacket[]>(
-        'SELECT * FROM vw_hrms_support_staff',
-      );
-
-      for (const vSup of viewSupEmps) {
-        const dbSup = supEmpMap.get(vSup.citizen_id);
-
-        const supportSpecialChanged = dbSup && isChanged(dbSup.special_position, vSup.special_position);
-        if (
-          dbSup &&
-          !isChanged(dbSup.title, vSup.title) &&
-          !isChanged(dbSup.first_name, vSup.first_name) &&
-          !isChanged(dbSup.last_name, vSup.last_name) &&
-          !isChanged(dbSup.position_name, vSup.position_name) &&
-          !isChanged(dbSup.level, vSup.level) &&
-          !supportSpecialChanged &&
-          !isChanged(dbSup.emp_type, vSup.employee_type) &&
-          !isChanged(dbSup.department, vSup.department) &&
-          Number(dbSup.is_currently_active) === Number(vSup.is_currently_active)
-        ) {
-          stats.support_employees.skipped++;
-          continue;
-        }
-
-        await conn.execute(
-          `
-          INSERT INTO emp_support_staff (
-            citizen_id, title, first_name, last_name,
-            position_name, level, special_position, emp_type,
-            department, is_currently_active, last_synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            title = VALUES(title),
-            first_name = VALUES(first_name),
-            last_name = VALUES(last_name),
-            position_name = VALUES(position_name),
-            level = VALUES(level),
-            special_position = VALUES(special_position),
-            emp_type = VALUES(emp_type),
-            department = VALUES(department),
-            is_currently_active = VALUES(is_currently_active),
-            last_synced_at = NOW()
-        `,
-          [
-            toNull(vSup.citizen_id),
-            toNull(vSup.title),
-            toNull(vSup.first_name),
-            toNull(vSup.last_name),
-            toNull(vSup.position_name),
-            toNull(vSup.level),
-            toNull(vSup.special_position),
-            toNull(vSup.employee_type),
-            toNull(vSup.department),
-            toNull(vSup.is_currently_active),
-          ],
-        );
-        stats.support_employees.upserted++;
-
-        const userId = userIdMap.get(vSup.citizen_id);
-        if (supportSpecialChanged && userId !== undefined) {
-          clearScopeCache(userId);
-        }
-      }
-
-      // 3. Signatures
-      console.log('[SyncService] Processing signatures...');
-      const [existingSigs] = await conn.query<RowDataPacket[]>(
-        'SELECT user_id FROM sig_images',
-      );
-      const sigSet = new Set(existingSigs.map((s) => s.user_id));
-
-      const [viewSigs] = await conn.query<RowDataPacket[]>(
-        `
-        SELECT u.id as user_id, s.signature_blob
-        FROM vw_hrms_signatures s
-        JOIN users u ON CONVERT(s.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
-      `,
-      );
-
-      for (const vSig of viewSigs) {
-        if (sigSet.has(vSig.user_id)) {
-          stats.signatures.skipped++;
-          continue;
-        }
-        await conn.execute(
-          `
-          INSERT INTO sig_images (user_id, signature_image, updated_at) VALUES (?, ?, NOW())
-        `,
-          [vSig.user_id, vSig.signature_blob],
-        );
-        stats.signatures.added++;
-      }
-
-      // 4. Licenses & Quotas
-      console.log('[SyncService] Processing licenses and quotas...');
-      await conn.query(`
-        INSERT INTO emp_licenses (citizen_id, license_no, valid_from, valid_until, status, synced_at)
-        SELECT l.citizen_id, l.license_no, l.valid_from, l.valid_until, l.status, NOW()
-        FROM vw_hrms_licenses l
-        JOIN users u ON CONVERT(l.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
-        ON DUPLICATE KEY UPDATE valid_from=VALUES(valid_from), valid_until=VALUES(valid_until), status=VALUES(status), synced_at=NOW()
-      `);
-
-      const [viewQuotas] = await conn.query<RowDataPacket[]>(
-        `
-        SELECT q.citizen_id, q.fiscal_year, q.total_quota
-        FROM vw_hrms_leave_quotas q
-        JOIN users u ON CONVERT(q.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
-      `,
-      );
-      for (const q of viewQuotas) {
-        await conn.execute(
-          `
-          INSERT INTO leave_quotas (citizen_id, fiscal_year, quota_vacation, updated_at)
-          VALUES (?, ?, ?, NOW())
-          ON DUPLICATE KEY UPDATE quota_vacation = VALUES(quota_vacation), updated_at = NOW()
-        `,
-          [q.citizen_id, q.fiscal_year, q.total_quota],
-        );
-        stats.quotas.upserted++;
-      }
-
-      // 5. Leave Requests
-      console.log('[SyncService] Processing leave requests...');
-      const [existingLeaves] = await conn.query<RowDataPacket[]>(
-        'SELECT ref_id, status, start_date, end_date, is_no_pay FROM leave_records WHERE ref_id IS NOT NULL',
-      );
-      const leaveMap = new Map(existingLeaves.map((l) => [l.ref_id, l]));
-
-      const [viewLeaves] = await conn.query<RowDataPacket[]>(
-        `
-        SELECT lr.* FROM vw_hrms_leave_requests lr
-        JOIN users u ON CONVERT(lr.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
-      `,
-      );
-
-      for (const vLeave of viewLeaves) {
-        if (!vLeave.ref_id) continue;
-        const dbLeave = leaveMap.get(vLeave.ref_id);
-
-        if (dbLeave) {
-          const dateChanged =
-            isChanged(dbLeave.start_date, vLeave.start_date) ||
-            isChanged(dbLeave.end_date, vLeave.end_date);
-          const statusChanged = isChanged(dbLeave.status, vLeave.status);
-          const noPayChanged = isChanged(dbLeave.is_no_pay, vLeave.is_no_pay);
-          if (!dateChanged && !statusChanged && !noPayChanged) {
-            stats.leaves.skipped++;
-            continue;
-          }
-        }
-
-        await conn.execute(
-          `
-          INSERT INTO leave_records (
-            ref_id, citizen_id, leave_type, start_date, end_date, 
-            duration_days, fiscal_year, remark, status, is_no_pay, synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            status = VALUES(status),
-            start_date = VALUES(start_date),
-            end_date = VALUES(end_date),
-            duration_days = VALUES(duration_days),
-            is_no_pay = VALUES(is_no_pay),
-            synced_at = NOW()
-        `,
-          [
-            toNull(vLeave.ref_id),
-            toNull(vLeave.citizen_id),
-            toNull(vLeave.leave_type),
-            toNull(vLeave.start_date),
-            toNull(vLeave.end_date),
-            toNull(vLeave.duration_days),
-            toNull(vLeave.fiscal_year),
-            toNull(vLeave.remark),
-            toNull(vLeave.status),
-            toNull(vLeave.is_no_pay ?? 0),
-          ],
-        );
-        stats.leaves.upserted++;
-      }
-
-      // 6. Movements
-      console.log('[SyncService] Processing movements...');
-      await conn.query(`
-        INSERT INTO emp_movements (citizen_id, movement_type, effective_date, remark, synced_at)
-        SELECT m.citizen_id, m.movement_type, m.effective_date, m.remark, NOW()
-        FROM vw_hrms_movements m
-        JOIN users u ON CONVERT(m.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
-        ON DUPLICATE KEY UPDATE
-          movement_type = VALUES(movement_type),
-          effective_date = VALUES(effective_date),
-          remark = VALUES(remark),
-          synced_at = NOW()
-      `);
+      const userIdMap = await syncUsers(conn, stats);
+      await syncEmployees(conn, stats, userIdMap);
+      await syncSupportEmployees(conn, stats, userIdMap);
+      await syncSignatures(conn, stats);
+      await syncLicensesAndQuotas(conn, stats);
+      await syncLeaves(conn, stats);
+      await syncMovements(conn, stats);
 
       await conn.commit();
 

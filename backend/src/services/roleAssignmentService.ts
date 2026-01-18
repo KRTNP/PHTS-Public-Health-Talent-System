@@ -83,10 +83,8 @@ export interface RoleAssignmentResult {
  * Can use an existing connection (for transaction) or create a new one.
  */
 export async function assignRoles(conn?: PoolConnection): Promise<RoleAssignmentResult> {
-  const useExistingConn = !!conn;
-  if (!conn) {
-    conn = await db.getConnection();
-  }
+  const useExistingConn = Boolean(conn);
+  conn ??= await db.getConnection();
 
   try {
     const [users] = await conn.query<UserRow[] & RowDataPacket[]>(

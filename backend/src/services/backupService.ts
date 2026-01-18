@@ -1,6 +1,6 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
 
@@ -35,8 +35,9 @@ export async function runBackupJob(): Promise<{ enabled: boolean; output?: strin
         throw new Error('BACKUP_ARGS must be a JSON array of strings');
       }
       args = parsed;
-    } catch (_error) {
-      throw new Error('BACKUP_ARGS must be a JSON array of strings');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`BACKUP_ARGS must be a JSON array of strings (${message})`);
     }
   }
 

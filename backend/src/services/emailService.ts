@@ -12,7 +12,7 @@ export class EmailService {
     return EMAIL_ENABLED;
   }
 
-  static async sendEmail(message: EmailMessage): Promise<void> {
+  static async sendEmail(_message: EmailMessage): Promise<void> {
     if (!EMAIL_ENABLED) {
       return;
     }
@@ -38,6 +38,5 @@ export class EmailService {
     //   text: message.text,
     //   html: message.html,
     // });
-    void message;
   }
 }
