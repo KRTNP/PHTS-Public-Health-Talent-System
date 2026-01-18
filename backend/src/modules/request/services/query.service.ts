@@ -5,25 +5,25 @@
  */
 
 import { RowDataPacket } from 'mysql2/promise';
-import { query } from '../../config/database.js';
+import { query } from '../../../config/database.js';
 import {
   RequestStatus,
   RequestAttachment,
   RequestWithDetails,
   ROLE_STEP_MAP,
-} from './request.types.js';
+} from '../request.types.js';
 import {
   REQUESTER_FIELDS,
   REQUESTER_JOINS,
   mapRequestRow,
   hydrateRequests,
   buildInClause,
-} from './request.helpers.js';
+} from './helpers.js';
 import {
   getScopeFilterForApprover,
   getScopeFilterForSelectedScope,
   canApproverAccessRequest,
-} from './scope.service.js';
+} from '../scope/scope.service.js';
 
 // ============================================================================
 // User's Requests

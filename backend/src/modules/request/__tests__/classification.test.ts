@@ -1,5 +1,5 @@
 import { Pool } from 'mysql2/promise';
-import { createTestPool, setupSchema, cleanTables, seedMasterRates, DB_NAME } from './utils.js';
+import { createTestPool, setupSchema, cleanTables, seedMasterRates, DB_NAME } from './utils.ts';
 
 let pool: Pool;
 let findRecommendedRate: any;
@@ -11,7 +11,7 @@ beforeAll(async () => {
   await cleanTables(pool);
   await seedMasterRates(pool);
 
-  const service = await import('../classification.service.js');
+  const service = await import('../request.service.js');
   findRecommendedRate = service.findRecommendedRate;
 });
 

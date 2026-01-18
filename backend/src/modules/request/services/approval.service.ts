@@ -5,7 +5,7 @@
  */
 
 import { RowDataPacket, PoolConnection } from 'mysql2/promise';
-import { getConnection } from '../../config/database.js';
+import { getConnection } from '../../../config/database.js';
 import {
   RequestStatus,
   ActionType,
@@ -14,20 +14,20 @@ import {
   ROLE_STEP_MAP,
   BatchApproveParams,
   BatchApproveResult,
-} from './request.types.js';
-import { NotificationService } from '../notification/notification.service.js';
-import { findRecommendedRate } from './classification.service.js';
-import { createEligibility } from './eligibility.service.js';
+} from '../request.types.js';
+import { NotificationService } from '../../notification/notification.service.js';
+import { findRecommendedRate } from '../classification/classification.service.js';
+import { createEligibility } from '../classification/eligibility.service.js';
 import {
   mapRequestRow,
   normalizeDateToYMD,
   getRequestLinkForRole,
-} from './request.helpers.js';
+} from './helpers.js';
 import {
   canApproverAccessRequest,
   canSelfApprove,
   isRequestOwner,
-} from './scope.service.js';
+} from '../scope/scope.service.js';
 
 // ============================================================================
 // Approve Request

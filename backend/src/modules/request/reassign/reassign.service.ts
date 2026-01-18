@@ -6,10 +6,10 @@
  */
 
 import { RowDataPacket } from 'mysql2/promise';
-import { query, getConnection } from '../../config/database.js';
-import { RequestStatus, ROLE_STEP_MAP } from './request.types.js';
-import { NotificationService } from '../notification/notification.service.js';
-import { UserRole } from '../../types/auth.js';
+import { query, getConnection } from '../../../config/database.js';
+import { RequestStatus, ROLE_STEP_MAP } from '../request.types.js';
+import { NotificationService } from '../../notification/notification.service.js';
+import { UserRole } from '../../../types/auth.js';
 
 /**
  * DTO for reassign operation

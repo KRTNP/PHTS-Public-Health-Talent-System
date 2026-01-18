@@ -6,14 +6,17 @@
  */
 
 import { RowDataPacket } from 'mysql2/promise';
-import { query } from '../../config/database.js';
+import { query } from '../../../config/database.js';
+import { delCache, getJsonCache, setJsonCache } from '../../../utils/cache.js';
 import {
   ApproverScopes,
   parseSpecialPositionScopes,
   removeOverlaps,
   resolveApproverRole,
   inferScopeType,
-} from './scope.utils.js';
+} from './utils.js';
+
+const SCOPE_CACHE_TTL_SECONDS = 6 * 60 * 60;
 
 /**
  * Cache for approver scopes (in-memory, cleared on restart)
@@ -37,9 +40,16 @@ export async function getApproverScopes(
   userRole: 'HEAD_WARD' | 'HEAD_DEPT',
 ): Promise<ApproverScopes> {
   const cacheKey = `${userId}_${userRole}`;
+  const redisKey = `scope:${cacheKey}`;
 
   if (scopeCache.has(cacheKey)) {
     return scopeCache.get(cacheKey)!;
+  }
+
+  const cached = await getJsonCache<ApproverScopes>(redisKey);
+  if (cached) {
+    scopeCache.set(cacheKey, cached);
+    return cached;
   }
 
   // Get citizen_id for the user
@@ -49,7 +59,10 @@ export async function getApproverScopes(
   );
 
   if (!userRows.length) {
-    return { wardScopes: [], deptScopes: [] };
+    const emptyScopes = { wardScopes: [], deptScopes: [] };
+    scopeCache.set(cacheKey, emptyScopes);
+    await setJsonCache(redisKey, emptyScopes, SCOPE_CACHE_TTL_SECONDS);
+    return emptyScopes;
   }
 
   const citizenId = (userRows[0] as any).citizen_id;
@@ -68,16 +81,21 @@ export async function getApproverScopes(
     );
 
     if (!supportRows.length) {
-      return { wardScopes: [], deptScopes: [] };
+      const emptyScopes = { wardScopes: [], deptScopes: [] };
+      scopeCache.set(cacheKey, emptyScopes);
+      await setJsonCache(redisKey, emptyScopes, SCOPE_CACHE_TTL_SECONDS);
+      return emptyScopes;
     }
 
     const scopes = parseAndClassifyScopes((supportRows[0] as any).special_position);
     scopeCache.set(cacheKey, scopes);
+    await setJsonCache(redisKey, scopes, SCOPE_CACHE_TTL_SECONDS);
     return scopes;
   }
 
   const scopes = parseAndClassifyScopes((empRows[0] as any).special_position);
   scopeCache.set(cacheKey, scopes);
+  await setJsonCache(redisKey, scopes, SCOPE_CACHE_TTL_SECONDS);
   return scopes;
 }
 
@@ -244,10 +262,14 @@ export async function getScopeFilterForApprover(
  */
 export function clearScopeCache(userId?: number): void {
   if (userId) {
-    scopeCache.delete(`${userId}_HEAD_WARD`);
-    scopeCache.delete(`${userId}_HEAD_DEPT`);
+    const wardKey = `${userId}_HEAD_WARD`;
+    const deptKey = `${userId}_HEAD_DEPT`;
+    scopeCache.delete(wardKey);
+    scopeCache.delete(deptKey);
+    void delCache(`scope:${wardKey}`, `scope:${deptKey}`);
   } else {
     scopeCache.clear();
+    void delCache();
   }
 }
 

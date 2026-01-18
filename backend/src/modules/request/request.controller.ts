@@ -18,12 +18,12 @@ import {
   BatchApproveResult,
 } from './request.types.js';
 import * as requestService from './request.service.js';
-import { getUserScopesForDisplay } from './scope.service.js';
+import { getUserScopesForDisplay } from './scope/scope.service.js';
 import {
   classifyEmployee,
   findRecommendedRate,
   getAllActiveMasterRates,
-} from './classification.service.js';
+} from './classification/classification.service.js';
 import { handleUploadError, MAX_SIGNATURE_SIZE } from '../../config/upload.js';
 import pool from '../../config/database.js';
 import { NotificationService } from '../notification/notification.service.js';
@@ -976,8 +976,8 @@ export async function getMasterRates(_req: Request, res: Response): Promise<void
 // ============================================
 // Reassign Functions (PTS_OFFICER)
 // ============================================
-import * as reassignService from './reassign.service.js';
-import * as ocrService from './ocr.service.js';
+import * as reassignService from './reassign/reassign.service.js';
+import * as ocrService from './ocr/ocr.service.js';
 
 /**
  * Get list of PTS_OFFICER users for reassignment

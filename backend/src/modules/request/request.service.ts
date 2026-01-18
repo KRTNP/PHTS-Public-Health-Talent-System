@@ -2,49 +2,11 @@
  * PHTS System - Request Service Layer (V2.0)
  *
  * Facade module that re-exports all request operations from sub-modules.
- *
- * Sub-modules:
- * - request.helpers.ts      - Shared utilities and SQL fragments
- * - request-query.service.ts    - Read operations
- * - request-command.service.ts  - Create/Submit operations
- * - request-approval.service.ts - Approval workflow
  */
 
-// ============================================================================
-// Re-export Query Operations
-// ============================================================================
+// Re-export from services
 export {
-  getMyRequests,
-  getPendingForApprover,
-  getApprovalHistory,
-  getRequestById,
-  getRequestDetails,
-} from './request-query.service.js';
-
-// ============================================================================
-// Re-export Command Operations
-// ============================================================================
-export {
-  getRecommendedRateForUser,
-  createRequest,
-  submitRequest,
-} from './request-command.service.js';
-
-// ============================================================================
-// Re-export Approval Operations
-// ============================================================================
-export {
-  approveRequest,
-  rejectRequest,
-  returnRequest,
-  approveBatch,
-  finalizeRequest,
-} from './request-approval.service.js';
-
-// ============================================================================
-// Re-export Helpers (for external use if needed)
-// ============================================================================
-export {
+  // Helpers
   REQUESTER_FIELDS,
   REQUESTER_JOINS,
   generateRequestNo,
@@ -54,4 +16,35 @@ export {
   getRequestLinkForRole,
   buildInClause,
   hydrateRequests,
-} from './request.helpers.js';
+  // Query operations
+  getMyRequests,
+  getPendingForApprover,
+  getApprovalHistory,
+  getRequestById,
+  getRequestDetails,
+  // Command operations
+  getRecommendedRateForUser,
+  createRequest,
+  submitRequest,
+  // Approval operations
+  approveRequest,
+  rejectRequest,
+  returnRequest,
+  approveBatch,
+  finalizeRequest,
+} from './services/index.js';
+
+// Re-export from classification
+export {
+  findRecommendedRate,
+  createEligibility,
+} from './classification/index.js';
+
+// Re-export from scope
+export {
+  getScopeFilterForApprover,
+  getScopeFilterForSelectedScope,
+  canApproverAccessRequest,
+  canSelfApprove,
+  isRequestOwner,
+} from './scope/index.js';

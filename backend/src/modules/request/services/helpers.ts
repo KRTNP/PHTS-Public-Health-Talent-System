@@ -6,12 +6,12 @@
 
 import { randomUUID } from 'crypto';
 import { RowDataPacket } from 'mysql2/promise';
-import { query } from '../../config/database.js';
+import { query } from '../../../config/database.js';
 import {
   PTSRequest,
   RequestAttachment,
   RequestWithDetails,
-} from './request.types.js';
+} from '../request.types.js';
 
 // ============================================================================
 // SQL Fragments

@@ -29,9 +29,16 @@ beforeAll(async () => {
   );
 
   const [userResult]: any = await pool.query(
-    `INSERT INTO users (citizen_id, role) VALUES ('HEAD_FIN_CIT', 'HEAD_FINANCE')`,
+    `INSERT INTO users (citizen_id, role, password_hash) VALUES ('HEAD_FIN_CIT', 'HEAD_FINANCE', 'test-hash')`,
   );
   headFinanceId = userResult.insertId;
+
+  await pool.query(
+    `INSERT INTO users (citizen_id, role, password_hash)
+     VALUES ('REQ_USER_1', 'USER', 'test-hash'),
+            ('REQ_USER_2', 'USER', 'test-hash'),
+            ('REQ_USER_3', 'USER', 'test-hash')`,
+  );
 
   await pool.query(
     `INSERT INTO sig_images (user_id, signature_image) VALUES (?, 'mock_blob_data')`,
@@ -47,27 +54,35 @@ afterAll(async () => {
 
 describe('Request Workflow & Batch Approval', () => {
   test('Batch Approve isolates transactions per request', async () => {
+    const [users]: any = await pool.query(
+      `SELECT id, citizen_id FROM users WHERE citizen_id IN ('REQ_USER_1','REQ_USER_2','REQ_USER_3')`,
+    );
+    const byCitizen = new Map(users.map((u: any) => [u.citizen_id, u.id]));
+
     const [res1]: any = await pool.query(
       `
-      INSERT INTO req_submissions (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
-      VALUES (1, 'PENDING', 5, 1500, '2024-01-01', 1)
+      INSERT INTO req_submissions (user_id, citizen_id, request_type, status, current_step, requested_amount, effective_date, applicant_signature_id)
+      VALUES (?, 'REQ_USER_1', 'NEW_ENTRY', 'PENDING', 5, 1500, '2024-01-01', 1)
     `,
+      [byCitizen.get('REQ_USER_1')],
     );
     const id1 = res1.insertId;
 
     const [res2]: any = await pool.query(
       `
-      INSERT INTO req_submissions (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
-      VALUES (2, 'DRAFT', 1, 1500, '2024-01-01', 1)
+      INSERT INTO req_submissions (user_id, citizen_id, request_type, status, current_step, requested_amount, effective_date, applicant_signature_id)
+      VALUES (?, 'REQ_USER_2', 'NEW_ENTRY', 'DRAFT', 1, 1500, '2024-01-01', 1)
     `,
+      [byCitizen.get('REQ_USER_2')],
     );
     const id2 = res2.insertId;
 
     const [res3]: any = await pool.query(
       `
-      INSERT INTO req_submissions (user_id, status, current_step, requested_amount, effective_date, applicant_signature_id)
-      VALUES (3, 'PENDING', 5, 1500, '2024-01-01', 1)
+      INSERT INTO req_submissions (user_id, citizen_id, request_type, status, current_step, requested_amount, effective_date, applicant_signature_id)
+      VALUES (?, 'REQ_USER_3', 'NEW_ENTRY', 'PENDING', 5, 1500, '2024-01-01', 1)
     `,
+      [byCitizen.get('REQ_USER_3')],
     );
     const id3 = res3.insertId;
 

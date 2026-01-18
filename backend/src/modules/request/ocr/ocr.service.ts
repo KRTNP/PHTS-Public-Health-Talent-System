@@ -3,8 +3,8 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
-import { query } from '../../config/database.js';
-import { RequestStatus, ROLE_STEP_MAP } from './request.types.js';
+import { query } from '../../../config/database.js';
+import { RequestStatus, ROLE_STEP_MAP } from '../request.types.js';
 
 export type OcrStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 

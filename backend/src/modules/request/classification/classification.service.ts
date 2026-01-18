@@ -1,6 +1,6 @@
 import { RowDataPacket } from 'mysql2/promise';
-import { query } from '../../config/database.js';
-import * as RULES from './classification.constants.js';
+import { query } from '../../../config/database.js';
+import * as RULES from './constants.js';
 
 export interface EmployeeProfile {
   citizen_id: string;
