@@ -18,7 +18,7 @@ export async function getCycles(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const year = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
+    const year = req.query.year ? Number.parseInt(req.query.year as string, 10) : undefined;
     const cycles = await accessReviewService.getReviewCycles(year);
     res.json({ success: true, data: cycles });
   } catch (error: any) {
@@ -35,7 +35,7 @@ export async function getCycle(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const cycleId = parseInt(req.params.id, 10);
+    const cycleId = Number.parseInt(req.params.id, 10);
     const cycle = await accessReviewService.getReviewCycle(cycleId);
 
     if (!cycle) {
@@ -74,7 +74,7 @@ export async function getItems(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const cycleId = parseInt(req.params.id, 10);
+    const cycleId = Number.parseInt(req.params.id, 10);
     const result = req.query.result as ReviewResult | undefined;
 
     const items = await accessReviewService.getReviewItems(cycleId, result);
@@ -93,7 +93,7 @@ export async function updateItem(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const itemId = parseInt(req.params.id, 10);
+    const itemId = Number.parseInt(req.params.id, 10);
     const { result, note } = req.body;
     const reviewerId = req.user!.userId;
 
@@ -118,7 +118,7 @@ export async function completeCycle(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const cycleId = parseInt(req.params.id, 10);
+    const cycleId = Number.parseInt(req.params.id, 10);
     const completedBy = req.user!.userId;
 
     await accessReviewService.completeReviewCycle(cycleId, completedBy);

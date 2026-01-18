@@ -6,7 +6,7 @@
  * FR-10-02: Auto-expiration at end of delegation period
  */
 
-import { RowDataPacket } from 'mysql2/promise';
+import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { query, getConnection } from '../../config/database.js';
 import { NotificationService } from '../notification/notification.service.js';
 import { logAuditEvent, AuditEventType } from '../audit/audit.service.js';
@@ -403,8 +403,8 @@ export async function expireOldDelegations(): Promise<number> {
     WHERE status = 'ACTIVE' AND end_date < CURDATE()
   `;
 
-  const result = await query(sql);
-  const affectedRows = (result as any).affectedRows;
+  const result = await query<ResultSetHeader>(sql);
+  const affectedRows = result.affectedRows;
 
   if (affectedRows > 0) {
     await logAuditEvent({

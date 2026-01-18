@@ -53,14 +53,9 @@ export async function getIssues(
     const type = req.query.type as IssueType | undefined;
     const severity = req.query.severity as IssueSeverity | undefined;
     const status = req.query.status as IssueStatus | undefined;
-    const affectsCalc =
-      req.query.affectsCalc === 'true'
-        ? true
-        : req.query.affectsCalc === 'false'
-          ? false
-          : undefined;
-    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+    const affectsCalc = parseBooleanQuery(req.query.affectsCalc);
+    const page = req.query.page ? Number.parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? Number.parseInt(req.query.limit as string, 10) : 50;
 
     const result = await dataQualityService.getIssues(
       type,
@@ -132,7 +127,7 @@ export async function updateIssue(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const issueId = parseInt(req.params.id, 10);
+    const issueId = Number.parseInt(req.params.id, 10);
     const { status, note } = req.body;
     const userId = req.user!.userId;
 
@@ -198,11 +193,17 @@ export async function getIssueTypes(
   try {
     const types = Object.values(IssueType).map((type) => ({
       value: type,
-      label: type.replace(/_/g, ' '),
+      label: type.replaceAll('_', ' '),
     }));
 
     res.json({ success: true, data: types });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
+}
+
+function parseBooleanQuery(value: unknown): boolean | undefined {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return undefined;
 }

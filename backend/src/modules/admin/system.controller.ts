@@ -7,8 +7,8 @@ import { runBackupJob } from '../../services/backupService.js';
 
 export const searchUsers = async (req: Request, res: Response) => {
   try {
-    const { q } = req.query;
-    const search = `%${q ?? ''}%`;
+    const searchTerm = typeof req.query.q === 'string' ? req.query.q : '';
+    const search = `%${searchTerm}%`;
     const sql = `
       SELECT u.id, u.citizen_id, u.role, u.is_active, u.last_login_at,
              COALESCE(e.first_name, s.first_name) as first_name,

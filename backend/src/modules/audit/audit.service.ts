@@ -6,7 +6,7 @@
  * FR-09-02: Search and export audit reports
  */
 
-import { RowDataPacket } from 'mysql2/promise';
+import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { query } from '../../config/database.js';
 
 /**
@@ -95,6 +95,8 @@ export interface AuditEvent {
   actor_name?: string | null;
 }
 
+type AuditSummaryRow = RowDataPacket & { event_type: string; count: number };
+
 /**
  * Search filter for audit events
  */
@@ -110,6 +112,14 @@ export interface AuditSearchFilter {
   limit?: number;
 }
 
+function parseActionDetail(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    return JSON.parse(value) as Record<string, unknown>;
+  }
+  return value as Record<string, unknown>;
+}
+
 /**
  * Log an audit event
  */
@@ -120,7 +130,7 @@ export async function logAuditEvent(dto: CreateAuditEventDTO): Promise<number> {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  const result = await query(sql, [
+  const result = await query<ResultSetHeader>(sql, [
     dto.eventType,
     dto.entityType,
     dto.entityId || null,
@@ -131,7 +141,7 @@ export async function logAuditEvent(dto: CreateAuditEventDTO): Promise<number> {
     dto.userAgent || null,
   ]);
 
-  return (result as any).insertId;
+  return result.insertId;
 }
 
 /**
@@ -224,11 +234,7 @@ export async function searchAuditEvents(
     entity_id: row.entity_id,
     actor_id: row.actor_id,
     actor_role: row.actor_role,
-    action_detail: row.action_detail
-      ? typeof row.action_detail === 'string'
-        ? JSON.parse(row.action_detail)
-        : row.action_detail
-      : null,
+    action_detail: parseActionDetail(row.action_detail),
     ip_address: row.ip_address,
     user_agent: row.user_agent,
     created_at: row.created_at,
@@ -297,9 +303,9 @@ export async function getAuditSummary(
 
   sql += ' GROUP BY event_type ORDER BY count DESC';
 
-  const rows = await query<RowDataPacket[]>(sql, params);
+  const rows = await query<AuditSummaryRow[]>(sql, params);
 
-  return (rows as any[]).map((row) => ({
+  return rows.map((row) => ({
     event_type: row.event_type,
     count: row.count,
   }));
@@ -328,7 +334,7 @@ export async function logAuditEventWithRequest(
   dto: Omit<CreateAuditEventDTO, 'ipAddress' | 'userAgent' | 'actorId' | 'actorRole'>,
 ): Promise<number> {
   const { ipAddress, userAgent } = extractRequestInfo(req);
-  const user = req.user as any;
+  const user = req.user;
 
   return logAuditEvent({
     ...dto,

@@ -8,7 +8,7 @@
 
 import { Request, Response } from 'express';
 import { RowDataPacket } from 'mysql2/promise';
-import { ApiResponse } from '../../types/auth.js';
+import { ApiResponse, JwtPayload } from '../../types/auth.js';
 import {
   RequestType,
   PTSRequest,
@@ -27,8 +27,106 @@ import {
 import { handleUploadError, MAX_SIGNATURE_SIZE } from '../../config/upload.js';
 import pool from '../../config/database.js';
 import { NotificationService } from '../notification/notification.service.js';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+
+type StatusRule = Readonly<{
+  matches: (message: string) => boolean;
+  code: number;
+}>;
+
+const resolveStatusCode = (
+  message: string | undefined,
+  rules: StatusRule[],
+  defaultCode = 500,
+) => {
+  if (!message) return defaultCode;
+  for (const rule of rules) {
+    if (rule.matches(message)) return rule.code;
+  }
+  return defaultCode;
+};
+
+const parseJsonField = <T>(value: unknown, fieldName: string): T | undefined => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T;
+    } catch (error) {
+      console.error(`Failed to parse ${fieldName}`, error);
+      throw new Error(`Invalid ${fieldName} format. Must be valid JSON.`);
+    }
+  }
+  return value as T;
+};
+
+const validateCreateRequestBody = (body: Record<string, unknown>): string | null => {
+  const personnelType = body.personnel_type;
+  const requestType = body.request_type;
+  if (!personnelType || !requestType) {
+    return 'Missing required fields: personnel_type and request_type';
+  }
+  if (!Object.values(PersonnelType).includes(personnelType as PersonnelType)) {
+    return `Invalid personnel_type. Must be one of: ${Object.values(PersonnelType).join(', ')}`;
+  }
+  if (!Object.values(RequestType).includes(requestType as RequestType)) {
+    return `Invalid request_type. Must be one of: ${Object.values(RequestType).join(', ')}`;
+  }
+  return null;
+};
+
+const buildCreateRequestData = (
+  body: Record<string, unknown>,
+  res: Response<ApiResponse<RequestWithDetails>>,
+): CreateRequestDTO | null => {
+  const validationError = validateCreateRequestBody(body);
+  if (validationError) {
+    res.status(400).json({
+      success: false,
+      error: validationError,
+    });
+    return null;
+  }
+
+  let parsedWorkAttributes;
+  let parsedSubmissionData;
+  try {
+    parsedWorkAttributes = parseJsonField(body.work_attributes, 'work_attributes');
+    parsedSubmissionData = parseJsonField(body.submission_data, 'submission_data');
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Invalid request payload',
+    });
+    return null;
+  }
+
+  const parsedRequestedAmount = parseRequestedAmount(body.requested_amount);
+
+  return {
+    personnel_type: body.personnel_type as PersonnelType,
+    position_number: body.position_number as string,
+    department_group: body.department_group as string,
+    main_duty: body.main_duty as string,
+    work_attributes: parsedWorkAttributes as CreateRequestDTO['work_attributes'],
+    request_type: body.request_type as RequestType,
+    requested_amount: parsedRequestedAmount,
+    effective_date: body.effective_date as string,
+    submission_data: parsedSubmissionData as CreateRequestDTO['submission_data'],
+  };
+};
+
+const parseRequestedAmount = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'number') {
+    return Number.isNaN(value) ? undefined : value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  return undefined;
+};
 
 function normalizeScopeParam(scope: unknown): string | undefined {
   if (typeof scope !== 'string') return undefined;
@@ -76,7 +174,8 @@ export async function createRequest(
   let signatureFile: Express.Multer.File | undefined;
 
   try {
-    if (!req.user) {
+    const user = req.user as JwtPayload | undefined;
+    if (!user) {
       res.status(401).json({
         success: false,
         error: 'Unauthorized access',
@@ -84,91 +183,14 @@ export async function createRequest(
       return;
     }
 
-    const {
-      personnel_type,
-      position_number,
-      department_group,
-      main_duty,
-      work_attributes,
-      request_type,
-      requested_amount,
-      effective_date,
-      submission_data,
-    } = req.body;
-
-    // Validate required fields
-    if (!personnel_type || !request_type) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: personnel_type and request_type',
-      });
+    const requestData = buildCreateRequestData(req.body, res);
+    if (!requestData) {
       return;
     }
-
-    // Validate personnel_type is valid enum value
-    if (!Object.values(PersonnelType).includes(personnel_type)) {
-      res.status(400).json({
-        success: false,
-        error: `Invalid personnel_type. Must be one of: ${Object.values(PersonnelType).join(', ')}`,
-      });
-      return;
-    }
-
-    // Validate request_type is valid enum value
-    if (!Object.values(RequestType).includes(request_type)) {
-      res.status(400).json({
-        success: false,
-        error: `Invalid request_type. Must be one of: ${Object.values(RequestType).join(', ')}`,
-      });
-      return;
-    }
-
-    // Parse work_attributes if it's a string
-    let parsedWorkAttributes;
-    if (work_attributes) {
-      try {
-        parsedWorkAttributes =
-          typeof work_attributes === 'string' ? JSON.parse(work_attributes) : work_attributes;
-      } catch (_error) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid work_attributes format. Must be valid JSON.',
-        });
-        return;
-      }
-    }
-
-    // Parse submission_data if it's a string (for backward compatibility)
-    let parsedSubmissionData;
-    if (submission_data) {
-      try {
-        parsedSubmissionData =
-          typeof submission_data === 'string' ? JSON.parse(submission_data) : submission_data;
-      } catch (_error) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid submission_data format. Must be valid JSON.',
-        });
-        return;
-      }
-    }
-
-    // Build DTO
-    const requestData: CreateRequestDTO = {
-      personnel_type: personnel_type as PersonnelType,
-      position_number,
-      department_group,
-      main_duty,
-      work_attributes: parsedWorkAttributes,
-      request_type: request_type as RequestType,
-      requested_amount: requested_amount ? parseFloat(requested_amount) : undefined,
-      effective_date,
-      submission_data: parsedSubmissionData,
-    };
 
     const [empRows] = await pool.query<RowDataPacket[]>(
       `SELECT * FROM emp_profiles WHERE citizen_id = ?`,
-      [req.user.citizenId],
+      [user.citizenId],
     );
 
     if (!empRows.length) {
@@ -190,9 +212,7 @@ export async function createRequest(
     requestData.requested_amount = classification.rate_amount;
 
     // ใช้ยอดเงินที่ส่งมาจาก Frontend (หรือ 0) แทนการคำนวณ
-    if (requestData.requested_amount === undefined) {
-      requestData.requested_amount = 0;
-    }
+    requestData.requested_amount ??= 0;
 
     // Get uploaded files (documents) and optional signature upload
     if (req.files) {
@@ -217,14 +237,14 @@ export async function createRequest(
 
     // Create request
     const request = await requestService.createRequest(
-      req.user.userId,
+      user.userId,
       requestData,
       documentFiles,
       signatureFile,
     );
 
     await NotificationService.notifyUser(
-      req.user.userId,
+      user.userId,
       'ส่งคำขอสำเร็จ',
       `คำขอ พ.ต.ส. ของคุณถูกส่งแล้ว (รหัส ${request.request_id})`,
       `/dashboard/user/requests/${request.request_id}`,
@@ -277,9 +297,9 @@ export async function submitRequest(
       return;
     }
 
-    const requestId = parseInt(req.params.id, 10);
+    const requestId = Number.parseInt(req.params.id, 10);
 
-    if (isNaN(requestId)) {
+    if (Number.isNaN(requestId)) {
       res.status(400).json({
         success: false,
         error: 'Invalid request ID',
@@ -297,12 +317,14 @@ export async function submitRequest(
   } catch (error: any) {
     console.error('Submit request error:', error);
 
-    const statusCode =
-      error.message.includes('not found') || error.message.includes('permission')
-        ? 404
-        : error.message.includes('Cannot submit')
-          ? 400
-          : 500;
+    const statusCode = resolveStatusCode(error.message, [
+      {
+        matches: (message) =>
+          message.includes('not found') || message.includes('permission'),
+        code: 404,
+      },
+      { matches: (message) => message.includes('Cannot submit'), code: 400 },
+    ]);
 
     res.status(statusCode).json({
       success: false,
@@ -487,9 +509,9 @@ export async function getRequestById(
       return;
     }
 
-    const requestId = parseInt(req.params.id, 10);
+    const requestId = Number.parseInt(req.params.id, 10);
 
-    if (isNaN(requestId)) {
+    if (Number.isNaN(requestId)) {
       res.status(400).json({
         success: false,
         error: 'Invalid request ID',
@@ -506,11 +528,10 @@ export async function getRequestById(
   } catch (error: any) {
     console.error('Get request by ID error:', error);
 
-    const statusCode = error.message.includes('not found')
-      ? 404
-      : error.message.includes('permission')
-        ? 403
-        : 500;
+    const statusCode = resolveStatusCode(error.message, [
+      { matches: (message) => message.includes('not found'), code: 404 },
+      { matches: (message) => message.includes('permission'), code: 403 },
+    ]);
 
     res.status(statusCode).json({
       success: false,
@@ -538,9 +559,9 @@ export async function approveRequest(
       return;
     }
 
-    const requestId = parseInt(req.params.id, 10);
+    const requestId = Number.parseInt(req.params.id, 10);
 
-    if (isNaN(requestId)) {
+    if (Number.isNaN(requestId)) {
       res.status(400).json({
         success: false,
         error: 'Invalid request ID',
@@ -573,14 +594,17 @@ export async function approveRequest(
   } catch (error: any) {
     console.error('Approve request error:', error);
 
-    const statusCode = error.message.includes('not found')
-      ? 404
-      : error.message.includes('Invalid approver') ||
-          error.message.includes('Cannot approve') ||
-          error.message.includes('scope access') ||
-          error.message.includes('Self-approval')
-        ? 403
-        : 500;
+    const statusCode = resolveStatusCode(error.message, [
+      { matches: (message) => message.includes('not found'), code: 404 },
+      {
+        matches: (message) =>
+          message.includes('Invalid approver') ||
+          message.includes('Cannot approve') ||
+          message.includes('scope access') ||
+          message.includes('Self-approval'),
+        code: 403,
+      },
+    ]);
 
     res.status(statusCode).json({
       success: false,
@@ -608,9 +632,9 @@ export async function rejectRequest(
       return;
     }
 
-    const requestId = parseInt(req.params.id, 10);
+    const requestId = Number.parseInt(req.params.id, 10);
 
-    if (isNaN(requestId)) {
+    if (Number.isNaN(requestId)) {
       res.status(400).json({
         success: false,
         error: 'Invalid request ID',
@@ -642,15 +666,17 @@ export async function rejectRequest(
   } catch (error: any) {
     console.error('Reject request error:', error);
 
-    const statusCode = error.message.includes('not found')
-      ? 404
-      : error.message.includes('Invalid approver') ||
-          error.message.includes('Cannot reject') ||
-          error.message.includes('scope access')
-        ? 403
-        : error.message.includes('required')
-          ? 400
-          : 500;
+    const statusCode = resolveStatusCode(error.message, [
+      { matches: (message) => message.includes('not found'), code: 404 },
+      {
+        matches: (message) =>
+          message.includes('Invalid approver') ||
+          message.includes('Cannot reject') ||
+          message.includes('scope access'),
+        code: 403,
+      },
+      { matches: (message) => message.includes('required'), code: 400 },
+    ]);
 
     res.status(statusCode).json({
       success: false,
@@ -678,9 +704,9 @@ export async function returnRequest(
       return;
     }
 
-    const requestId = parseInt(req.params.id, 10);
+    const requestId = Number.parseInt(req.params.id, 10);
 
-    if (isNaN(requestId)) {
+    if (Number.isNaN(requestId)) {
       res.status(400).json({
         success: false,
         error: 'Invalid request ID',
@@ -712,15 +738,17 @@ export async function returnRequest(
   } catch (error: any) {
     console.error('Return request error:', error);
 
-    const statusCode = error.message.includes('not found')
-      ? 404
-      : error.message.includes('Invalid approver') ||
-          error.message.includes('Cannot return') ||
-          error.message.includes('scope access')
-        ? 403
-        : error.message.includes('required')
-          ? 400
-          : 500;
+    const statusCode = resolveStatusCode(error.message, [
+      { matches: (message) => message.includes('not found'), code: 404 },
+      {
+        matches: (message) =>
+          message.includes('Invalid approver') ||
+          message.includes('Cannot return') ||
+          message.includes('scope access'),
+        code: 403,
+      },
+      { matches: (message) => message.includes('required'), code: 400 },
+    ]);
 
     res.status(statusCode).json({
       success: false,
@@ -774,7 +802,7 @@ export async function approveBatch(
     }
 
     // Validate all requestIds are numbers
-    const invalidIds = requestIds.filter((id) => typeof id !== 'number' || isNaN(id));
+    const invalidIds = requestIds.filter((id) => typeof id !== 'number' || Number.isNaN(id));
     if (invalidIds.length > 0) {
       res.status(400).json({
         success: false,
@@ -917,7 +945,7 @@ export async function processAction(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const requestId = parseInt(req.params.id, 10);
+    const requestId = Number.parseInt(req.params.id, 10);
     if (Number.isNaN(requestId)) {
       res.status(400).json({ error: 'Invalid request ID' });
       return;
@@ -1019,8 +1047,8 @@ export async function reassignRequest(
       return;
     }
 
-    const requestId = parseInt(req.params.id, 10);
-    if (isNaN(requestId)) {
+    const requestId = Number.parseInt(req.params.id, 10);
+    if (Number.isNaN(requestId)) {
       res.status(400).json({ success: false, error: 'Invalid request ID' });
       return;
     }
@@ -1050,13 +1078,16 @@ export async function reassignRequest(
   } catch (error: any) {
     console.error('Reassign request error:', error);
 
-    const statusCode = error.message.includes('not found')
-      ? 404
-      : error.message.includes('Cannot reassign') ||
-          error.message.includes('not at PTS_OFFICER') ||
-          error.message.includes('not a PTS_OFFICER')
-        ? 400
-        : 500;
+    const statusCode = resolveStatusCode(error.message, [
+      { matches: (message) => message.includes('not found'), code: 404 },
+      {
+        matches: (message) =>
+          message.includes('Cannot reassign') ||
+          message.includes('not at PTS_OFFICER') ||
+          message.includes('not a PTS_OFFICER'),
+        code: 400,
+      },
+    ]);
 
     res.status(statusCode).json({ success: false, error: error.message });
   }
@@ -1078,8 +1109,8 @@ export async function getReassignHistory(
       return;
     }
 
-    const requestId = parseInt(req.params.id, 10);
-    if (isNaN(requestId)) {
+    const requestId = Number.parseInt(req.params.id, 10);
+    if (Number.isNaN(requestId)) {
       res.status(400).json({ success: false, error: 'Invalid request ID' });
       return;
     }
@@ -1112,8 +1143,8 @@ export async function getAttachmentOcr(
       return;
     }
 
-    const attachmentId = parseInt(req.params.attachmentId, 10);
-    if (isNaN(attachmentId)) {
+    const attachmentId = Number.parseInt(req.params.attachmentId, 10);
+    if (Number.isNaN(attachmentId)) {
       res.status(400).json({ success: false, error: 'Invalid attachment ID' });
       return;
     }
@@ -1143,8 +1174,8 @@ export async function requestAttachmentOcr(
       return;
     }
 
-    const attachmentId = parseInt(req.params.attachmentId, 10);
-    if (isNaN(attachmentId)) {
+    const attachmentId = Number.parseInt(req.params.attachmentId, 10);
+    if (Number.isNaN(attachmentId)) {
       res.status(400).json({ success: false, error: 'Invalid attachment ID' });
       return;
     }

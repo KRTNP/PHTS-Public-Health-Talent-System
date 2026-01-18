@@ -33,7 +33,7 @@ export async function updateSLAConfig(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const stepNo = parseInt(req.params.stepNo, 10);
+    const stepNo = Number.parseInt(req.params.stepNo, 10);
     const { slaDays, reminderBeforeDays, reminderAfterDays } = req.body;
 
     if (!slaDays || slaDays < 1) {

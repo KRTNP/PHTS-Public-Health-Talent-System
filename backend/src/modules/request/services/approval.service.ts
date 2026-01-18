@@ -29,6 +29,58 @@ import {
   isRequestOwner,
 } from '../scope/scope.service.js';
 
+const getAllowedStepsForRole = (
+  actorRole: string,
+  expectedStep: number | undefined,
+): number[] => {
+  if (actorRole === 'DIRECTOR') return [5, 6];
+  if (expectedStep !== undefined) return [expectedStep];
+  return [];
+};
+
+const getBatchFailureReason = (
+  request: PTSRequest,
+  allowedSteps: number[],
+): string | null => {
+  if (!allowedSteps.includes(request.current_step)) {
+    return `Not at allowed step (${allowedSteps.join('/')}) (currently at Step ${request.current_step})`;
+  }
+  if (request.status !== RequestStatus.PENDING) {
+    return `Status is ${request.status}, not PENDING`;
+  }
+  return null;
+};
+
+const resolveTargetRateId = async (
+  connection: PoolConnection,
+  citizenId: string,
+  request: PTSRequest,
+): Promise<number | null> => {
+  const recommendedRate = await findRecommendedRate(citizenId);
+  if (recommendedRate?.amount === Number(request.requested_amount)) {
+    return recommendedRate.rate_id;
+  }
+
+  const professionCode = (recommendedRate as unknown as Record<string, unknown>)?.profession_code as
+    | string
+    | undefined;
+  let sql = `SELECT rate_id FROM cfg_payment_rates WHERE amount = ? AND is_active = 1`;
+  const sqlParams: (string | number | null)[] = [request.requested_amount as number];
+  if (professionCode) {
+    sql += ` AND profession_code = ?`;
+    sqlParams.push(professionCode);
+  }
+  sql += ` LIMIT 1`;
+
+  const [rates] = await connection.query<RowDataPacket[]>(sql, sqlParams);
+  if (rates.length === 0) {
+    throw new Error(
+      'Unable to resolve master rate for finalization. Please verify profession and rate configuration.',
+    );
+  }
+  return rates[0].rate_id as number;
+};
+
 // ============================================================================
 // Approve Request
 // ============================================================================
@@ -339,12 +391,7 @@ export async function approveBatch(
   const result: BatchApproveResult = { success: [], failed: [] };
 
   const expectedStep = ROLE_STEP_MAP[actorRole];
-  const allowedSteps =
-    actorRole === 'DIRECTOR'
-      ? [5, 6]
-      : expectedStep !== undefined
-        ? [expectedStep]
-        : [];
+  const allowedSteps = getAllowedStepsForRole(actorRole, expectedStep);
 
   if (allowedSteps.length === 0 || !allowedSteps.some((s) => s === 5 || s === 6)) {
     throw new Error(`Batch approval not supported for role: ${actorRole}`);
@@ -383,20 +430,12 @@ export async function approveBatch(
 
         const request = mapRequestRow(rows[0]);
 
-        if (!allowedSteps.includes(request.current_step)) {
+        const failureReason = getBatchFailureReason(request, allowedSteps);
+        if (failureReason) {
           await connection.rollback();
           result.failed.push({
             id: requestId,
-            reason: `Not at allowed step (${allowedSteps.join('/')}) (currently at Step ${request.current_step})`,
-          });
-          continue;
-        }
-
-        if (request.status !== RequestStatus.PENDING) {
-          await connection.rollback();
-          result.failed.push({
-            id: requestId,
-            reason: `Status is ${request.status}, not PENDING`,
+            reason: failureReason,
           });
           continue;
         }
@@ -509,41 +548,20 @@ export async function finalizeRequest(
   const request = mapRequestRow(requests[0]) as PTSRequest & { citizen_id: string };
   const citizenId = requests[0].citizen_id as string;
 
-  if (request.requested_amount && request.requested_amount > 0) {
-    if (!request.effective_date) {
-      throw new Error('effective_date is required for finalization');
-    }
-
-    const effectiveDateStr = normalizeDateToYMD(request.effective_date as string | Date);
-
-    const recommendedRate = await findRecommendedRate(citizenId);
-    let targetRateId: number | null = null;
-
-    if (recommendedRate && recommendedRate.amount === Number(request.requested_amount)) {
-      targetRateId = recommendedRate.rate_id;
-    } else {
-      const professionCode = (recommendedRate as unknown as Record<string, unknown>)?.profession_code as string | undefined;
-      let sql = `SELECT rate_id FROM cfg_payment_rates WHERE amount = ? AND is_active = 1`;
-      const sqlParams: (string | number | null)[] = [request.requested_amount];
-      if (professionCode) {
-        sql += ` AND profession_code = ?`;
-        sqlParams.push(professionCode);
-      }
-      sql += ` LIMIT 1`;
-
-      const [rates] = await connection.query<RowDataPacket[]>(sql, sqlParams);
-      if (rates.length === 0) {
-        throw new Error(
-          'Unable to resolve master rate for finalization. Please verify profession and rate configuration.',
-        );
-      }
-      targetRateId = rates[0].rate_id as number;
-    }
-
-    if (!targetRateId) {
-      throw new Error('Unable to resolve master rate during finalization.');
-    }
-
-    await createEligibility(connection, citizenId, targetRateId, effectiveDateStr, requestId);
+  if (!request.requested_amount || request.requested_amount <= 0) {
+    return;
   }
+
+  if (!request.effective_date) {
+    throw new Error('effective_date is required for finalization');
+  }
+
+  const effectiveDateStr = normalizeDateToYMD(request.effective_date as string | Date);
+  const targetRateId = await resolveTargetRateId(connection, citizenId, request);
+
+  if (!targetRateId) {
+    throw new Error('Unable to resolve master rate during finalization.');
+  }
+
+  await createEligibility(connection, citizenId, targetRateId, effectiveDateStr, requestId);
 }

@@ -1,4 +1,4 @@
-import { RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
+import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import db from '../../config/database.js';
 import { NotificationService } from '../notification/notification.service.js';
 import { payrollService as calculator } from './core/calculator.js';
@@ -106,16 +106,16 @@ export class PayrollService {
         const grandTotal = currentResult.netPayment + (currentResult.retroactiveTotal || 0);
 
         if (grandTotal > 0 || currentResult.netPayment > 0) {
-          await calculator.savePayout(
-            conn as PoolConnection,
+          await calculator.savePayout({
+            conn,
             periodId,
             citizenId,
-            currentResult,
-            currentResult.masterRateId,
-            currentResult.rateSnapshot,
-            year,
-            month,
-          );
+            result: currentResult,
+            masterRateId: currentResult.masterRateId,
+            baseRateSnapshot: currentResult.rateSnapshot,
+            referenceYear: year,
+            referenceMonth: month,
+          });
 
           totalAmount += grandTotal;
           headCount++;

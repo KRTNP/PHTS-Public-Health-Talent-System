@@ -1,19 +1,21 @@
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import fs from 'fs';
+import { execFile } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { promisify } from 'node:util';
 import { query } from '../../../config/database.js';
 import { RequestStatus, ROLE_STEP_MAP } from '../request.types.js';
 
 export type OcrStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+type OcrExtractedJson = Record<string, unknown>;
 
 export interface AttachmentOcrRecord {
   ocr_id: number;
   attachment_id: number;
   provider: string;
   status: OcrStatus;
-  extracted_json: any | null;
+  extracted_json: OcrExtractedJson | null;
   confidence: number | null;
   error_message: string | null;
   processed_at: Date | null;
@@ -153,7 +155,7 @@ async function updateOcrRecord(
   attachmentId: number,
   updates: {
     status?: OcrStatus;
-    extracted_json?: any | null;
+    extracted_json?: OcrExtractedJson | null;
     confidence?: number | null;
     error_message?: string | null;
     processed_at?: Date | null;
@@ -223,10 +225,11 @@ export async function processAttachmentOcr(
       processed_at: new Date(),
       error_message: null,
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     await updateOcrRecord(attachmentId, {
       status: 'FAILED',
-      error_message: error.message,
+      error_message: message,
     });
     throw error;
   }

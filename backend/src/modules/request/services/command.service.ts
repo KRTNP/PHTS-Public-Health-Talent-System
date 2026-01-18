@@ -25,6 +25,58 @@ import {
 } from './helpers.js';
 import { getRequestDetails } from './query.service.js';
 
+const resolveSignatureId = async (
+  connection: ReturnType<typeof getConnection>,
+  userId: number,
+  signatureFile?: Express.Multer.File,
+): Promise<number> => {
+  if (signatureFile) {
+    if (!signatureFile.buffer || signatureFile.buffer.length === 0) {
+      throw new Error('Signature upload is missing data');
+    }
+    return await saveSignature(userId, signatureFile.buffer, connection);
+  }
+
+  const [sigs] = await connection.query<RowDataPacket[]>(
+    'SELECT signature_id FROM sig_images WHERE user_id = ?',
+    [userId],
+  );
+  const signatureId = sigs.length ? sigs[0].signature_id : null;
+  if (!signatureId) {
+    throw new Error('ไม่พบข้อมูลลายเซ็น กรุณาเซ็นชื่อก่อนยื่นคำขอ');
+  }
+  return signatureId;
+};
+
+const buildSubmissionDataJson = (data: CreateRequestDTO): string | null => {
+  if (data.submission_data) {
+    return JSON.stringify({ ...data.submission_data, main_duty: data.main_duty ?? null });
+  }
+  if (data.main_duty) {
+    return JSON.stringify({ main_duty: data.main_duty });
+  }
+  return null;
+};
+
+const insertAttachments = async (
+  connection: ReturnType<typeof getConnection>,
+  requestId: number,
+  files?: Express.Multer.File[],
+) => {
+  if (!files || files.length === 0) return;
+  for (const file of files) {
+    let fileType = FileType.OTHER;
+    if (file.fieldname === 'license_file') fileType = FileType.LICENSE;
+
+    await connection.execute<ResultSetHeader>(
+      `INSERT INTO req_attachments
+       (request_id, file_type, file_path, file_name)
+       VALUES (?, ?, ?, ?)`,
+      [requestId, fileType, file.path, file.originalname],
+    );
+  }
+};
+
 // ============================================================================
 // Get Recommended Rate
 // ============================================================================
@@ -69,31 +121,11 @@ export async function createRequest(
     const citizenId = userRows[0].citizen_id as string;
 
     // Handle signature
-    let signatureId: number | null = null;
-    if (signatureFile) {
-      if (!signatureFile.buffer || signatureFile.buffer.length === 0) {
-        throw new Error('Signature upload is missing data');
-      }
-      signatureId = await saveSignature(userId, signatureFile.buffer, connection);
-    } else {
-      const [sigs] = await connection.query<RowDataPacket[]>(
-        'SELECT signature_id FROM sig_images WHERE user_id = ?',
-        [userId],
-      );
-      signatureId = sigs.length ? sigs[0].signature_id : null;
-    }
-
-    if (!signatureId) {
-      throw new Error('ไม่พบข้อมูลลายเซ็น กรุณาเซ็นชื่อก่อนยื่นคำขอ');
-    }
+    const signatureId = await resolveSignatureId(connection, userId, signatureFile);
 
     // Serialize JSON payloads
     const workAttributesJson = data.work_attributes ? JSON.stringify(data.work_attributes) : null;
-    const submissionDataJson = data.submission_data
-      ? JSON.stringify({ ...data.submission_data, main_duty: data.main_duty ?? null })
-      : data.main_duty
-        ? JSON.stringify({ main_duty: data.main_duty })
-        : null;
+    const submissionDataJson = buildSubmissionDataJson(data);
 
     // Validate mandatory fields
     if (data.requested_amount === undefined || data.requested_amount === null) {
@@ -130,19 +162,7 @@ export async function createRequest(
     const requestId = result.insertId;
 
     // Insert attachments
-    if (files && files.length > 0) {
-      for (const file of files) {
-        let fileType = FileType.OTHER;
-        if (file.fieldname === 'license_file') fileType = FileType.LICENSE;
-
-        await connection.execute<ResultSetHeader>(
-          `INSERT INTO req_attachments
-           (request_id, file_type, file_path, file_name)
-           VALUES (?, ?, ?, ?)`,
-          [requestId, fileType, file.path, file.originalname],
-        );
-      }
-    }
+    await insertAttachments(connection, requestId, files);
 
     await connection.commit();
 

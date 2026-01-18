@@ -34,8 +34,8 @@ export async function getSummary(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const year = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
-    const month = req.query.month ? parseInt(req.query.month as string, 10) : undefined;
+    const year = req.query.year ? Number.parseInt(req.query.year as string, 10) : undefined;
+    const month = req.query.month ? Number.parseInt(req.query.month as string, 10) : undefined;
 
     const summary = await financeService.getFinanceSummary(year, month);
     res.json({ success: true, data: summary });
@@ -53,7 +53,7 @@ export async function getYearlySummary(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const year = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
+    const year = req.query.year ? Number.parseInt(req.query.year as string, 10) : undefined;
 
     const summary = await financeService.getYearlySummary(year);
     res.json({ success: true, data: summary });
@@ -71,7 +71,7 @@ export async function getPayoutsByPeriod(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.periodId, 10);
+    const periodId = Number.parseInt(req.params.periodId, 10);
     const status = req.query.status as PaymentStatus | undefined;
     const searchRaw = req.query.search;
     const search = typeof searchRaw === 'string' ? searchRaw.trim() : undefined;
@@ -98,7 +98,7 @@ export async function markAsPaid(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const payoutId = parseInt(req.params.payoutId, 10);
+    const payoutId = Number.parseInt(req.params.payoutId, 10);
     const userId = req.user!.userId;
     const { comment } = req.body;
 
@@ -142,7 +142,7 @@ export async function cancelPayout(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const payoutId = parseInt(req.params.payoutId, 10);
+    const payoutId = Number.parseInt(req.params.payoutId, 10);
     const userId = req.user!.userId;
     const { reason } = req.body;
 

@@ -273,56 +273,7 @@ export async function sendSLAReminders(): Promise<{
 
     for (const req of requests) {
       try {
-        // Handle approaching SLA
-        if (req.is_approaching_sla) {
-          const alreadySent = await wasReminderSentToday(
-            req.request_id,
-            req.current_step,
-            'APPROACHING',
-          );
-
-          if (!alreadySent) {
-            for (const userId of req.approver_ids) {
-              await NotificationService.notifyUser(
-                userId,
-                'คำขอใกล้ครบกำหนด SLA',
-                `คำขอเลขที่ ${req.request_no} จะครบกำหนด SLA ใน ${req.days_until_sla} วันทำการ`,
-                `/dashboard/officer/requests/${req.request_id}`,
-                'WARNING',
-              );
-              // Email notifications are intentionally disabled until SMTP is configured.
-              // When ready, wire EmailService.sendEmail(...) with a real recipient address.
-
-              await logReminderSent(req.request_id, req.current_step, userId, 'APPROACHING');
-            }
-            result.approaching++;
-          }
-        }
-
-        // Handle overdue requests
-        if (req.is_overdue) {
-          const alreadySent = await wasReminderSentToday(
-            req.request_id,
-            req.current_step,
-            'DAILY_OVERDUE',
-          );
-
-          if (!alreadySent) {
-            for (const userId of req.approver_ids) {
-              await NotificationService.notifyUser(
-                userId,
-                'คำขอเกินกำหนด SLA',
-                `คำขอเลขที่ ${req.request_no} เกินกำหนด SLA แล้ว ${req.days_overdue} วันทำการ กรุณาดำเนินการ`,
-                `/dashboard/officer/requests/${req.request_id}`,
-                'ERROR',
-              );
-              // Email notifications are intentionally disabled until SMTP is configured.
-
-              await logReminderSent(req.request_id, req.current_step, userId, 'DAILY_OVERDUE');
-            }
-            result.overdue++;
-          }
-        }
+        await processSlaReminder(req, result);
       } catch (error: any) {
         result.errors.push(`Request ${req.request_id}: ${error.message}`);
       }
@@ -391,17 +342,77 @@ export async function getSLAReport(): Promise<{
   };
 
   const byStepArray = Object.entries(byStep).map(([step, data]) => ({
-    step: parseInt(step, 10),
-    role: roleMap[parseInt(step, 10)] || 'UNKNOWN',
+    step: Number.parseInt(step, 10),
+    role: roleMap[Number.parseInt(step, 10)] || 'UNKNOWN',
     count: data.count,
     overdue: data.overdue,
   }));
+  const sortedByStep = [...byStepArray];
+  sortedByStep.sort((a, b) => a.step - b.step);
 
   return {
     totalPending: requests.length,
     withinSLA,
     approachingSLA,
     overdueSLA,
-    byStep: byStepArray.sort((a, b) => a.step - b.step),
+    byStep: sortedByStep,
   };
+}
+
+async function processSlaReminder(
+  req: PendingRequestWithSLA,
+  result: { approaching: number; overdue: number; errors: string[] },
+) {
+  if (req.is_approaching_sla) {
+    const shouldSend = await shouldSendReminder(req, 'APPROACHING');
+    if (shouldSend) {
+      await notifyApproaching(req);
+      result.approaching++;
+    }
+  }
+
+  if (req.is_overdue) {
+    const shouldSend = await shouldSendReminder(req, 'DAILY_OVERDUE');
+    if (shouldSend) {
+      await notifyOverdue(req);
+      result.overdue++;
+    }
+  }
+}
+
+async function shouldSendReminder(
+  req: PendingRequestWithSLA,
+  reminderType: 'APPROACHING' | 'DAILY_OVERDUE',
+): Promise<boolean> {
+  const alreadySent = await wasReminderSentToday(req.request_id, req.current_step, reminderType);
+  return !alreadySent;
+}
+
+async function notifyApproaching(req: PendingRequestWithSLA) {
+  for (const userId of req.approver_ids) {
+    await NotificationService.notifyUser(
+      userId,
+      'คำขอใกล้ครบกำหนด SLA',
+      `คำขอเลขที่ ${req.request_no} จะครบกำหนด SLA ใน ${req.days_until_sla} วันทำการ`,
+      `/dashboard/officer/requests/${req.request_id}`,
+      'WARNING',
+    );
+    // Email notifications are intentionally disabled until SMTP is configured.
+    // When ready, wire EmailService.sendEmail(...) with a real recipient address.
+    await logReminderSent(req.request_id, req.current_step, userId, 'APPROACHING');
+  }
+}
+
+async function notifyOverdue(req: PendingRequestWithSLA) {
+  for (const userId of req.approver_ids) {
+    await NotificationService.notifyUser(
+      userId,
+      'คำขอเกินกำหนด SLA',
+      `คำขอเลขที่ ${req.request_no} เกินกำหนด SLA แล้ว ${req.days_overdue} วันทำการ กรุณาดำเนินการ`,
+      `/dashboard/officer/requests/${req.request_id}`,
+      'ERROR',
+    );
+    // Email notifications are intentionally disabled until SMTP is configured.
+    await logReminderSent(req.request_id, req.current_step, userId, 'DAILY_OVERDUE');
+  }
 }

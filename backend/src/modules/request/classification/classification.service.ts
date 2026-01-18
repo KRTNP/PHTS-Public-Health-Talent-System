@@ -37,6 +37,107 @@ function includesAny(value: string, patterns: string[]): boolean {
   return patterns.some((pattern) => value.includes(pattern));
 }
 
+type TargetRecommendation = Readonly<{
+  profession: string;
+  group: number;
+  itemHint: string;
+}>;
+
+const resolveNurseGroup = (subDept: string, expert: string): TargetRecommendation => {
+  if (includesAny(subDept, RULES.NURSE_GROUP3_SUB) || includesAny(expert, RULES.NURSE_GROUP3_EXPERT)) {
+    return { profession: 'NURSE', group: 3, itemHint: '3.1' };
+  }
+  if (includesAny(subDept, RULES.NURSE_GROUP2_SUB) || includesAny(expert, RULES.NURSE_GROUP2_EXPERT)) {
+    return { profession: 'NURSE', group: 2, itemHint: '2.1' };
+  }
+  return { profession: 'NURSE', group: 1, itemHint: '1.1' };
+};
+
+const resolveNurseTarget = (
+  pos: string,
+  subDept: string,
+  expert: string,
+): TargetRecommendation | null => {
+  if (startsWithAny(pos, RULES.ASSISTANT_NURSE_POS)) {
+    return null;
+  }
+  if (startsWithAny(pos, RULES.NURSE_TITLES)) {
+    return resolveNurseGroup(subDept, expert);
+  }
+  return null;
+};
+
+const resolveDentistTarget = (
+  pos: string,
+  specialist: string,
+  expert: string,
+): TargetRecommendation | null => {
+  if (!includesAny(pos, RULES.DENTIST_KEYWORDS)) {
+    return null;
+  }
+  if (includesAny(expert, RULES.DENTIST_GROUP3_EXPERT) || specialist !== '') {
+    return { profession: 'DENTIST', group: 3, itemHint: '3.1' };
+  }
+  if (includesAny(expert, RULES.DENTIST_GROUP2_EXPERT)) {
+    return { profession: 'DENTIST', group: 2, itemHint: '2.1' };
+  }
+  return { profession: 'DENTIST', group: 1, itemHint: '' };
+};
+
+const resolveDoctorTarget = (
+  pos: string,
+  specialist: string,
+  expert: string,
+): TargetRecommendation | null => {
+  if (!includesAny(pos, RULES.DOCTOR_KEYWORDS)) {
+    return null;
+  }
+  for (const [keyword, itemNo] of Object.entries(RULES.DOCTOR_ITEM_MAP)) {
+    if (specialist.includes(keyword) || expert.includes(keyword)) {
+      return { profession: 'DOCTOR', group: 3, itemHint: itemNo };
+    }
+  }
+  if (specialist !== '' || includesAny(expert, RULES.DOCTOR_GROUP2_EXPERT)) {
+    return { profession: 'DOCTOR', group: 2, itemHint: '2.1' };
+  }
+  return { profession: 'DOCTOR', group: 1, itemHint: '1.1' };
+};
+
+const resolvePharmacistTarget = (
+  pos: string,
+  subDept: string,
+  expert: string,
+): TargetRecommendation | null => {
+  if (!includesAny(pos, RULES.PHARMACIST_KEYWORDS)) {
+    return null;
+  }
+  if (includesAny(subDept, RULES.PHARMACIST_SUBDEPT) || includesAny(expert, RULES.PHARMACIST_EXPERT)) {
+    return { profession: 'PHARMACIST', group: 2, itemHint: '2.1' };
+  }
+  return { profession: 'PHARMACIST', group: 1, itemHint: '' };
+};
+
+const resolveGenericNurseTarget = (
+  pos: string,
+  subDept: string,
+  expert: string,
+): TargetRecommendation | null => {
+  if (startsWithAny(pos, RULES.ASSISTANT_NURSE_POS)) {
+    return null;
+  }
+  if (includesAny(pos, RULES.NURSE_KEYWORDS)) {
+    return resolveNurseGroup(subDept, expert);
+  }
+  return null;
+};
+
+const resolveAlliedTarget = (pos: string): TargetRecommendation | null => {
+  if (startsWithAny(pos, RULES.ALLIED_POS)) {
+    return { profession: 'ALLIED', group: 5, itemHint: '5.1' };
+  }
+  return null;
+};
+
 /**
  * Get employee data source table/view name based on environment
  * - Production: uses 'employees' view (real-time sync from HRMS)
@@ -66,106 +167,29 @@ export async function findRecommendedRate(citizenId: string): Promise<MasterRate
   if (!rows || rows.length === 0) return null;
   const profile = rows[0] as EmployeeProfile;
 
-  let targetProfession = '';
-  let targetGroup = 1;
-  let targetItemHint = '';
-
   const pos = normalize(profile.position_name);
   const specialist = normalize(profile.specialist);
   const expert = normalize(profile.expert);
   const subDept = normalize(profile.sub_department);
+  const target =
+    resolveNurseTarget(pos, subDept, expert) ??
+    resolveDentistTarget(pos, specialist, expert) ??
+    resolveDoctorTarget(pos, specialist, expert) ??
+    resolvePharmacistTarget(pos, subDept, expert) ??
+    resolveGenericNurseTarget(pos, subDept, expert) ??
+    resolveAlliedTarget(pos);
 
-  const isAssistantNurse = startsWithAny(pos, RULES.ASSISTANT_NURSE_POS);
-  const isNurseStrict = startsWithAny(pos, RULES.NURSE_TITLES);
-
-  // 1. NURSE LOGIC
-  if (isAssistantNurse) {
-    targetProfession = '';
-  } else if (isNurseStrict) {
-    targetProfession = 'NURSE';
-    if (includesAny(subDept, RULES.NURSE_GROUP3_SUB) || includesAny(expert, RULES.NURSE_GROUP3_EXPERT)) {
-      targetGroup = 3;
-      targetItemHint = '3.1'; // default critical/anaes
-    } else if (includesAny(subDept, RULES.NURSE_GROUP2_SUB) || includesAny(expert, RULES.NURSE_GROUP2_EXPERT)) {
-      targetGroup = 2;
-      targetItemHint = '2.1'; // default ward/IPD/general NP
-    } else {
-      targetGroup = 1;
-      targetItemHint = '1.1';
-    }
-
-    // 2. DENTIST LOGIC
-  } else if (includesAny(pos, RULES.DENTIST_KEYWORDS)) {
-    targetProfession = 'DENTIST';
-    if (includesAny(expert, RULES.DENTIST_GROUP3_EXPERT) || (specialist !== '' && specialist !== null)) {
-      targetGroup = 3;
-      targetItemHint = '3.1';
-    } else if (includesAny(expert, RULES.DENTIST_GROUP2_EXPERT)) {
-      targetGroup = 2;
-      targetItemHint = '2.1';
-    }
-
-    // 3. DOCTOR LOGIC
-  } else if (includesAny(pos, RULES.DOCTOR_KEYWORDS)) {
-    targetProfession = 'DOCTOR';
-    let matchedItem = '';
-    for (const [keyword, itemNo] of Object.entries(RULES.DOCTOR_ITEM_MAP)) {
-      if (specialist.includes(keyword) || expert.includes(keyword)) {
-        matchedItem = itemNo;
-        break;
-      }
-    }
-    if (matchedItem) {
-      targetGroup = 3;
-      targetItemHint = matchedItem;
-    } else if (specialist !== '' || includesAny(expert, RULES.DOCTOR_GROUP2_EXPERT)) {
-      targetGroup = 2;
-      targetItemHint = '2.1';
-    } else {
-      targetGroup = 1;
-      targetItemHint = '1.1';
-    }
-
-    // 4. PHARMACIST LOGIC
-  } else if (includesAny(pos, RULES.PHARMACIST_KEYWORDS)) {
-    targetProfession = 'PHARMACIST';
-    if (includesAny(subDept, RULES.PHARMACIST_SUBDEPT) || includesAny(expert, RULES.PHARMACIST_EXPERT)) {
-      targetGroup = 2;
-      targetItemHint = '2.1';
-    }
-
-    // 5. GENERIC NURSE FALLBACK
-  } else if (!isAssistantNurse && includesAny(pos, RULES.NURSE_KEYWORDS)) {
-    targetProfession = 'NURSE';
-    if (includesAny(subDept, RULES.NURSE_GROUP3_SUB) || includesAny(expert, RULES.NURSE_GROUP3_EXPERT)) {
-      targetGroup = 3;
-      targetItemHint = '3.1';
-    } else if (includesAny(subDept, RULES.NURSE_GROUP2_SUB) || includesAny(expert, RULES.NURSE_GROUP2_EXPERT)) {
-      targetGroup = 2;
-      targetItemHint = '2.1';
-    } else {
-      targetGroup = 1;
-      targetItemHint = '1.1';
-    }
-
-    // 6. ALLIED LOGIC
-  } else if (startsWithAny(pos, RULES.ALLIED_POS)) {
-    targetProfession = 'ALLIED';
-    targetGroup = 5;
-    targetItemHint = '5.1';
-  }
-
-  if (!targetProfession) return null;
+  if (!target) return null;
 
   // SQL Query with Item Hinting Logic
   let sql = `SELECT * FROM cfg_payment_rates 
        WHERE profession_code = ? AND group_no = ?
        AND is_active = 1`;
-  const params: any[] = [targetProfession, targetGroup];
+  const params: any[] = [target.profession, target.group];
 
-  if (targetItemHint) {
+  if (target.itemHint) {
     sql += ` ORDER BY CASE WHEN item_no = ? THEN 1 ELSE 2 END, item_no ASC, amount DESC LIMIT 1`;
-    params.push(targetItemHint);
+    params.push(target.itemHint);
   } else {
     sql += ` ORDER BY item_no ASC, amount DESC LIMIT 1`;
   }

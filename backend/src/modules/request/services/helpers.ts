@@ -4,7 +4,7 @@
  * Shared utilities, SQL fragments, and type mappers
  */
 
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { RowDataPacket } from 'mysql2/promise';
 import { query } from '../../../config/database.js';
 import {
@@ -37,7 +37,7 @@ export const REQUESTER_JOINS = `
 // ============================================================================
 
 export function generateRequestNo(): string {
-  const datePart = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+  const datePart = new Date().toISOString().slice(2, 10).replaceAll('-', '');
   const randomPart = randomUUID().split('-')[0].substring(0, 4).toUpperCase();
   return `REQ-${datePart}-${randomPart}`;
 }
@@ -70,13 +70,13 @@ export function normalizeDateToYMD(value: string | Date): string {
   }
 
   const trimmed = value.trim();
-  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(trimmed);
   if (match) {
     return match[1];
   }
 
   const parsed = new Date(trimmed);
-  if (!isNaN(parsed.getTime())) {
+  if (!Number.isNaN(parsed.getTime())) {
     return parsed.toISOString().slice(0, 10);
   }
 

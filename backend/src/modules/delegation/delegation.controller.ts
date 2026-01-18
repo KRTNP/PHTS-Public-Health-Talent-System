@@ -100,7 +100,7 @@ export async function cancelDelegation(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const delegationId = parseInt(req.params.id, 10);
+    const delegationId = Number.parseInt(req.params.id, 10);
     const cancelledBy = req.user!.userId;
     const { reason } = req.body;
 

@@ -23,8 +23,8 @@ export async function searchEvents(
 ): Promise<void> {
   try {
     const filter: AuditSearchFilter = {
-      page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
-      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 50,
+      page: req.query.page ? Number.parseInt(req.query.page as string, 10) : 1,
+      limit: req.query.limit ? Number.parseInt(req.query.limit as string, 10) : 50,
     };
 
     // Parse event type(s)
@@ -45,12 +45,12 @@ export async function searchEvents(
     }
 
     if (req.query.entityId) {
-      filter.entityId = parseInt(req.query.entityId as string, 10);
+      filter.entityId = Number.parseInt(req.query.entityId as string, 10);
     }
 
     // Actor filter
     if (req.query.actorId) {
-      filter.actorId = parseInt(req.query.actorId as string, 10);
+      filter.actorId = Number.parseInt(req.query.actorId as string, 10);
     }
 
     // Date range
@@ -96,7 +96,7 @@ export async function getEntityAuditTrail(
       return;
     }
 
-    const events = await auditService.getEntityAuditTrail(entityType, parseInt(entityId, 10));
+    const events = await auditService.getEntityAuditTrail(entityType, Number.parseInt(entityId, 10));
     res.json({ success: true, data: events });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -150,11 +150,11 @@ export async function exportEvents(
     }
 
     if (req.query.entityId) {
-      filter.entityId = parseInt(req.query.entityId as string, 10);
+      filter.entityId = Number.parseInt(req.query.entityId as string, 10);
     }
 
     if (req.query.actorId) {
-      filter.actorId = parseInt(req.query.actorId as string, 10);
+      filter.actorId = Number.parseInt(req.query.actorId as string, 10);
     }
 
     const exportStartDate = getStringQuery(req.query.startDate);
@@ -212,7 +212,7 @@ export async function getEventTypes(
   try {
     const eventTypes = Object.values(AuditEventType).map((type) => ({
       value: type,
-      label: type.replace(/_/g, ' '),
+      label: type.replaceAll('_', ' '),
     }));
 
     res.json({ success: true, data: eventTypes });

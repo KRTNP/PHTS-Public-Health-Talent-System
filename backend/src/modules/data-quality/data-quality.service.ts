@@ -6,7 +6,7 @@
  * FR-11-02: Issue count metrics with priority
  */
 
-import { RowDataPacket } from 'mysql2/promise';
+import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { query, getConnection } from '../../config/database.js';
 import { delCache, getJsonCache, setJsonCache } from '../../utils/cache.js';
 
@@ -250,7 +250,7 @@ export async function createIssue(
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
-  const result = await query(sql, [
+  const result = await query<ResultSetHeader>(sql, [
     type,
     severity,
     entityType,
@@ -262,7 +262,7 @@ export async function createIssue(
 
   await delCache(DASHBOARD_CACHE_KEY);
 
-  return (result as any).insertId;
+  return result.insertId;
 }
 
 /**

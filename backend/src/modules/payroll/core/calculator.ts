@@ -61,6 +61,74 @@ const LIFETIME_KEYWORDS = LIFETIME_LICENSE_KEYWORDS.map((kw) =>
   kw.trim().toLowerCase().normalize('NFC'),
 ).filter(Boolean);
 
+type EligibilityInfo = Readonly<{
+  effectiveTs: number;
+  expiryTs: number;
+  rate: number;
+  rateId: number | null;
+}>;
+
+type EligibilityState = {
+  index: number;
+  current: EligibilityInfo | null;
+};
+
+type PaymentTotals = {
+  totalPayment: Decimal;
+  validLicenseDays: number;
+  totalDeductionDays: number;
+  daysCounted: number;
+  lastRateSnapshot: number;
+  lastMasterRateId: number | null;
+};
+
+const buildEligibilities = (rows: EligibilityRow[]): EligibilityInfo[] =>
+  rows
+    .map((row) => ({
+      effectiveTs: new Date(row.effective_date).getTime(),
+      expiryTs: row.expiry_date
+        ? new Date(row.expiry_date).getTime()
+        : makeLocalDate(9999, 11, 31).getTime(),
+      rate: Number(row.rate),
+      rateId: (row as any).rate_id ?? null,
+    }))
+    .sort((a, b) => a.effectiveTs - b.effectiveTs);
+
+const getActiveEligibility = (
+  state: EligibilityState,
+  eligibilities: EligibilityInfo[],
+  dayTs: number,
+): EligibilityInfo | null => {
+  while (state.index < eligibilities.length && eligibilities[state.index].effectiveTs <= dayTs) {
+    state.current = eligibilities[state.index];
+    state.index += 1;
+  }
+  if (state.current && state.current.expiryTs >= dayTs) {
+    return state.current;
+  }
+  return null;
+};
+
+const applyDailyTotals = (
+  totals: PaymentTotals,
+  currentRate: number,
+  hasLicense: boolean,
+  deductionWeight: number,
+  daysInMonth: number,
+) => {
+  if (hasLicense) totals.validLicenseDays += 1;
+
+  let eligibleWeight = hasLicense ? 1 : 0;
+  eligibleWeight -= deductionWeight;
+  if (eligibleWeight < 0) eligibleWeight = 0;
+
+  if (deductionWeight > 0) totals.totalDeductionDays += deductionWeight;
+  if (eligibleWeight > 0) totals.daysCounted += eligibleWeight;
+
+  const dailyRate = new Decimal(currentRate || 0).div(daysInMonth);
+  totals.totalPayment = totals.totalPayment.plus(dailyRate.mul(eligibleWeight));
+};
+
 function createLicenseChecker(licenses: LicenseRow[], positionName = ''): (dateStr: string) => boolean {
   const normalizedPosition = positionName.toLowerCase().normalize('NFC');
   if (normalizedPosition && LIFETIME_KEYWORDS.some((kw) => normalizedPosition.includes(kw))) {
@@ -152,14 +220,7 @@ export async function calculateMonthly(
     [`${year - 1}-01-01`, `${year}-12-31`],
   );
 
-  const eligibilities = (eligibilityRows as EligibilityRow[])
-    .map((row) => ({
-      effectiveTs: new Date(row.effective_date).getTime(),
-      expiryTs: row.expiry_date ? new Date(row.expiry_date).getTime() : makeLocalDate(9999, 11, 31).getTime(),
-      rate: Number(row.rate),
-      rateId: (row as any).rate_id ?? null,
-    }))
-    .sort((a, b) => a.effectiveTs - b.effectiveTs);
+  const eligibilities = buildEligibilities(eligibilityRows as EligibilityRow[]);
   const movements = movementRows as MovementRow[];
   const employee = (employeeRows as EmployeeRow[])[0] || {};
   const licenses = licenseRows as LicenseRow[];
@@ -174,20 +235,15 @@ export async function calculateMonthly(
 
   const deductionMap = calculateDeductions(leaves, quota, holidays, startOfMonth, endOfMonth);
   const licenseChecker = createLicenseChecker(licenses, employee.position_name || '');
-  let eligibilityIndex = 0;
-  let currentEligibility: {
-    effectiveTs: number;
-    expiryTs: number;
-    rate: number;
-    rateId: number | null;
-  } | null = null;
-
-  let totalPayment = new Decimal(0);
-  let validLicenseDays = 0;
-  let totalDeductionDays = 0;
-  let daysCounted = 0;
-  let lastRateSnapshot = 0;
-  let lastMasterRateId: number | null = null;
+  const eligibilityState: EligibilityState = { index: 0, current: null };
+  const totals: PaymentTotals = {
+    totalPayment: new Decimal(0),
+    validLicenseDays: 0,
+    totalDeductionDays: 0,
+    daysCounted: 0,
+    lastRateSnapshot: 0,
+    lastMasterRateId: null,
+  };
 
   const orderedPeriods = [...periods].sort((a, b) => a.start.getTime() - b.start.getTime());
 
@@ -196,47 +252,30 @@ export async function calculateMonthly(
       const dateStr = formatLocalDate(d);
       const dayTs = d.getTime();
 
-      while (eligibilityIndex < eligibilities.length && eligibilities[eligibilityIndex].effectiveTs <= dayTs) {
-        currentEligibility = eligibilities[eligibilityIndex];
-        eligibilityIndex += 1;
-      }
-
-      const activeEligibility =
-        currentEligibility && currentEligibility.expiryTs >= dayTs ? currentEligibility : null;
+      const activeEligibility = getActiveEligibility(eligibilityState, eligibilities, dayTs);
       const currentRate = activeEligibility ? activeEligibility.rate : 0;
 
       if (activeEligibility) {
-        lastRateSnapshot = currentRate;
-        lastMasterRateId = activeEligibility.rateId;
+        totals.lastRateSnapshot = currentRate;
+        totals.lastMasterRateId = activeEligibility.rateId;
       }
 
       const hasLicense = licenseChecker(dateStr);
-      if (hasLicense) validLicenseDays++;
-
       const deductionWeight = deductionMap.get(dateStr) || 0;
-
-      let eligibleWeight = hasLicense ? 1 : 0;
-      eligibleWeight -= deductionWeight;
-      if (eligibleWeight < 0) eligibleWeight = 0;
-
-      if (deductionWeight > 0) totalDeductionDays += deductionWeight;
-      if (eligibleWeight > 0) daysCounted += eligibleWeight;
-
-      const dailyRate = new Decimal(currentRate || 0).div(daysInMonth);
-      totalPayment = totalPayment.plus(dailyRate.mul(eligibleWeight));
+      applyDailyTotals(totals, currentRate, hasLicense, deductionWeight, daysInMonth);
     }
   }
 
   return {
-    netPayment: totalPayment
+    netPayment: totals.totalPayment
       .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
       .toNumber(),
-    totalDeductionDays,
-    validLicenseDays,
-    eligibleDays: daysCounted,
+    totalDeductionDays: totals.totalDeductionDays,
+    validLicenseDays: totals.validLicenseDays,
+    eligibleDays: totals.daysCounted,
     remark,
-    masterRateId: lastMasterRateId,
-    rateSnapshot: lastRateSnapshot,
+    masterRateId: totals.lastMasterRateId,
+    rateSnapshot: totals.lastRateSnapshot,
   };
 }
 
@@ -244,16 +283,27 @@ export function checkLicense(licenses: LicenseRow[], dateStr: string, positionNa
   return createLicenseChecker(licenses, positionName)(dateStr);
 }
 
-export async function savePayout(
-  conn: PoolConnection,
-  periodId: number,
-  citizenId: string,
-  result: CalculationResult,
-  masterRateId: number | null,
-  baseRateSnapshot: number,
-  referenceYear: number,
-  referenceMonth: number,
-): Promise<number> {
+type SavePayoutInput = {
+  conn: PoolConnection;
+  periodId: number;
+  citizenId: string;
+  result: CalculationResult;
+  masterRateId: number | null;
+  baseRateSnapshot: number;
+  referenceYear: number;
+  referenceMonth: number;
+};
+
+export async function savePayout({
+  conn,
+  periodId,
+  citizenId,
+  result,
+  masterRateId,
+  baseRateSnapshot,
+  referenceYear,
+  referenceMonth,
+}: SavePayoutInput): Promise<number> {
   const totalPayable = result.netPayment + (result.retroactiveTotal ?? 0);
 
   const [res] = await conn.query<ResultSetHeader>(
@@ -339,84 +389,168 @@ function resolveWorkPeriods(
     return date >= monthStart && date <= monthEnd;
   });
 
-  let remark = '';
-  let active = false;
-
-  for (const mov of prevMovements) {
-    if (mov.movement_type === 'ENTRY') active = true;
-    else if (mov.movement_type === 'STUDY') {
-      active = false;
-      remark = studyRemark;
-    } else if (exitTypes.has(mov.movement_type)) {
-      active = false;
-    }
-  }
-
-  const periods: WorkPeriod[] = [];
-  let currentStart: Date | null = active ? new Date(monthStart) : null;
-  let prevMovement: MovementRow | null = null;
-  if (prevMovements.length > 0) {
-    prevMovement = prevMovements[prevMovements.length - 1];
-  }
+  const state = initWorkPeriodState(prevMovements, monthStart, exitTypes, studyRemark);
 
   for (const mov of monthlyMovements) {
-    const date = new Date(mov.effective_date);
+    applyMovement(state, mov, {
+      monthStart,
+      monthEnd,
+      exitTypes,
+      swapTypes,
+      studyRemark,
+    });
+  }
 
-    if (mov.movement_type === 'STUDY') {
-      if (active && currentStart) {
-        const end = makeLocalDate(date.getFullYear(), date.getMonth(), date.getDate() - 1);
-        if (end >= currentStart) {
-          periods.push({ start: currentStart, end });
-        }
-      }
-      active = false;
-      currentStart = null;
-      remark = studyRemark;
-      prevMovement = mov;
+  if (state.active && state.currentStart) {
+    state.periods.push({ start: state.currentStart, end: monthEnd });
+  }
+
+  return { periods: state.periods, remark: state.remark };
+}
+
+type WorkPeriodState = {
+  active: boolean;
+  currentStart: Date | null;
+  remark: string;
+  prevMovement: MovementRow | null;
+  periods: WorkPeriod[];
+};
+
+type MovementContext = {
+  monthStart: Date;
+  monthEnd: Date;
+  exitTypes: Set<string>;
+  swapTypes: Set<string>;
+  studyRemark: string;
+};
+
+function initWorkPeriodState(
+  prevMovements: MovementRow[],
+  monthStart: Date,
+  exitTypes: Set<string>,
+  studyRemark: string,
+): WorkPeriodState {
+  let active = false;
+  let remark = '';
+
+  for (const mov of prevMovements) {
+    if (mov.movement_type === 'ENTRY') {
+      active = true;
       continue;
     }
-
-    if (mov.movement_type === 'ENTRY') {
-      let isSwap = false;
-      if (prevMovement) {
-        const prevDate = new Date(prevMovement.effective_date);
-        const diffMs =
-          makeLocalDate(date.getFullYear(), date.getMonth(), date.getDate()).getTime() -
-          makeLocalDate(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate()).getTime();
-        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-        if (swapTypes.has(prevMovement.movement_type) && diffDays <= 1) {
-          isSwap = true;
-          if (periods.length > 0) {
-            const lastPeriod = periods.pop();
-            currentStart = lastPeriod?.start ?? currentStart ?? date;
-          }
-        }
-      }
-
-      if (!active || isSwap) {
-        active = true;
-        if (!isSwap) currentStart = date < monthStart ? new Date(monthStart) : date;
-        else if (!currentStart) currentStart = date;
-      }
-    } else if (exitTypes.has(mov.movement_type)) {
-      if (active && currentStart) {
-        const end = makeLocalDate(date.getFullYear(), date.getMonth(), date.getDate() - 1);
-        if (end >= currentStart) {
-          periods.push({ start: currentStart, end: end > monthEnd ? monthEnd : end });
-        }
-      }
+    if (mov.movement_type === 'STUDY') {
       active = false;
-      currentStart = null;
+      remark = studyRemark;
+      continue;
     }
-
-    prevMovement = mov;
+    if (exitTypes.has(mov.movement_type)) {
+      active = false;
+    }
   }
 
-  if (active && currentStart) {
-    periods.push({ start: currentStart, end: monthEnd });
+  return {
+    active,
+    currentStart: active ? new Date(monthStart) : null,
+    remark,
+    prevMovement: prevMovements.at(-1) ?? null,
+    periods: [],
+  };
+}
+
+function applyMovement(state: WorkPeriodState, mov: MovementRow, ctx: MovementContext) {
+  const date = new Date(mov.effective_date);
+
+  if (mov.movement_type === 'STUDY') {
+    handleStudyMovement(state, date, ctx);
+    state.prevMovement = mov;
+    return;
   }
 
-  return { periods, remark };
+  if (mov.movement_type === 'ENTRY') {
+    handleEntryMovement(state, mov, date, ctx);
+    state.prevMovement = mov;
+    return;
+  }
+
+  if (ctx.exitTypes.has(mov.movement_type)) {
+    handleExitMovement(state, date, ctx);
+  }
+
+  state.prevMovement = mov;
+}
+
+function handleStudyMovement(state: WorkPeriodState, date: Date, ctx: MovementContext) {
+  if (state.active && state.currentStart) {
+    const end = makeLocalDate(date.getFullYear(), date.getMonth(), date.getDate() - 1);
+    pushPeriod(state, end, ctx.monthEnd);
+  }
+  state.active = false;
+  state.currentStart = null;
+  state.remark = ctx.studyRemark;
+}
+
+function handleEntryMovement(
+  state: WorkPeriodState,
+  mov: MovementRow,
+  date: Date,
+  ctx: MovementContext,
+) {
+  const isSwap = isSwapEntry(state.prevMovement, date, ctx.swapTypes);
+  if (isSwap && state.periods.length > 0) {
+    restoreSwapStart(state, date);
+  }
+
+  if (!state.active || isSwap) {
+    state.active = true;
+    if (isSwap) {
+      state.currentStart ??= date;
+    } else {
+      state.currentStart = date < ctx.monthStart ? new Date(ctx.monthStart) : date;
+    }
+  }
+}
+
+function handleExitMovement(state: WorkPeriodState, date: Date, ctx: MovementContext) {
+  if (state.active && state.currentStart) {
+    const end = makeLocalDate(date.getFullYear(), date.getMonth(), date.getDate() - 1);
+    pushPeriod(state, end, ctx.monthEnd);
+  }
+  state.active = false;
+  state.currentStart = null;
+}
+
+function isSwapEntry(
+  prevMovement: MovementRow | null,
+  date: Date,
+  swapTypes: Set<string>,
+): boolean {
+  if (!prevMovement) return false;
+  const prevDate = new Date(prevMovement.effective_date);
+  const diffMs =
+    makeLocalDate(date.getFullYear(), date.getMonth(), date.getDate()).getTime() -
+    makeLocalDate(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate()).getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return swapTypes.has(prevMovement.movement_type) && diffDays <= 1;
+}
+
+function restoreSwapStart(state: WorkPeriodState, date: Date) {
+  const lastPeriod = state.periods.pop();
+  if (lastPeriod?.start) {
+    state.currentStart = lastPeriod.start;
+  } else {
+    state.currentStart ??= date;
+  }
+}
+
+function pushPeriod(state: WorkPeriodState, end: Date, monthEnd: Date) {
+  if (!state.currentStart) return;
+  if (end < state.currentStart) return;
+  state.periods.push({ start: state.currentStart, end: clampEndDate(end, monthEnd) });
+}
+
+function clampEndDate(end: Date, monthEnd: Date): Date {
+  const endTime = Math.min(end.getTime(), monthEnd.getTime());
+  return new Date(endTime);
 }
 
 function emptyResult(remark: string): CalculationResult {

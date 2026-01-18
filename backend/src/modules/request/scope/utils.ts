@@ -127,42 +127,8 @@ export function resolveApproverRole(
   requestDept: string | null | undefined,
   requestSubDept: string | null | undefined,
 ): 'HEAD_WARD' | 'HEAD_DEPT' | 'NONE' {
-  let wardUnitMatches = 0;
-  let wardDeptMatches = 0;
-  let deptUnitMatches = 0;
-  let deptDeptMatches = 0;
-
-  // Check HEAD_WARD scopes
-  for (const scope of wardScopes) {
-    const scopeType = inferScopeType(scope);
-
-    if (scopeType === 'IGNORE') continue;
-
-    if (scopeType === 'UNIT' && scopeMatches(scope, requestSubDept)) {
-      wardUnitMatches += 1;
-    }
-
-    // If sub_department is NULL, match by department
-    if (scopeType === 'DEPT' && !requestSubDept && scopeMatches(scope, requestDept)) {
-      wardDeptMatches += 1;
-    }
-  }
-
-  // Check HEAD_DEPT scopes
-  for (const scope of deptScopes) {
-    const scopeType = inferScopeType(scope);
-
-    if (scopeType === 'IGNORE') continue;
-
-    if (scopeType === 'DEPT' && scopeMatches(scope, requestDept)) {
-      deptDeptMatches += 1;
-    }
-
-    // HEAD_DEPT can also match unit scopes in their list
-    if (scopeType === 'UNIT' && scopeMatches(scope, requestSubDept)) {
-      deptUnitMatches += 1;
-    }
-  }
+  const wardMatches = countWardMatches(wardScopes, requestDept, requestSubDept);
+  const deptMatches = countDeptMatches(deptScopes, requestDept, requestSubDept);
 
   // Conflict resolution per docs:
   // 1. If both match by unit scope -> HEAD_WARD wins
@@ -170,29 +136,79 @@ export function resolveApproverRole(
   // 3. If both match by dept scope -> HEAD_DEPT wins
   // 4. Single matches: return the matching role
 
-  if (wardUnitMatches > 0 && deptUnitMatches > 0) {
+  if (wardMatches.unit > 0 && deptMatches.unit > 0) {
     return 'HEAD_WARD';
   }
 
-  if (wardUnitMatches > 0 && deptDeptMatches > 0) {
+  if (wardMatches.unit > 0 && deptMatches.dept > 0) {
     return 'HEAD_WARD';
   }
 
-  if (deptDeptMatches > 0) {
+  if (deptMatches.dept > 0) {
     return 'HEAD_DEPT';
   }
 
-  if (wardUnitMatches > 0) {
+  if (wardMatches.unit > 0) {
     return 'HEAD_WARD';
   }
 
-  if (deptUnitMatches > 0) {
+  if (deptMatches.unit > 0) {
     return 'HEAD_DEPT';
   }
 
-  if (wardDeptMatches > 0) {
+  if (wardMatches.dept > 0) {
     return 'HEAD_WARD';
   }
 
   return 'NONE';
+}
+
+type ScopeMatchCounts = { unit: number; dept: number };
+
+function countWardMatches(
+  scopes: string[],
+  requestDept: string | null | undefined,
+  requestSubDept: string | null | undefined,
+): ScopeMatchCounts {
+  let unit = 0;
+  let dept = 0;
+
+  for (const scope of scopes) {
+    const scopeType = inferScopeType(scope);
+    if (scopeType === 'IGNORE') continue;
+
+    if (scopeType === 'UNIT' && scopeMatches(scope, requestSubDept)) {
+      unit += 1;
+    }
+
+    if (scopeType === 'DEPT' && !requestSubDept && scopeMatches(scope, requestDept)) {
+      dept += 1;
+    }
+  }
+
+  return { unit, dept };
+}
+
+function countDeptMatches(
+  scopes: string[],
+  requestDept: string | null | undefined,
+  requestSubDept: string | null | undefined,
+): ScopeMatchCounts {
+  let unit = 0;
+  let dept = 0;
+
+  for (const scope of scopes) {
+    const scopeType = inferScopeType(scope);
+    if (scopeType === 'IGNORE') continue;
+
+    if (scopeType === 'DEPT' && scopeMatches(scope, requestDept)) {
+      dept += 1;
+    }
+
+    if (scopeType === 'UNIT' && scopeMatches(scope, requestSubDept)) {
+      unit += 1;
+    }
+  }
+
+  return { unit, dept };
 }

@@ -1,6 +1,6 @@
 export function formatLocalDate(input: Date | string | null | undefined): string {
   if (!input) return '';
-  const date = typeof input === 'string' ? new Date(input) : new Date(input.getTime());
+  const date = typeof input === 'string' ? new Date(input) : input;
   if (Number.isNaN(date.getTime())) return '';
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, '0');

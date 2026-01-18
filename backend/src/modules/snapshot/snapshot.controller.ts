@@ -18,7 +18,7 @@ export async function getPeriodWithSnapshot(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.id, 10);
+    const periodId = Number.parseInt(req.params.id, 10);
     const period = await snapshotService.getPeriodWithSnapshot(periodId);
 
     if (!period) {
@@ -41,7 +41,7 @@ export async function freezePeriod(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.id, 10);
+    const periodId = Number.parseInt(req.params.id, 10);
     const userId = req.user!.userId;
 
     await snapshotService.freezePeriod(periodId, userId);
@@ -60,7 +60,7 @@ export async function unfreezePeriod(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.id, 10);
+    const periodId = Number.parseInt(req.params.id, 10);
     const userId = req.user!.userId;
     const { reason } = req.body;
 
@@ -85,7 +85,7 @@ export async function getSnapshot(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.id, 10);
+    const periodId = Number.parseInt(req.params.id, 10);
     const snapshotType = req.params.type.toUpperCase() as SnapshotType;
 
     if (!Object.values(SnapshotType).includes(snapshotType)) {
@@ -115,7 +115,7 @@ export async function getSnapshotsForPeriod(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.id, 10);
+    const periodId = Number.parseInt(req.params.id, 10);
     const snapshots = await snapshotService.getSnapshotsForPeriod(periodId);
     res.json({ success: true, data: snapshots });
   } catch (error: any) {
@@ -132,7 +132,7 @@ export async function getReportData(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.id, 10);
+    const periodId = Number.parseInt(req.params.id, 10);
     const data = await snapshotService.getPayoutDataForReport(periodId);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -149,7 +149,7 @@ export async function getSummaryData(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.id, 10);
+    const periodId = Number.parseInt(req.params.id, 10);
     const data = await snapshotService.getSummaryDataForReport(periodId);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -166,7 +166,7 @@ export async function checkFrozen(
   res: Response<ApiResponse>,
 ): Promise<void> {
   try {
-    const periodId = parseInt(req.params.id, 10);
+    const periodId = Number.parseInt(req.params.id, 10);
     const isFrozen = await snapshotService.isPeriodFrozen(periodId);
     res.json({ success: true, data: { is_frozen: isFrozen } });
   } catch (error: any) {
