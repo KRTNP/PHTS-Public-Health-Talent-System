@@ -141,28 +141,6 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 /**
- * Start server and verify database connectivity before accepting requests
- */
-async function startServer() {
-  try {
-    // Verify database connectivity
-    console.log('[Server] Verifying database connection...');
-    await testConnection();
-
-    // Start Express server
-    app.listen(PORT, () => {
-      console.log(
-        `[Server] PHTS Backend started on port ${PORT} (${process.env.NODE_ENV})`,
-      );
-      console.log(`[Server] Database host: ${process.env.DB_HOST || 'localhost'}`);
-    });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-}
-
-/**
  * Graceful Shutdown
  * Close database connections before exiting
  */
@@ -197,7 +175,22 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 
 // Start the server
 if (process.env.NODE_ENV !== 'test' && process.env.START_SERVER !== 'false') {
-  startServer();
+  try {
+    // Verify database connectivity
+    console.log('[Server] Verifying database connection...');
+    await testConnection();
+
+    // Start Express server
+    app.listen(PORT, () => {
+      console.log(
+        `[Server] PHTS Backend started on port ${PORT} (${process.env.NODE_ENV})`,
+      );
+      console.log(`[Server] Database host: ${process.env.DB_HOST || 'localhost'}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
 }
 
 export default app;
