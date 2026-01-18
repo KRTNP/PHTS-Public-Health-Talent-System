@@ -12,7 +12,8 @@
     "assign:roles": "tsx src/scripts/assign_roles.ts",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
-    "test": "jest"
+    "test": "jest",
+    "test:perf": "RUN_PERF=1 jest src/__tests__/perf"
   },
   "keywords": [
     "hospital",

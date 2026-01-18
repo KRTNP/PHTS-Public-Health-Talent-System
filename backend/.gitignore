@@ -11,6 +11,8 @@ coverage/
 .env
 .env.local
 .env.*.local
+.env.test
+.env.perf
 .envrc
 
 # Logs
