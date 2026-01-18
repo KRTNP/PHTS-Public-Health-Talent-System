@@ -7,7 +7,7 @@ export function isValidCitizenId(citizenId: string): boolean {
     return false;
   }
 
-  const digits = citizenId.split('').map((d) => parseInt(d, 10));
+  const digits = citizenId.split('').map((d) => Number.parseInt(d, 10));
   const sum = digits.slice(0, 12).reduce((acc, digit, idx) => {
     const weight = 13 - idx;
     return acc + digit * weight;
