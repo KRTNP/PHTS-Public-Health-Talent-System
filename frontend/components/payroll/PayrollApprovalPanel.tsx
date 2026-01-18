@@ -4,13 +4,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Button, Card, CardContent, Stack, Typography, Alert, Chip } from '@mui/material';
 import * as payrollApi from '@/lib/api/payrollApi';
 
-interface PayrollApprovalPanelProps {
+type PayrollApprovalPanelProps = Readonly<{
   requiredStatus: string;
   title: string;
   approveLabel: string;
   onApprove: (periodId: number) => Promise<unknown>;
   onReject: (periodId: number) => Promise<unknown>;
-}
+}>;
 
 export default function PayrollApprovalPanel({
   requiredStatus,
@@ -69,6 +69,35 @@ export default function PayrollApprovalPanel({
     }
   };
 
+  const renderPeriodContent = () => {
+    if (loading) {
+      return <Typography color="text.secondary">Loading period...</Typography>;
+    }
+
+    if (!period) {
+      return <Typography color="text.secondary">No pending period for approval.</Typography>;
+    }
+
+    return (
+      <Box>
+        <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+          <Typography variant="body1" fontWeight={600}>
+            Period {period.month}/{period.year}
+          </Typography>
+          <Chip label={period.status} size="small" variant="outlined" />
+        </Stack>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <Button variant="contained" color="success" onClick={handleApprove} disabled={working}>
+            {approveLabel}
+          </Button>
+          <Button variant="outlined" color="error" onClick={handleReject} disabled={working}>
+            Reject Period
+          </Button>
+        </Stack>
+      </Box>
+    );
+  };
+
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
@@ -84,33 +113,7 @@ export default function PayrollApprovalPanel({
 
           {error && <Alert severity="error">{error}</Alert>}
 
-          {loading ? (
-            <Typography color="text.secondary">Loading period...</Typography>
-          ) : period ? (
-            <Box>
-              <Stack direction="row" spacing={2} alignItems="center" mb={2}>
-                <Typography variant="body1" fontWeight={600}>
-                  Period {period.month}/{period.year}
-                </Typography>
-                <Chip label={period.status} size="small" variant="outlined" />
-              </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={handleApprove}
-                  disabled={working}
-                >
-                  {approveLabel}
-                </Button>
-                <Button variant="outlined" color="error" onClick={handleReject} disabled={working}>
-                  Reject Period
-                </Button>
-              </Stack>
-            </Box>
-          ) : (
-            <Typography color="text.secondary">No pending period for approval.</Typography>
-          )}
+          {renderPeriodContent()}
         </Stack>
       </CardContent>
     </Card>

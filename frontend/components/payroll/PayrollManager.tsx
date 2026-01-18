@@ -425,7 +425,7 @@ export default function PayrollManager() {
                           size="small"
                           fullWidth
                           placeholder="ระบุเหตุผล (เช่น ลาเรียน, ย้าย)"
-                          InputProps={{ readOnly: true }}
+                          slotProps={{ input: { readOnly: true } }}
                           sx={{
                             '& .MuiOutlinedInput-root': {
                               bgcolor: 'background.paper',

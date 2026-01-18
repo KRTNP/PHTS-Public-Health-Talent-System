@@ -10,13 +10,13 @@ import { Box, Card, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { ReactNode } from 'react';
 
-interface StatCardProps {
+type StatCardProps = Readonly<{
   title: string;
   value: string | number;
   icon: ReactNode;
   color?: 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error';
   trend?: string;
-}
+}>;
 
 export default function StatCard({ title, value, icon, color = 'primary', trend }: StatCardProps) {
   const theme = useTheme();

@@ -31,12 +31,12 @@ import { getMyNotifications, markNotificationRead, NotificationItem } from '@/li
 import { ROLE_NAMES, ROLE_ROUTES } from '@/types/auth';
 import { usePathname, useRouter } from 'next/navigation';
 
-interface DashboardLayoutProps {
+type DashboardLayoutProps = Readonly<{
   children: React.ReactNode;
   title?: string;
-}
+}>;
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
@@ -60,6 +60,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       router.replace(allowedBase);
     }
   }, [pathname, router, user]);
+
+  useEffect(() => {
+    if (title && globalThis.document !== undefined) {
+      globalThis.document.title = title;
+    }
+  }, [title]);
 
   useEffect(() => {
     if (!user) return;
@@ -321,8 +327,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     <ListItemText
                       primary={item.title}
                       secondary={item.message}
-                      primaryTypographyProps={{ fontWeight: item.is_read ? 500 : 700 }}
-                      secondaryTypographyProps={{ color: 'text.secondary' }}
+                      slotProps={{
+                        primary: { sx: { fontWeight: item.is_read ? 500 : 700 } },
+                        secondary: { sx: { color: 'text.secondary' } },
+                      }}
                     />
                   </MenuItem>
                 ))}

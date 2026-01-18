@@ -15,9 +15,9 @@ import { theme } from './index';
 
 export default function ThemeRegistry({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <AppRouterCacheProvider options={{ enableCssLayer: true }}>
       <ThemeProvider theme={theme}>

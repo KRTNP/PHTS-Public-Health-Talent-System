@@ -11,7 +11,6 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  ListItemSecondaryAction,
   IconButton,
   Tooltip,
   Dialog,
@@ -26,20 +25,33 @@ import { Visibility, InsertDriveFile, DeleteOutline } from '@mui/icons-material'
 
 type FileLike = File | { name: string; size?: number; type?: string; url?: string };
 
-interface FilePreviewListProps {
+type FilePreviewListProps = Readonly<{
   files: FileLike[];
   onPreview?: (file: FileLike) => void;
   onRemove?: (index: number) => void;
   readOnly?: boolean;
-}
+}>;
 
 export default function FilePreviewList({ files, onPreview, onRemove, readOnly }: FilePreviewListProps) {
   const [previewFile, setPreviewFile] = useState<FileLike | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileKey = (file: FileLike) => {
+    const size = typeof (file as any).size === 'number' ? (file as any).size : 'na';
+    const url = (file as any).url || '';
+    const lastModified = file instanceof File ? file.lastModified : '';
+    return `${file.name}-${size}-${lastModified}-${url}`;
+  };
+  const openInNewTab = (url: string) => {
+    if (globalThis.window !== undefined) {
+      globalThis.window.open(url, '_blank');
+    }
+  };
 
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (previewUrl && globalThis.URL?.revokeObjectURL !== undefined) {
+        globalThis.URL.revokeObjectURL(previewUrl);
+      }
     };
   }, [previewUrl]);
 
@@ -49,18 +61,21 @@ export default function FilePreviewList({ files, onPreview, onRemove, readOnly }
       return;
     }
     if ((file as any).url) {
-      window.open((file as any).url, '_blank');
+      openInNewTab((file as any).url);
       return;
     }
     if (file instanceof File || (typeof Blob !== 'undefined' && file instanceof Blob)) {
-      const url = URL.createObjectURL(file as File);
+      if (globalThis.URL?.createObjectURL === undefined) return;
+      const url = globalThis.URL.createObjectURL(file as File);
       setPreviewFile(file);
       setPreviewUrl(url);
     }
   };
 
   const handleClose = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (previewUrl && globalThis.URL?.revokeObjectURL !== undefined) {
+      globalThis.URL.revokeObjectURL(previewUrl);
+    }
     setPreviewFile(null);
     setPreviewUrl(null);
   };
@@ -99,8 +114,34 @@ export default function FilePreviewList({ files, onPreview, onRemove, readOnly }
   return (
     <>
       <List dense sx={{ mt: 1 }}>
-        {files.map((file, index) => (
-          <ListItem key={index} divider sx={{ bgcolor: 'grey.50', borderRadius: 1, mb: 0.5 }}>
+        {files.map((file, index) => {
+          const showPreview = !readOnly;
+          const showRemove = onRemove && !readOnly;
+          const actions = showPreview || showRemove ? (
+            <>
+              {showPreview && (
+                <Tooltip title="พรีวิว">
+                  <IconButton edge="end" onClick={() => handlePreview(file)} sx={{ mr: showRemove ? 1 : 0 }}>
+                    <Visibility />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {showRemove && (
+                <Tooltip title="ลบ">
+                  <IconButton edge="end" color="error" onClick={() => onRemove(index)}>
+                    <DeleteOutline />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </>
+          ) : null;
+          return (
+          <ListItem
+            key={fileKey(file)}
+            divider
+            secondaryAction={actions}
+            sx={{ bgcolor: 'grey.50', borderRadius: 1, mb: 0.5 }}
+          >
             <ListItemIcon>
               <InsertDriveFile color="primary" />
             </ListItemIcon>
@@ -111,26 +152,11 @@ export default function FilePreviewList({ files, onPreview, onRemove, readOnly }
                   ? `${(((file as any).size as number) / 1024 / 1024).toFixed(2)} MB`
                   : undefined
               }
-              primaryTypographyProps={{ noWrap: true }}
+              slotProps={{ primary: { noWrap: true } }}
             />
-            <ListItemSecondaryAction>
-              {!readOnly && (
-                <Tooltip title="พรีวิว">
-                  <IconButton edge="end" onClick={() => handlePreview(file)} sx={{ mr: onRemove ? 1 : 0 }}>
-                    <Visibility />
-                  </IconButton>
-                </Tooltip>
-              )}
-              {onRemove && !readOnly && (
-                <Tooltip title="ลบ">
-                  <IconButton edge="end" color="error" onClick={() => onRemove(index)}>
-                    <DeleteOutline />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </ListItemSecondaryAction>
           </ListItem>
-        ))}
+          );
+        })}
       </List>
 
       <Dialog open={Boolean(previewFile)} onClose={handleClose} fullWidth maxWidth="md">
@@ -138,7 +164,7 @@ export default function FilePreviewList({ files, onPreview, onRemove, readOnly }
         <DialogContent dividers>{renderPreviewContent()}</DialogContent>
         <DialogActions>
           {previewUrl && (
-            <Button onClick={() => window.open(previewUrl as string, '_blank')} startIcon={<Visibility />}>
+            <Button onClick={() => openInNewTab(previewUrl)} startIcon={<Visibility />}>
               เปิดในแท็บใหม่
             </Button>
           )}

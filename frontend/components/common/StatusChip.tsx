@@ -10,9 +10,11 @@ import { Chip, ChipProps } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { RequestStatus, REQUEST_STATUS_LABELS } from '@/types/request.types';
 
-interface StatusChipProps extends ChipProps {
-  status: RequestStatus | string;
-}
+type StatusChipProps = Readonly<
+  ChipProps & {
+    status: RequestStatus | string;
+  }
+>;
 
 const STATUS_COLOR_MAP: Record<string, ChipProps['color']> = {
   [RequestStatus.DRAFT]: 'default',

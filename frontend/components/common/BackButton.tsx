@@ -11,11 +11,13 @@ import { ArrowBack } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { alpha } from '@mui/material/styles';
 
-interface BackButtonProps extends Omit<ButtonProps, 'onClick'> {
-  to?: string; // ถ้าไม่ใส่ to จะใช้ router.back()
-  label?: string;
-  onClick?: () => void; // Custom onClick handler (optional)
-}
+type BackButtonProps = Readonly<
+  Omit<ButtonProps, 'onClick'> & {
+    to?: string; // ถ้าไม่ใส่ to จะใช้ router.back()
+    label?: string;
+    onClick?: () => void; // Custom onClick handler (optional)
+  }
+>;
 
 export default function BackButton({
   to,

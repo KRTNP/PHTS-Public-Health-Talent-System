@@ -80,6 +80,36 @@ export default function UserDashboard() {
     fetchRequests();
   }, []);
 
+  const renderRequests = () => {
+    if (loading) {
+      return (
+        <Box textAlign="center" py={8}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Alert severity="error" sx={{ borderRadius: 2 }}>
+          {error}
+        </Alert>
+      );
+    }
+
+    return (
+      <Box>
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Assignment color="primary" />
+          <Typography variant="h6" fontWeight={700}>
+            รายการคำขอ
+          </Typography>
+        </Stack>
+        <RequestStatusTable requests={requests} />
+      </Box>
+    );
+  };
+
   return (
     <DashboardLayout title="ระบบยื่นคำขอรับเงิน พ.ต.ส.">
       <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -144,25 +174,7 @@ export default function UserDashboard() {
           />
         </Box>
 
-        {loading ? (
-          <Box textAlign="center" py={8}>
-            <CircularProgress />
-          </Box>
-        ) : error ? (
-          <Alert severity="error" sx={{ borderRadius: 2 }}>
-            {error}
-          </Alert>
-        ) : (
-          <Box>
-            <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-              <Assignment color="primary" />
-              <Typography variant="h6" fontWeight={700}>
-                รายการคำขอ
-              </Typography>
-            </Stack>
-            <RequestStatusTable requests={requests} />
-          </Box>
-        )}
+        {renderRequests()}
       </Container>
     </DashboardLayout>
   );

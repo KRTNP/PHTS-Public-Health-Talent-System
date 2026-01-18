@@ -26,9 +26,9 @@ const sarabun = Sarabun({
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="th">
       <body className={sarabun.className} style={{ margin: 0, padding: 0 }}>
