@@ -8,6 +8,7 @@
 
 import { RowDataPacket } from 'mysql2/promise';
 import { query, getConnection } from '../../config/database.js';
+import { delCache, getJsonCache, setJsonCache } from '../../utils/cache.js';
 
 /**
  * Issue types
@@ -82,6 +83,9 @@ export interface DataQualityDashboard {
   bySeverity: { severity: IssueSeverity; count: number }[];
   recentIssues: DataQualityIssue[];
 }
+
+const DASHBOARD_CACHE_KEY = 'data_quality:dashboard';
+const DASHBOARD_CACHE_TTL_SECONDS = 120;
 
 /**
  * Get all issues with filters
@@ -176,6 +180,11 @@ export async function getIssueSummary(): Promise<IssueSummary[]> {
  * Get dashboard data
  */
 export async function getDashboard(): Promise<DataQualityDashboard> {
+  const cached = await getJsonCache<DataQualityDashboard>(DASHBOARD_CACHE_KEY);
+  if (cached) {
+    return cached;
+  }
+
   // Get summary by type
   const byType = await getIssueSummary();
 
@@ -209,7 +218,7 @@ export async function getDashboard(): Promise<DataQualityDashboard> {
   // Get recent issues (last 10)
   const recentResult = await getIssues(undefined, undefined, undefined, undefined, 1, 10);
 
-  return {
+  const result = {
     totalIssues,
     criticalIssues,
     affectingCalculation,
@@ -217,6 +226,10 @@ export async function getDashboard(): Promise<DataQualityDashboard> {
     bySeverity,
     recentIssues: recentResult.issues,
   };
+
+  await setJsonCache(DASHBOARD_CACHE_KEY, result, DASHBOARD_CACHE_TTL_SECONDS);
+
+  return result;
 }
 
 /**
@@ -247,6 +260,8 @@ export async function createIssue(
     affectsCalc ? 1 : 0,
   ]);
 
+  await delCache(DASHBOARD_CACHE_KEY);
+
   return (result as any).insertId;
 }
 
@@ -276,6 +291,8 @@ export async function updateIssueStatus(
   params.push(issueId);
 
   await query(sql, params);
+
+  await delCache(DASHBOARD_CACHE_KEY);
 }
 
 /**
@@ -457,6 +474,8 @@ export async function autoResolveFixedIssues(): Promise<number> {
   } finally {
     connection.release();
   }
+
+  await delCache(DASHBOARD_CACHE_KEY);
 
   return resolved;
 }
