@@ -39,7 +39,7 @@ export function navigateBackOrHome(
   role?: string
 ) {
   const fallback = getDashboardHome(role);
-  if (typeof window !== 'undefined' && window.history.length > 1) {
+  if (globalThis.window !== undefined && globalThis.window.history.length > 1) {
     router.back();
   } else {
     router.push(fallback);
@@ -58,7 +58,7 @@ export function useRoleAwareBack() {
   );
 
   const goBack = useCallback(() => {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
+    if (globalThis.window !== undefined && globalThis.window.history.length > 1) {
       router.back();
     } else {
       router.push(fallbackPath);

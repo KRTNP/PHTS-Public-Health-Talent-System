@@ -22,22 +22,27 @@ export class AuthService {
       const { token, user } = response.data;
 
       // Store token and user info in localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('phts_token', token);
-        localStorage.setItem('phts_user', JSON.stringify(user));
+      if (globalThis.window !== undefined) {
+        globalThis.localStorage.setItem('phts_token', token);
+        globalThis.localStorage.setItem('phts_user', JSON.stringify(user));
       }
 
       return response.data;
     } catch (error: any) {
       // Normalize error response
       if (error.response?.data) {
-        throw error.response.data;
+        const apiError = new Error(error.response.data?.message || 'เข้าสู่ระบบไม่สำเร็จ');
+        (apiError as any).response = error.response;
+        (apiError as any).data = error.response.data;
+        throw apiError;
       }
-      throw {
+      const connectionError = new Error('เชื่อมต่อระบบไม่ได้ (Connection failed)');
+      (connectionError as any).data = {
         success: false,
         message: 'เชื่อมต่อระบบไม่ได้ (Connection failed)',
         error: error.message,
       };
+      throw connectionError;
     }
   }
 
@@ -45,10 +50,10 @@ export class AuthService {
    * Logout user - clear all auth data
    */
   static logout(): void {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('phts_token');
-      localStorage.removeItem('phts_user');
-      window.location.href = '/login';
+    if (globalThis.window !== undefined) {
+      globalThis.localStorage.removeItem('phts_token');
+      globalThis.localStorage.removeItem('phts_user');
+      globalThis.window.location.href = '/login';
     }
   }
 
@@ -56,8 +61,8 @@ export class AuthService {
    * Get current user from localStorage
    */
   static getCurrentUser(): UserProfile | null {
-    if (typeof window !== 'undefined') {
-      const userStr = localStorage.getItem('phts_user');
+    if (globalThis.window !== undefined) {
+      const userStr = globalThis.localStorage.getItem('phts_user');
       if (userStr) {
         try {
           return JSON.parse(userStr) as UserProfile;
@@ -73,8 +78,8 @@ export class AuthService {
    * Check if user is authenticated
    */
   static isAuthenticated(): boolean {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('phts_token');
+    if (globalThis.window !== undefined) {
+      const token = globalThis.localStorage.getItem('phts_token');
       return !!token;
     }
     return false;
@@ -91,9 +96,9 @@ export class AuthService {
    * Redirect to appropriate dashboard based on role
    */
   static redirectToDashboard(user: UserProfile): void {
-    if (typeof window !== 'undefined') {
+    if (globalThis.window !== undefined) {
       const route = this.getDashboardRoute(user);
-      window.location.href = route;
+      globalThis.window.location.href = route;
     }
   }
 }

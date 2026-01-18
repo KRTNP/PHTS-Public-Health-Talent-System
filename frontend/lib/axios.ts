@@ -21,8 +21,8 @@ export const apiClient = axios.create({
 // Request interceptor - Attach JWT token
 apiClient.interceptors.request.use(
   (config) => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('phts_token');
+    if (globalThis.window !== undefined) {
+      const token = globalThis.localStorage.getItem('phts_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -40,10 +40,10 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid - clear storage and redirect to login
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('phts_token');
-        localStorage.removeItem('phts_user');
-        window.location.href = '/login';
+      if (globalThis.window !== undefined) {
+        globalThis.localStorage.removeItem('phts_token');
+        globalThis.localStorage.removeItem('phts_user');
+        globalThis.window.location.href = '/login';
       }
     }
     return Promise.reject(error);
