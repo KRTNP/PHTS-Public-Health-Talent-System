@@ -62,7 +62,7 @@ const STEPS = [
   { label: 'ยืนยันและลงนาม', icon: <RateReview /> },
 ];
 
-interface RequestFormProps {
+type RequestFormProps = Readonly<{
   onSubmit: (
     data: CreateRequestDTO,
     files: File[],
@@ -72,11 +72,28 @@ interface RequestFormProps {
   onSaveDraft?: (data: CreateRequestDTO, files: File[]) => Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
-}
+}>;
+
+const getPersonnelTypeFromEmployeeType = (
+  employeeType: string | null | undefined,
+): PersonnelType => {
+  const emp = (employeeType || '').toLowerCase();
+  if (emp.includes('ราชการ') && !emp.includes('กระทรวงสาธารณสุข')) {
+    return PersonnelType.CIVIL_SERVANT;
+  }
+  if (emp.includes('พนักงานราชการ')) {
+    return PersonnelType.GOV_EMPLOYEE;
+  }
+  if (emp.includes('กระทรวงสาธารณสุข') || emp.includes('พกส')) {
+    return PersonnelType.PH_EMPLOYEE;
+  }
+  return PersonnelType.TEMP_EMPLOYEE;
+};
 
 export default function RequestForm({
   onSubmit,
   onSaveDraft,
+  onCancel,
   isSubmitting = false,
 }: RequestFormProps) {
   const theme = useTheme();
@@ -131,26 +148,21 @@ export default function RequestForm({
   const loadUser = useCallback(async () => {
     try {
       const user = AuthService.getCurrentUser();
-      if (user) {
-        setUserInfo(user);
-        // Auto-fill logic
-        if (user.department) setDepartmentGroup(user.department);
-        if (user.position_number) setPositionNumber(user.position_number);
-        if (user.mission_group) setMainDuty(user.mission_group);
-        if (user.start_current_position)
-          setEffectiveDate(formatDateForInput(user.start_current_position));
+      if (!user) return;
 
-        if (!personnelType) {
-          // Logic เลือกประเภทบุคลากรอัตโนมัติ (คงเดิม)
-          const emp = (user.employee_type || '').toLowerCase();
-          if (emp.includes('ราชการ') && !emp.includes('กระทรวงสาธารณสุข'))
-            setPersonnelType(PersonnelType.CIVIL_SERVANT);
-          else if (emp.includes('พนักงานราชการ')) setPersonnelType(PersonnelType.GOV_EMPLOYEE);
-          else if (emp.includes('กระทรวงสาธารณสุข') || emp.includes('พกส'))
-            setPersonnelType(PersonnelType.PH_EMPLOYEE);
-          else setPersonnelType(PersonnelType.TEMP_EMPLOYEE);
-        }
-        if (!requestType) setRequestType(Object.keys(REQUEST_TYPE_LABELS)[0] as RequestType);
+      setUserInfo(user);
+      // Auto-fill logic
+      if (user.department) setDepartmentGroup(user.department);
+      if (user.position_number) setPositionNumber(user.position_number);
+      if (user.mission_group) setMainDuty(user.mission_group);
+      if (user.start_current_position)
+        setEffectiveDate(formatDateForInput(user.start_current_position));
+
+      if (!personnelType) {
+        setPersonnelType(getPersonnelTypeFromEmployeeType(user.employee_type));
+      }
+      if (!requestType) {
+        setRequestType(Object.keys(REQUEST_TYPE_LABELS)[0] as RequestType);
       }
     } catch (err) {
       console.error(err);
@@ -193,6 +205,16 @@ export default function RequestForm({
     setWorkAttributes((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const scrollToTop = () => {
+    if (globalThis.window !== undefined) {
+      globalThis.window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleRemoveAttachment = useCallback((index: number) => {
+    setFiles((prev) => prev.filter((_, idx) => idx !== index));
+  }, []);
+
   const validateStep = (step: number): boolean => {
     setError(null);
     if (step === 0 && (!personnelType || !requestType)) {
@@ -204,7 +226,7 @@ export default function RequestForm({
         setError('กรุณากรอกข้อมูลให้ครบถ้วน');
         return false;
       }
-      if (!Object.values(workAttributes).some((v) => v)) {
+      if (!Object.values(workAttributes).some(Boolean)) {
         setError('กรุณาเลือกมาตรฐานด้านตำแหน่งอย่างน้อย 1 ข้อ');
         return false;
       }
@@ -223,12 +245,12 @@ export default function RequestForm({
   const handleNext = () => {
     if (validateStep(activeStep)) {
       setActiveStep((p) => p + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollToTop();
     }
   };
   const handleBack = () => {
     setActiveStep((p) => p - 1);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
   const handleOpenReview = () => {
     if (validateStep(4)) setOpenReviewDialog(true);
@@ -245,7 +267,8 @@ export default function RequestForm({
         work_attributes: workAttributes,
         request_type: requestType as RequestType,
         requested_amount:
-          classification?.rate_amount ?? parseFloat(requestedAmount.replace(/,/g, '') || '0'),
+          classification?.rate_amount ??
+          Number.parseFloat(requestedAmount.split(',').join('') || '0'),
         effective_date: effectiveDate,
       };
 
@@ -406,7 +429,7 @@ export default function RequestForm({
                     variant="outlined"
                     value={positionNumber}
                     onChange={(e) => setPositionNumber(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                   <TextField
                     label="กลุ่มงาน/แผนก"
@@ -415,7 +438,7 @@ export default function RequestForm({
                     variant="outlined"
                     value={departmentGroup}
                     onChange={(e) => setDepartmentGroup(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                   <TextField
                     label="ปฏิบัติหน้าที่หลัก"
@@ -424,7 +447,7 @@ export default function RequestForm({
                     variant="outlined"
                     value={mainDuty}
                     onChange={(e) => setMainDuty(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Box>
               </CardContent>
@@ -516,7 +539,7 @@ export default function RequestForm({
               value={effectiveDate}
               onChange={(e) => setEffectiveDate(e.target.value)}
               disabled={loadingClass}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
           </Stack>
         );
@@ -549,7 +572,7 @@ export default function RequestForm({
               <FileUploadArea files={files} onChange={setFiles} maxFiles={5} showList={false} />
               <FilePreviewList
                 files={files}
-                onRemove={(i) => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                onRemove={handleRemoveAttachment}
               />
             </Box>
           </Box>
@@ -598,7 +621,7 @@ export default function RequestForm({
                 }}
               >
                 <SignaturePad
-                  width={isMobile ? window.innerWidth - 80 : 450}
+                  width={isMobile && globalThis.window !== undefined ? globalThis.window.innerWidth - 80 : 450}
                   onChange={setSignatureFile}
                   onSignatureChange={setHasSignature}
                   label="เซ็นชื่อลงในช่องว่าง หรือเลือกใช้ลายเซ็นที่มีอยู่"
@@ -643,7 +666,7 @@ export default function RequestForm({
           <Box display="flex" justifyContent="space-between">
             <Typography color="text.secondary">ยอดเงิน</Typography>
             <Typography fontWeight={600}>
-              {parseFloat(requestedAmount).toLocaleString()} บาท
+              {Number.parseFloat(requestedAmount.split(',').join('') || '0').toLocaleString()} บาท
             </Typography>
           </Box>
         </Stack>
@@ -700,16 +723,23 @@ export default function RequestForm({
         pt={2}
         borderTop="1px dashed #eee"
       >
-        <Button
-          variant="text"
-          color="inherit"
-          disabled={activeStep === 0 || isSubmitting}
-          onClick={handleBack}
-          startIcon={<NavigateBefore />}
-          sx={{ visibility: activeStep === 0 ? 'hidden' : 'visible' }}
-        >
-          ย้อนกลับ
-        </Button>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="text"
+            color="inherit"
+            disabled={activeStep === 0 || isSubmitting}
+            onClick={handleBack}
+            startIcon={<NavigateBefore />}
+            sx={{ visibility: activeStep === 0 ? 'hidden' : 'visible' }}
+          >
+            ย้อนกลับ
+          </Button>
+          {onCancel && (
+            <Button variant="text" color="inherit" disabled={isSubmitting} onClick={onCancel}>
+              ยกเลิก
+            </Button>
+          )}
+        </Stack>
         {activeStep === STEPS.length - 1 ? (
           <Stack direction="row" spacing={2}>
             {onSaveDraft && (

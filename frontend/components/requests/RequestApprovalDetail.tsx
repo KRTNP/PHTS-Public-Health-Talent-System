@@ -40,11 +40,26 @@ import { RequestWithDetails, WORK_ATTRIBUTE_LABELS, RequestStatus } from '@/type
 import { AuthService } from '@/lib/api/authApi';
 import { ROLE_ROUTES, UserRole } from '@/types/auth';
 
-interface RequestApprovalDetailProps {
+type RequestApprovalDetailProps = Readonly<{
   requiredRole: UserRole;
   backPath: string;
   pageTitle: string;
-}
+}>;
+
+const renderActionIcon = (actionType?: string) => {
+  switch (actionType) {
+    case 'APPROVE':
+      return <CheckCircle color="success" />;
+    case 'REJECT':
+      return <Cancel color="error" />;
+    case 'RETURN':
+      return <Reply color="warning" />;
+    default:
+      return (
+        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'grey.400', ml: 0.5 }} />
+      );
+  }
+};
 
 export default function RequestApprovalDetail({
   requiredRole,
@@ -246,15 +261,12 @@ export default function RequestApprovalDetail({
                 </Stack>
                 <Stepper orientation="vertical" activeStep={-1}>
                   {request.actions && request.actions.length > 0 ? (
-                    request.actions.map((action, index) => (
-                      <Step key={index} expanded active>
+                    request.actions.map((action) => {
+                      const actionType = action.action || action.action_type;
+                      return (
+                      <Step key={action.action_id} expanded active>
                         <StepLabel
-                          icon={
-                            action.action === 'APPROVE' ? <CheckCircle color="success" /> :
-                            action.action === 'REJECT' ? <Cancel color="error" /> :
-                            action.action === 'RETURN' ? <Reply color="warning" /> :
-                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'grey.400', ml: 0.5 }} />
-                          }
+                          icon={renderActionIcon(actionType)}
                         >
                           <Typography variant="subtitle2" fontWeight={600}>
                             {action.actor?.first_name} {action.actor?.last_name} ({action.actor?.role})
@@ -269,7 +281,8 @@ export default function RequestApprovalDetail({
                           </Typography>
                         </StepContent>
                       </Step>
-                    ))
+                      );
+                    })
                   ) : (
                     <Typography variant="body2" color="text.secondary">
                       ยังไม่มีข้อมูลประวัติการดำเนินงาน
@@ -330,7 +343,12 @@ export default function RequestApprovalDetail({
   );
 }
 
-function InfoItem({ label, value }: { label: string; value: any }) {
+type InfoItemProps = Readonly<{
+  label: string;
+  value: any;
+}>;
+
+function InfoItem({ label, value }: InfoItemProps) {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">{label}</Typography>

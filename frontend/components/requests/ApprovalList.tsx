@@ -35,7 +35,7 @@ import ApprovalDialog from './ApprovalDialog';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 
-interface ApprovalListProps {
+type ApprovalListProps = Readonly<{
   requests: RequestWithDetails[];
   loading?: boolean;
   error?: string | null;
@@ -47,7 +47,7 @@ interface ApprovalListProps {
   basePath?: string;
   enableBatchSelection?: boolean;
   onBatchApprove?: (ids: number[]) => Promise<void>;
-}
+}>;
 
 export default function ApprovalList({
   requests,
@@ -82,22 +82,11 @@ export default function ApprovalList({
   };
 
   const handleClick = (id: number) => {
-    const selectedIndex = selectedIds.indexOf(id);
-    let newSelected: number[] = [];
-
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selectedIds, id);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selectedIds.slice(1));
-    } else if (selectedIndex === selectedIds.length - 1) {
-      newSelected = newSelected.concat(selectedIds.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selectedIds.slice(0, selectedIndex),
-        selectedIds.slice(selectedIndex + 1)
-      );
+    if (selectedIds.includes(id)) {
+      setSelectedIds((prev) => prev.filter((value) => value !== id));
+      return;
     }
-    setSelectedIds(newSelected);
+    setSelectedIds((prev) => [...prev, id]);
   };
 
   const handleBatchApproveClick = async () => {
@@ -112,7 +101,7 @@ export default function ApprovalList({
     }
   };
 
-  const isSelected = (id: number) => selectedIds.indexOf(id) !== -1;
+  const isSelected = (id: number) => selectedIds.includes(id);
 
   const handleOpenDialog = (request: RequestWithDetails, action: 'APPROVE' | 'REJECT' | 'RETURN') => {
     setSelectedRequest(request);

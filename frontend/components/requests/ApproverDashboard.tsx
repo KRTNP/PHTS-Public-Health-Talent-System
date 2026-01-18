@@ -48,9 +48,9 @@ import { AuthService } from '@/lib/api/authApi';
 import { ROLE_ROUTES, UserRole } from '@/types/auth';
 import StatCard from '@/components/dashboard/StatCard';
 
-interface ApproverDashboardProps {
+type ApproverDashboardProps = Readonly<{
   allowBatch?: boolean;
-}
+}>;
 
 export default function ApproverDashboard({ allowBatch = false }: ApproverDashboardProps) {
   const router = useRouter();
@@ -138,22 +138,11 @@ export default function ApproverDashboard({ allowBatch = false }: ApproverDashbo
   };
 
   const handleSelectOne = (id: number) => {
-    const selectedIndex = selectedIds.indexOf(id);
-    let newSelected: number[] = [];
-
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selectedIds, id);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selectedIds.slice(1));
-    } else if (selectedIndex === selectedIds.length - 1) {
-      newSelected = newSelected.concat(selectedIds.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selectedIds.slice(0, selectedIndex),
-        selectedIds.slice(selectedIndex + 1),
-      );
+    if (selectedIds.includes(id)) {
+      setSelectedIds((prev) => prev.filter((value) => value !== id));
+      return;
     }
-    setSelectedIds(newSelected);
+    setSelectedIds((prev) => [...prev, id]);
   };
 
   const handleBatchConfirm = async () => {
@@ -256,7 +245,15 @@ export default function ApproverDashboard({ allowBatch = false }: ApproverDashbo
             placeholder="ค้นหาชื่อ หรือ เลขที่เอกสาร..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+              },
+            }}
             sx={{ width: { xs: '100%', md: 300 }, bgcolor: 'background.paper', borderRadius: 1 }}
           />
         </Stack>
@@ -298,7 +295,7 @@ export default function ApproverDashboard({ allowBatch = false }: ApproverDashbo
                 </TableRow>
               ) : (
                 filteredRequests.map((req) => {
-                  const isSelected = selectedIds.indexOf(req.request_id) !== -1;
+                  const isSelected = selectedIds.includes(req.request_id);
                   return (
                     <TableRow key={req.request_id} hover selected={isSelected}>
                       {allowBatch && (

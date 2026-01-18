@@ -11,12 +11,12 @@ import {
 } from '@mui/material';
 import { CheckCircle, Cancel, Reply } from '@mui/icons-material';
 
-interface ApprovalDialogProps {
+type ApprovalDialogProps = Readonly<{
   open: boolean;
   type: 'APPROVE' | 'REJECT' | 'RETURN';
   onClose: () => void;
   onConfirm: (comment: string) => void;
-}
+}>;
 
 export default function ApprovalDialog({ open, type, onClose, onConfirm }: ApprovalDialogProps) {
   const [comment, setComment] = useState('');

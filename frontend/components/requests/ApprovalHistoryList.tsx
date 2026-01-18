@@ -98,6 +98,70 @@ export default function ApprovalHistoryList() {
     });
   }, [data, searchTerm, filterStatus]);
 
+  const searchInputProps = {
+    startAdornment: (
+      <InputAdornment position="start">
+        <Search color="action" />
+      </InputAdornment>
+    ),
+  };
+
+  const renderTableBody = () => {
+    if (loading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} align="center">
+            <CircularProgress />
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (filteredData.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+            ไม่พบประวัติการดำเนินการ
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return filteredData.map((row) => (
+      <TableRow key={row.request_id} hover>
+        <TableCell>
+          {row.updated_at ? new Date(row.updated_at).toLocaleDateString('th-TH') : '-'}
+        </TableCell>
+        <TableCell>
+          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+            {row.request_no}
+          </Typography>
+        </TableCell>
+        <TableCell>
+          <Typography variant="subtitle2">
+            {row.requester?.first_name} {row.requester?.last_name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {row.requester?.position}
+          </Typography>
+        </TableCell>
+        <TableCell>{row.request_type}</TableCell>
+        <TableCell>
+          <StatusChip status={row.status ?? ''} />
+        </TableCell>
+        <TableCell align="center">
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={() => router.push(`${detailBasePath}/requests/${row.request_id}`)}
+          >
+            <Visibility fontSize="small" />
+          </IconButton>
+        </TableCell>
+      </TableRow>
+    ));
+  };
+
   return (
     <Box>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3 }}>
@@ -107,13 +171,7 @@ export default function ApprovalHistoryList() {
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
           sx={{ flexGrow: 1, bgcolor: 'background.paper', borderRadius: 1 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search color="action" />
-              </InputAdornment>
-            ),
-          }}
+          slotProps={{ input: searchInputProps }}
         />
 
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -144,57 +202,7 @@ export default function ApprovalHistoryList() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : filteredData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                    ไม่พบประวัติการดำเนินการ
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredData.map((row) => (
-                  <TableRow key={row.request_id} hover>
-                    <TableCell>
-                      {row.updated_at
-                        ? new Date(row.updated_at).toLocaleDateString('th-TH')
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {row.request_no}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2">
-                        {row.requester?.first_name} {row.requester?.last_name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {row.requester?.position}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{row.request_type}</TableCell>
-                    <TableCell>
-                      <StatusChip status={row.status ?? ''} />
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() =>
-                          router.push(`${detailBasePath}/requests/${row.request_id}`)
-                        }
-                      >
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              {renderTableBody()}
             </TableBody>
           </Table>
         </TableContainer>

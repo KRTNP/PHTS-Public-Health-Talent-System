@@ -22,14 +22,14 @@ import {
   Image as ImageIcon,
 } from '@mui/icons-material';
 
-interface FileUploadAreaProps {
+type FileUploadAreaProps = Readonly<{
   files: File[];
   onChange: (files: File[]) => void;
   maxFiles?: number;
   maxSizeMB?: number;
   acceptedTypes?: string[];
   showList?: boolean;
-}
+}>;
 
 const DEFAULT_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
 const DEFAULT_MAX_SIZE_MB = 5;
@@ -132,6 +132,8 @@ export default function FileUploadArea({
     return <InsertDriveFile sx={{ fontSize: 40, color: 'error.main' }} />;
   };
 
+  const getFileKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
@@ -201,7 +203,7 @@ export default function FileUploadArea({
           </Typography>
           {files.map((file, index) => (
             <Paper
-              key={index}
+              key={getFileKey(file)}
               variant="outlined"
               sx={{
                 p: 2,
