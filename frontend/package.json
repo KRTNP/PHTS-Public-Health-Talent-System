@@ -13,9 +13,9 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.6",
+    "@mui/lab": "^7.0.1-beta.20",
     "@mui/material": "^7.3.6",
     "@mui/material-nextjs": "^7.3.6",
-    "@mui/lab": "^7.0.1-beta.20",
     "@popperjs/core": "^2.11.8",
     "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",
+    "baseline-browser-mapping": "^2.9.15",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.1.1"
   }
