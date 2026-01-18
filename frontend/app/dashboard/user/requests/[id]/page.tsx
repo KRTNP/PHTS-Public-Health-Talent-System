@@ -17,8 +17,10 @@ import {
 } from '@mui/material';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import StatusChip from '@/components/common/StatusChip';
-import FilePreviewList from '@/components/common/FilePreviewList';
 import BackButton from '@/components/common/BackButton';
+import RequestInfoRow from '@/components/requests/RequestInfoRow';
+import RequestAttachmentsPanel from '@/components/requests/RequestAttachmentsPanel';
+import RequestHistoryPanel from '@/components/requests/RequestHistoryPanel';
 import * as requestApi from '@/lib/api/requestApi';
 import {
   RequestWithDetails,
@@ -28,6 +30,9 @@ import {
 } from '@/types/request.types';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
+
+const getRequestLabel = (request: RequestWithDetails) =>
+  request.request_no || `#${request.request_id}`;
 
 export default function RequestDetailPage() {
   const params = useParams();
@@ -74,32 +79,8 @@ export default function RequestDetailPage() {
     (request.status === RequestStatus.RETURNED || request.status === RequestStatus.REJECTED) &&
     lastAction?.comment;
 
-  const InfoRow = ({
-    label,
-    value,
-    highlight = false,
-  }: {
-    label: string;
-    value: React.ReactNode;
-    highlight?: boolean;
-  }) => (
-    <Box mb={2}>
-      <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-        {label}
-      </Typography>
-      <Typography
-        variant="body1"
-        fontWeight={highlight ? 700 : 500}
-        color={highlight ? 'primary.main' : 'text.primary'}
-        sx={{ wordBreak: 'break-word' }}
-      >
-        {value || '-'}
-      </Typography>
-    </Box>
-  );
-
   return (
-    <DashboardLayout title={`รายละเอียดคำขอ: ${request.request_no || `#${request.request_id}`}`}>
+    <DashboardLayout title={`รายละเอียดคำขอ: ${getRequestLabel(request)}`}>
       <Container maxWidth="lg" sx={{ py: 3 }}>
         <Box mb={3}>
           <BackButton to="/dashboard/user" label="กลับไปหน้าหลัก" />
@@ -154,12 +135,12 @@ export default function RequestDetailPage() {
                   gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0,1fr))' },
                 }}
               >
-                <InfoRow label="ประเภทบุคลากร" value={PERSONNEL_TYPE_LABELS[request.personnel_type]} />
-                <InfoRow label="ประเภทคำขอ" value={REQUEST_TYPE_LABELS[request.request_type]} />
-                <InfoRow label="ตำแหน่งเลขที่" value={request.position_number} />
-                <InfoRow label="สังกัด/กลุ่มงาน" value={request.department_group} />
+                <RequestInfoRow label="ประเภทบุคลากร" value={PERSONNEL_TYPE_LABELS[request.personnel_type]} />
+                <RequestInfoRow label="ประเภทคำขอ" value={REQUEST_TYPE_LABELS[request.request_type]} />
+                <RequestInfoRow label="ตำแหน่งเลขที่" value={request.position_number} />
+                <RequestInfoRow label="สังกัด/กลุ่มงาน" value={request.department_group} />
                 <Box sx={{ gridColumn: '1 / -1' }}>
-                  <InfoRow label="ปฏิบัติหน้าที่หลัก" value={request.main_duty} />
+                  <RequestInfoRow label="ปฏิบัติหน้าที่หลัก" value={request.main_duty} />
                 </Box>
               </Box>
 
@@ -171,92 +152,24 @@ export default function RequestDetailPage() {
                     gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0,1fr))' },
                   }}
                 >
-                  <InfoRow
+                  <RequestInfoRow
                     label="ยอดเงินที่ขอ"
                     value={request.requested_amount ? `${request.requested_amount.toLocaleString()} บาท` : '-'}
                     highlight
                   />
-                  <InfoRow label="มีผลตั้งแต่วันที่" value={formatDate(request.effective_date, false)} />
+                  <RequestInfoRow label="มีผลตั้งแต่วันที่" value={formatDate(request.effective_date, false)} />
                 </Box>
               </Box>
             </Paper>
 
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
-              <Typography variant="h6" fontWeight={700} gutterBottom>
-                เอกสารแนบ
-              </Typography>
-              {request.attachments && request.attachments.length > 0 ? (
-                <FilePreviewList
-                  files={request.attachments.map((f) => ({
-                    name: (f as any).original_filename || f.file_name,
-                    size: f.file_size,
-                    type: f.mime_type,
-                  })) as any}
-                  readOnly
-                />
-              ) : (
-                <Typography color="text.secondary">ไม่มีเอกสารแนบ</Typography>
-              )}
-            </Paper>
+            <RequestAttachmentsPanel
+              attachments={request.attachments}
+              paperSx={{ p: { xs: 2, md: 3 } }}
+            />
           </Box>
 
           <Box>
-            <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, bgcolor: '#fafafa' }}>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                ประวัติการดำเนินงาน
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Stack spacing={3}>
-                {request.actions && request.actions.length > 0 ? (
-                  request.actions.map((action, index) => (
-                    <Box key={index} position="relative" pl={2} sx={{ borderLeft: '2px solid #e0e0e0' }}>
-                      <Box
-                        position="absolute"
-                        left="-5px"
-                        top="0"
-                        width="8px"
-                        height="8px"
-                        borderRadius="50%"
-                        bgcolor="primary.main"
-                      />
-                      <Typography variant="body2" fontWeight={700} color="text.primary">
-                        {action.action}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
-                        {formatDate(action.action_date, true)}
-                      </Typography>
-                      <Typography variant="body2" fontSize="0.85rem" fontWeight={500}>
-                        โดย:{' '}
-                        {action.actor?.first_name ? (
-                          <>
-                            {action.actor.first_name} {action.actor.last_name || ''}
-                            {action.actor.role ? (
-                              <Typography component="span" variant="caption" color="text.secondary">
-                                {' '}({action.actor.role})
-                              </Typography>
-                            ) : null}
-                          </>
-                        ) : (
-                          <span style={{ color: '#666' }}>{action.actor?.role}</span>
-                        )}
-                      </Typography>
-                      {action.comment && (
-                        <Box mt={1} p={1.5} bgcolor="#fff" border="1px solid #eee" borderRadius={2}>
-                          <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                            &quot;{action.comment}&quot;
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  ))
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    ยังไม่มีประวัติการดำเนินงาน
-                  </Typography>
-                )}
-              </Stack>
-            </Paper>
+            <RequestHistoryPanel actions={request.actions} formatDate={formatDate} />
           </Box>
         </Box>
       </Container>

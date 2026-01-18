@@ -20,8 +20,10 @@ import {
 import { CheckCircle, Cancel, Undo, Description } from '@mui/icons-material';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import StatusChip from '@/components/common/StatusChip';
-import FilePreviewList from '@/components/common/FilePreviewList';
 import BackButton from '@/components/common/BackButton';
+import RequestInfoRow from '@/components/requests/RequestInfoRow';
+import RequestAttachmentsPanel from '@/components/requests/RequestAttachmentsPanel';
+import RequestHistoryPanel from '@/components/requests/RequestHistoryPanel';
 import * as requestApi from '@/lib/api/requestApi';
 import { RequestWithDetails, PERSONNEL_TYPE_LABELS, WORK_ATTRIBUTE_LABELS } from '@/types/request.types';
 import { format } from 'date-fns';
@@ -29,6 +31,9 @@ import { th } from 'date-fns/locale';
 import ApprovalDialog from '@/components/requests/ApprovalDialog';
 import { AuthService } from '@/lib/api/authApi';
 import { ROLE_ROUTES, UserRole } from '@/types/auth';
+
+const getRequestLabel = (request: RequestWithDetails) =>
+  request.request_no || `#${request.request_id}`;
 
 export default function OfficerRequestDetailPage() {
   const params = useParams();
@@ -114,31 +119,8 @@ export default function OfficerRequestDetailPage() {
     );
   if (error || !request) return <Alert severity="error">{error || 'ไม่พบข้อมูล'}</Alert>;
 
-  const InfoRow = ({
-    label,
-    value,
-    highlight = false,
-  }: {
-    label: string;
-    value: React.ReactNode;
-    highlight?: boolean;
-  }) => (
-    <Box mb={2}>
-      <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-        {label}
-      </Typography>
-      <Typography
-        variant="body1"
-        fontWeight={highlight ? 700 : 500}
-        color={highlight ? 'primary.main' : 'text.primary'}
-      >
-        {value || '-'}
-      </Typography>
-    </Box>
-  );
-
   return (
-    <DashboardLayout title={`ตรวจสอบความถูกต้อง: ${request.request_no || `#${request.request_id}`}`}>
+    <DashboardLayout title={`ตรวจสอบความถูกต้อง: ${getRequestLabel(request)}`}>
       <Container maxWidth="lg" sx={{ py: 3, pb: 10 }}>
         <Stack direction="row" alignItems="center" spacing={2} mb={3}>
           <BackButton to="/dashboard/officer" />
@@ -173,15 +155,15 @@ export default function OfficerRequestDetailPage() {
                   gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0,1fr))' },
                 }}
               >
-                <InfoRow
+                <RequestInfoRow
                   label="ผู้ยื่นคำขอ"
                   value={`${request.requester?.first_name || ''} ${request.requester?.last_name || ''}`}
                 />
-                <InfoRow label="ตำแหน่งปัจจุบัน" value={request.requester?.position} />
-                <InfoRow label="ประเภทบุคลากร" value={PERSONNEL_TYPE_LABELS[request.personnel_type]} />
-                <InfoRow label="สังกัด/กลุ่มงาน" value={request.department_group} />
+                <RequestInfoRow label="ตำแหน่งปัจจุบัน" value={request.requester?.position} />
+                <RequestInfoRow label="ประเภทบุคลากร" value={PERSONNEL_TYPE_LABELS[request.personnel_type]} />
+                <RequestInfoRow label="สังกัด/กลุ่มงาน" value={request.department_group} />
                 <Box sx={{ gridColumn: { xs: '1 / -1' } }}>
-                  <InfoRow label="ปฏิบัติหน้าที่หลัก" value={request.main_duty} />
+                  <RequestInfoRow label="ปฏิบัติหน้าที่หลัก" value={request.main_duty} />
                 </Box>
               </Box>
 
@@ -211,12 +193,12 @@ export default function OfficerRequestDetailPage() {
                     gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0,1fr))' },
                   }}
                 >
-                  <InfoRow
+                  <RequestInfoRow
                     label="ยอดเงินที่ขอเบิก"
                     value={request.requested_amount ? `${request.requested_amount.toLocaleString()} บาท` : '-'}
                     highlight
                   />
-                  <InfoRow
+                  <RequestInfoRow
                     label="วันที่มีผลบังคับใช้"
                     value={formatDate(request.effective_date, false)}
                   />
@@ -224,68 +206,16 @@ export default function OfficerRequestDetailPage() {
               </Box>
             </Paper>
 
-            <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="h6" fontWeight={700} gutterBottom>
-                เอกสารแนบ
-              </Typography>
-              {request.attachments?.length ? (
-                <FilePreviewList
-                  files={request.attachments.map((f) => ({
-                    name: f.original_filename || f.file_name || '',
-                    size: f.file_size,
-                    type: f.mime_type,
-                  })) as any}
-                  readOnly
-                />
-              ) : (
-                <Typography color="text.secondary">ไม่มีเอกสารแนบ</Typography>
-              )}
-            </Paper>
+            <RequestAttachmentsPanel attachments={request.attachments} />
           </Box>
 
           <Box>
-            <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, bgcolor: '#fafafa' }}>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                ประวัติการดำเนินงาน
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Stack spacing={3}>
-                {request.actions && request.actions.length > 0 ? (
-                  request.actions.map((action, index) => (
-                    <Box key={index} position="relative" pl={2} sx={{ borderLeft: '2px solid #e0e0e0' }}>
-                      <Box
-                        position="absolute"
-                        left="-5px"
-                        top="0"
-                        width="8px"
-                        height="8px"
-                        borderRadius="50%"
-                        bgcolor="primary.main"
-                      />
-                      <Typography variant="body2" fontWeight={600}>
-                        {action.action || action.action_type}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        {formatDate(action.action_date || action.created_at, true)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        โดย: {action.actor?.role || '-'}{' '}
-                        {action.actor?.citizen_id ? `(${action.actor.citizen_id})` : ''}
-                      </Typography>
-                      {action.comment && (
-                        <Typography variant="caption" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
-                          &quot;{action.comment}&quot;
-                        </Typography>
-                      )}
-                    </Box>
-                  ))
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    ยังไม่มีข้อมูลประวัติการดำเนินงาน
-                  </Typography>
-                )}
-              </Stack>
-            </Paper>
+            <RequestHistoryPanel
+              actions={request.actions}
+              formatDate={formatDate}
+              emptyLabel="ยังไม่มีข้อมูลประวัติการดำเนินงาน"
+              actorVariant="officer"
+            />
           </Box>
         </Box>
       </Container>
