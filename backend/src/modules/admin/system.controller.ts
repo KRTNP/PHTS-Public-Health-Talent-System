@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../../config/database.js';
+import { clearScopeCache } from '../request/scope/scope.service.js';
 import { UserRole } from '../../types/auth.js';
 import { SyncService } from '../../services/syncService.js';
 import { runBackupJob } from '../../services/backupService.js';
@@ -39,6 +40,7 @@ export const updateUserRole = async (req: Request, res: Response) => {
       is_active,
       userId,
     ]);
+    clearScopeCache(Number(userId));
     res.json({ success: true, message: 'User role updated successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
