@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2/promise';
 import db from '../config/database.js';
 import redis from '../config/redis.js';
 import { assignRoles } from './roleAssignmentService.js';
+import { clearScopeCache } from '../modules/request/scope/scope.service.js';
 
 const SALT_ROUNDS = 10;
 const SYNC_LOCK_KEY = 'system:sync:lock';
@@ -105,12 +106,13 @@ export class SyncService {
       // 1. Users
       console.log('[SyncService] Processing users...');
       const [existingUsers] = await conn.query<RowDataPacket[]>(
-        'SELECT citizen_id, role, is_active, password_hash FROM users',
+        'SELECT id, citizen_id, role, is_active, password_hash FROM users',
       );
       const userMap = new Map(existingUsers.map((u) => [u.citizen_id, u]));
+      const userIdMap = new Map(existingUsers.map((u) => [u.citizen_id, u.id]));
 
       const [viewUsers] = await conn.query<RowDataPacket[]>(
-        'SELECT * FROM users_sync_view',
+        'SELECT * FROM vw_hrms_users_sync',
       );
 
       for (const vUser of viewUsers) {
@@ -162,21 +164,23 @@ export class SyncService {
       // 2. Employees
       console.log('[SyncService] Processing employees...');
       const [existingEmps] = await conn.query<RowDataPacket[]>(
-        'SELECT citizen_id, position_name, level, department FROM emp_profiles',
+        'SELECT citizen_id, position_name, level, department, special_position FROM emp_profiles',
       );
       const empMap = new Map(existingEmps.map((e) => [e.citizen_id, e]));
 
       const [viewEmps] = await conn.query<RowDataPacket[]>(
-        'SELECT * FROM employees',
+        'SELECT * FROM vw_hrms_employees',
       );
 
       for (const vEmp of viewEmps) {
         const dbEmp = empMap.get(vEmp.citizen_id);
+        const specialChanged = dbEmp && isChanged(dbEmp.special_position, vEmp.special_position);
         if (
           dbEmp &&
           !isChanged(dbEmp.position_name, vEmp.position_name) &&
           !isChanged(dbEmp.level, vEmp.level) &&
-          !isChanged(dbEmp.department, vEmp.department)
+          !isChanged(dbEmp.department, vEmp.department) &&
+          !specialChanged
         ) {
           stats.employees.skipped++;
           continue;
@@ -223,6 +227,11 @@ export class SyncService {
           ],
         );
         stats.employees.upserted++;
+
+        const userId = userIdMap.get(vEmp.citizen_id);
+        if (specialChanged && userId !== undefined) {
+          clearScopeCache(userId);
+        }
       }
 
       // 2.5 Support Employees (Contract/Government employees)
@@ -237,12 +246,13 @@ export class SyncService {
       const supEmpMap = new Map(existingSupEmps.map((e) => [e.citizen_id, e]));
 
       const [viewSupEmps] = await conn.query<RowDataPacket[]>(
-        'SELECT * FROM support_employees',
+        'SELECT * FROM vw_hrms_support_staff',
       );
 
       for (const vSup of viewSupEmps) {
         const dbSup = supEmpMap.get(vSup.citizen_id);
 
+        const supportSpecialChanged = dbSup && isChanged(dbSup.special_position, vSup.special_position);
         if (
           dbSup &&
           !isChanged(dbSup.title, vSup.title) &&
@@ -250,7 +260,7 @@ export class SyncService {
           !isChanged(dbSup.last_name, vSup.last_name) &&
           !isChanged(dbSup.position_name, vSup.position_name) &&
           !isChanged(dbSup.level, vSup.level) &&
-          !isChanged(dbSup.special_position, vSup.special_position) &&
+          !supportSpecialChanged &&
           !isChanged(dbSup.emp_type, vSup.employee_type) &&
           !isChanged(dbSup.department, vSup.department) &&
           Number(dbSup.is_currently_active) === Number(vSup.is_currently_active)
@@ -292,6 +302,11 @@ export class SyncService {
           ],
         );
         stats.support_employees.upserted++;
+
+        const userId = userIdMap.get(vSup.citizen_id);
+        if (supportSpecialChanged && userId !== undefined) {
+          clearScopeCache(userId);
+        }
       }
 
       // 3. Signatures
@@ -303,8 +318,8 @@ export class SyncService {
 
       const [viewSigs] = await conn.query<RowDataPacket[]>(
         `
-        SELECT u.id as user_id, s.signature_blob 
-        FROM employee_signatures s 
+        SELECT u.id as user_id, s.signature_blob
+        FROM vw_hrms_signatures s
         JOIN users u ON CONVERT(s.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
       `,
       );
@@ -328,7 +343,7 @@ export class SyncService {
       await conn.query(`
         INSERT INTO emp_licenses (citizen_id, license_no, valid_from, valid_until, status, synced_at)
         SELECT l.citizen_id, l.license_no, l.valid_from, l.valid_until, l.status, NOW()
-        FROM employee_licenses l
+        FROM vw_hrms_licenses l
         JOIN users u ON CONVERT(l.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
         ON DUPLICATE KEY UPDATE valid_from=VALUES(valid_from), valid_until=VALUES(valid_until), status=VALUES(status), synced_at=NOW()
       `);
@@ -336,7 +351,7 @@ export class SyncService {
       const [viewQuotas] = await conn.query<RowDataPacket[]>(
         `
         SELECT q.citizen_id, q.fiscal_year, q.total_quota
-        FROM leave_quotas q
+        FROM vw_hrms_leave_quotas q
         JOIN users u ON CONVERT(q.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
       `,
       );
@@ -361,7 +376,7 @@ export class SyncService {
 
       const [viewLeaves] = await conn.query<RowDataPacket[]>(
         `
-        SELECT lr.* FROM leave_requests lr
+        SELECT lr.* FROM vw_hrms_leave_requests lr
         JOIN users u ON CONVERT(lr.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
       `,
       );
@@ -417,7 +432,7 @@ export class SyncService {
       await conn.query(`
         INSERT INTO emp_movements (citizen_id, movement_type, effective_date, remark, synced_at)
         SELECT m.citizen_id, m.movement_type, m.effective_date, m.remark, NOW()
-        FROM employee_movements m
+        FROM vw_hrms_movements m
         JOIN users u ON CONVERT(m.citizen_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = u.citizen_id
         ON DUPLICATE KEY UPDATE
           movement_type = VALUES(movement_type),

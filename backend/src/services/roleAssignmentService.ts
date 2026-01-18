@@ -1,5 +1,6 @@
 import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
 import db from '../config/database.js';
+import { clearScopeCache } from '../modules/request/scope/scope.service.js';
 
 type HrUserRow = {
   citizen_id: string;
@@ -10,6 +11,7 @@ type HrUserRow = {
 };
 
 type UserRow = {
+  id: number;
   citizen_id: string;
   role: string;
 };
@@ -88,7 +90,7 @@ export async function assignRoles(conn?: PoolConnection): Promise<RoleAssignment
 
   try {
     const [users] = await conn.query<UserRow[] & RowDataPacket[]>(
-      'SELECT citizen_id, role FROM users',
+      'SELECT id, citizen_id, role FROM users',
     );
 
     const [hrRows] = await conn.query<HrUserRow[] & RowDataPacket[]>(
@@ -133,6 +135,7 @@ export async function assignRoles(conn?: PoolConnection): Promise<RoleAssignment
         'UPDATE users SET role = ?, updated_at = NOW() WHERE citizen_id = ?',
         [nextRole, user.citizen_id],
       );
+      clearScopeCache(user.id);
       updated += 1;
     }
 
