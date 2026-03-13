@@ -49,11 +49,63 @@ function Restart-ServiceSafe {
 }
 
 function Invoke-Smoke {
-  param([string]$Url)
+  param(
+    [string]$Url,
+    [int]$MaxAttempts = 12,
+    [int]$SleepSeconds = 5
+  )
   Write-Step "Running smoke check: $Url"
-  $res = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 20
-  if ($res.StatusCode -ne 200) {
-    throw "Smoke check failed for $Url (status=$($res.StatusCode))"
+
+  for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+    try {
+      $res = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 20
+      if ($res.StatusCode -eq 200) {
+        Write-Step "Smoke check passed on attempt $attempt/$MaxAttempts"
+        return
+      }
+      Write-Step "Smoke check returned status=$($res.StatusCode) (attempt $attempt/$MaxAttempts)"
+    } catch {
+      Write-Step "Smoke check not ready yet (attempt $attempt/$MaxAttempts): $($_.Exception.Message)"
+    }
+
+    if ($attempt -lt $MaxAttempts) {
+      Start-Sleep -Seconds $SleepSeconds
+    }
+  }
+
+  throw "Smoke check failed for $Url after $MaxAttempts attempts"
+}
+
+function Write-ServiceDiagnostics {
+  param(
+    [string]$BaseDir,
+    [string[]]$ServiceNames
+  )
+  Write-Step "Collecting service diagnostics"
+  foreach ($name in $ServiceNames) {
+    $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+    if ($svc) {
+      Write-Host "[deploy] Service '$name' status: $($svc.Status)"
+    } else {
+      Write-Host "[deploy] Service '$name' not found"
+    }
+  }
+
+  $backendErr = Join-Path $BaseDir "logs\backend\stderr.log"
+  $backendOut = Join-Path $BaseDir "logs\backend\stdout.log"
+  $frontendErr = Join-Path $BaseDir "logs\frontend\stderr.log"
+
+  if (Test-Path $backendErr) {
+    Write-Host "[deploy] backend stderr tail:"
+    Get-Content $backendErr -Tail 60
+  }
+  if (Test-Path $backendOut) {
+    Write-Host "[deploy] backend stdout tail:"
+    Get-Content $backendOut -Tail 60
+  }
+  if (Test-Path $frontendErr) {
+    Write-Host "[deploy] frontend stderr tail:"
+    Get-Content $frontendErr -Tail 40
   }
 }
 
@@ -117,8 +169,13 @@ New-Junction -LinkPath $currentDir -TargetPath $releaseDir
 Restart-ServiceSafe -Name $BackendService
 Restart-ServiceSafe -Name $FrontendService
 
-Start-Sleep -Seconds 3
-Invoke-Smoke -Url $HealthUrl
+try {
+  Start-Sleep -Seconds 3
+  Invoke-Smoke -Url $HealthUrl -MaxAttempts 12 -SleepSeconds 5
+} catch {
+  Write-ServiceDiagnostics -BaseDir $BaseDir -ServiceNames @($BackendService, $FrontendService)
+  throw
+}
 
 Write-Step "Pruning old releases (retain=$RetainReleases)"
 $allReleases = Get-ChildItem -Path $releasesDir -Directory | Sort-Object LastWriteTime -Descending
