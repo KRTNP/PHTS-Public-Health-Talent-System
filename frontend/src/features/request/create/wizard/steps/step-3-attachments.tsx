@@ -85,8 +85,8 @@ export function Step3Attachments({
     setPreviewOpen(true);
   };
 
-  const existingAttachments = showExistingAttachments ? data.attachments ?? [] : [];
   const dedupedExistingAttachments = useMemo(() => {
+    const existingAttachments = showExistingAttachments ? data.attachments ?? [] : [];
     const byName = new Map<string, ExistingAttachment>();
     for (const attachment of existingAttachments) {
       const key = normalizeFileKey(attachment.file_name);
@@ -97,7 +97,7 @@ export function Step3Attachments({
       }
     }
     return Array.from(byName.values());
-  }, [existingAttachments]);
+  }, [data.attachments, showExistingAttachments]);
   const totalSelectedCount = data.files.length + dedupedExistingAttachments.length;
   const ocrResultMap = useMemo(() => {
     const map = new Map<string, OcrResult>();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ThaiDateField } from '@/components/thai-date-field';
@@ -301,42 +301,43 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
   // Sync Logic
   const NONE_ITEM_ID = '__NONE__';
 
-  const writeRateMapping = (next: {
-    group: ProfessionGroup | null;
-    criteria?: Criterion | null;
-    subCriteria?: Criterion | null;
-  }) => {
-    if (!next.group) {
+  const writeRateMapping = useCallback(
+    (next: {
+      group: ProfessionGroup | null;
+      criteria?: Criterion | null;
+      subCriteria?: Criterion | null;
+    }) => {
+      if (!next.group) {
+        // Ensure parent state is updated synchronously so Step 5 doesn't read stale rateMapping.
+        flushSync(() => {
+          updateData('rateMapping', {
+            ...data.rateMapping,
+            amount: 0,
+            groupId: '',
+            itemId: '',
+            subItemId: '',
+          });
+        });
+        return;
+      }
+
+      const group = next.group;
+      const hasCriteria = (group.criteria?.length ?? 0) > 0;
+      // Backend can include a "group-level" rate row where item_no is NULL. That becomes a criterion with empty id.
+      // Represent "no specific item" with a sentinel that is truthy for UI validation but will map to NULL item_no
+      // when submitting (see parseGroupItem in useRequestForm).
+      const rawCriteriaId = String(next.criteria?.id ?? '').trim();
+      const nextItemId = !hasCriteria
+        ? NONE_ITEM_ID
+        : !next.criteria
+          ? ''
+          : rawCriteriaId === '' || rawCriteriaId === NONE_ITEM_ID
+            ? NONE_ITEM_ID
+            : rawCriteriaId;
+      const nextSubId = next.subCriteria?.id ?? '';
+
       // Ensure parent state is updated synchronously so Step 5 doesn't read stale rateMapping.
       flushSync(() => {
-        updateData('rateMapping', {
-          ...data.rateMapping,
-          amount: 0,
-          groupId: '',
-          itemId: '',
-          subItemId: '',
-        });
-      });
-      return;
-    }
-
-    const group = next.group;
-    const hasCriteria = (group.criteria?.length ?? 0) > 0;
-    // Backend can include a "group-level" rate row where item_no is NULL. That becomes a criterion with empty id.
-    // Represent "no specific item" with a sentinel that is truthy for UI validation but will map to NULL item_no
-    // when submitting (see parseGroupItem in useRequestForm).
-    const rawCriteriaId = String(next.criteria?.id ?? '').trim();
-    const nextItemId = !hasCriteria
-      ? NONE_ITEM_ID
-      : !next.criteria
-        ? ''
-        : rawCriteriaId === '' || rawCriteriaId === NONE_ITEM_ID
-          ? NONE_ITEM_ID
-          : rawCriteriaId;
-    const nextSubId = next.subCriteria?.id ?? '';
-
-    // Ensure parent state is updated synchronously so Step 5 doesn't read stale rateMapping.
-    flushSync(() => {
         updateData('rateMapping', {
           ...data.rateMapping,
           professionCode: activeProfessionId,
@@ -345,8 +346,10 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
           subItemId: nextSubId,
           amount: group.rate,
         });
-    });
-  };
+      });
+    },
+    [NONE_ITEM_ID, activeProfessionId, data.rateMapping, updateData],
+  );
 
   // Handlers
   const handleGroupSelect = (group: ProfessionGroup | null) => {
@@ -376,7 +379,7 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
     autoSelectByProfessionRef.current = '';
   };
 
-  const ocrSuggestion = useMemo(() => {
+  const ocrSuggestion = (() => {
     const results = ocrPrecheck?.results ?? [];
     const textHints: string[] = [];
     for (const result of results) {
@@ -410,7 +413,7 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
       }
     }
     return { groupNo: null, itemNo: '', subItemNo: '', amount: null, textHint: textHints.join(' ') };
-  }, [ocrPrecheck?.results]);
+  })();
 
   const findBestCriteriaFromOcr = (
     group: ProfessionGroup,
@@ -600,6 +603,7 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
     effectiveProfData,
     ocrSuggestion,
     selectedGroup,
+    writeRateMapping,
   ]);
 
   useEffect(() => {
@@ -646,6 +650,7 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
     ocrSuggestion.textHint,
     selectedCriteria,
     selectedGroup,
+    writeRateMapping,
   ]);
 const renderMoney = (amount: number) => formatThaiNumber(amount) + ' บาท';
 
