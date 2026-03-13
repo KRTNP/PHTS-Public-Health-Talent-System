@@ -19,6 +19,7 @@ Note:
 Backup script runtime:
 - Windows native: use `src/scripts/ops/backup/backup.ps1` with PowerShell (`BACKUP_COMMAND=...powershell.exe`).
 - Linux: use `src/scripts/ops/backup/backup.sh` with bash.
+- Optional on Windows: set `MYSQLDUMP_PATH` when `mysqldump` is not available via PATH for service processes.
 
 ## Run specific jobs
 

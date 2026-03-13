@@ -9,14 +9,44 @@ $DbUser = if ($env:DB_USER) { $env:DB_USER } else { "root" }
 $DbPassword = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { "" }
 $DbName = if ($env:DB_NAME) { $env:DB_NAME } else { "phts_system" }
 
+function Resolve-MysqlDumpPath {
+  if ($env:MYSQLDUMP_PATH -and (Test-Path $env:MYSQLDUMP_PATH)) {
+    return $env:MYSQLDUMP_PATH
+  }
+
+  try {
+    $cmd = Get-Command mysqldump -ErrorAction Stop
+    if ($cmd -and $cmd.Source) {
+      return $cmd.Source
+    }
+  } catch {
+    # Fallback below
+  }
+
+  $fallbackPaths = @(
+    "C:\Program Files\MySQL\MySQL Server 9.6\bin\mysqldump.exe",
+    "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqldump.exe",
+    "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"
+  )
+
+  foreach ($candidate in $fallbackPaths) {
+    if (Test-Path $candidate) {
+      return $candidate
+    }
+  }
+
+  throw "mysqldump executable not found. Set MYSQLDUMP_PATH or ensure mysqldump is available in PATH."
+}
+
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 
 $backupFile = Join-Path $BackupDir "${DbName}_${timestamp}.sql.gz"
 $tempSqlFile = Join-Path $BackupDir "${DbName}_${timestamp}.sql"
+$mysqldumpPath = Resolve-MysqlDumpPath
 $env:MYSQL_PWD = $DbPassword
 
-$process = Start-Process -FilePath "mysqldump" `
+$process = Start-Process -FilePath $mysqldumpPath `
   -ArgumentList "-h", $DbHost, "-P", $DbPort, "-u", $DbUser, $DbName `
   -RedirectStandardOutput $tempSqlFile `
   -NoNewWindow `
