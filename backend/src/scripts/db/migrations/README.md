@@ -5,7 +5,7 @@ This folder keeps active SQL migration files used for schema/history reference.
 ## Structure
 
 - `active/phase*.sql`: main chronological migrations
-- `archive/`: historical or superseded scripts (kept for audit/recovery only)
+- `archive/`: optional location for historical/superseded scripts when needed for incident recovery
 
 ## Active Set
 

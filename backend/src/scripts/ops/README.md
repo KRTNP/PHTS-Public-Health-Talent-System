@@ -42,12 +42,8 @@ npm run backup:worker
 
 ## Archived one-off scripts
 
-Legacy one-off scripts (including legacy movement report and manual payroll import helpers)
-are kept under:
-
-```bash
-src/scripts/archive/manual/
-```
+Legacy one-off scripts are intentionally removed from `main`.
+Keep ad-hoc operational scripts in a separate maintenance branch or runbook repo.
 
 ## Notification outbox notes
 
