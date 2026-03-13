@@ -37,6 +37,8 @@ jobs:
       DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: rootpass
+      DB_NAME: phts_test
+      TEST_DB_NAME: phts_test
       JWT_SECRET: ci-test-secret
       NODE_ENV: test
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
