@@ -41,6 +41,7 @@ jobs:
       TEST_DB_NAME: phts_test
       JWT_SECRET: ci-test-secret
       NODE_ENV: test
+      TZ: Asia/Bangkok
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +51,7 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      - run: npm run db:setup
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test -- --coverage
