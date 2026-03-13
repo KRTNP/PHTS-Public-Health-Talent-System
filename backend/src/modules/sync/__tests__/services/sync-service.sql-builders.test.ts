@@ -90,6 +90,25 @@ describe('SyncService SQL Builder Helpers', () => {
       expect(values).toContain('VACATION');
       expect(values).toContain('APPROVED');
     });
+
+    it('should set synced_at insert value to current timestamp', () => {
+      const values = buildLeaveRecordValues(
+        {
+          ref_id: 'REF-1',
+          citizen_id: '1234567890123',
+          leave_type: 'SICK',
+          start_date: '2026-03-11',
+          end_date: '2026-03-11',
+          duration_days: 1,
+          fiscal_year: 2569,
+          remark: null,
+          status: 'approved',
+        },
+        { hasStatusColumn: true },
+      );
+
+      expect(values.at(-1)).toBeInstanceOf(Date);
+    });
   });
 
   describe('buildSupportEmployeeSql', () => {
@@ -139,6 +158,26 @@ describe('SyncService SQL Builder Helpers', () => {
       expect(values).toContain('1234567890123');
       expect(values).toContain('สมชาย');
       expect(values).toContain('ชำนาญการพิเศษ');
+    });
+
+    it('should set last_synced_at insert value to current timestamp', () => {
+      const values = buildSupportEmployeeValues(
+        {
+          citizen_id: '1234567890123',
+          title: 'นาย',
+          first_name: 'สมชาย',
+          last_name: 'ใจดี',
+          position_name: 'พยาบาล',
+          level: 'ชำนาญการพิเศษ',
+          special_position: null,
+          employee_type: 'PERMANENT',
+          department: 'กลุ่มงานการพยาบาล',
+          is_currently_active: 1,
+        },
+        { hasLevelColumn: true },
+      );
+
+      expect(values.at(-1)).toBeInstanceOf(Date);
     });
   });
 });

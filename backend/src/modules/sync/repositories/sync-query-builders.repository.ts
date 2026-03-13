@@ -474,7 +474,7 @@ export const buildLeaveRecordValues = (vLeave: any, options: LeaveRecordSqlOptio
   if (hasStatusColumn) {
     values.push(toNull(vLeave.status));
   }
-  values.push(null);
+  values.push(new Date());
   return values;
 };
 
@@ -616,6 +616,6 @@ export const buildSupportEmployeeValues = (vSup: any, options: SupportEmployeeSq
   if (hasRawSnapshotColumn) values.push(JSON.stringify(vSup));
   if (hasProfileFingerprintColumn) values.push(fingerprint);
 
-  values.push(null);
+  values.push(new Date());
   return values;
 };
