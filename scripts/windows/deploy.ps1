@@ -41,7 +41,11 @@ function New-Junction {
 function Restart-ServiceSafe {
   param([string]$Name)
   Write-Step "Restarting service: $Name"
-  & nssm restart $Name | Out-Null
+  $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
+  if (-not $service) {
+    throw "Service not found: $Name"
+  }
+  Restart-Service -Name $Name -Force -ErrorAction Stop
 }
 
 function Invoke-Smoke {
@@ -55,7 +59,6 @@ function Invoke-Smoke {
 
 Assert-Command "node"
 Assert-Command "npm"
-Assert-Command "nssm"
 
 $releasesDir = Join-Path $BaseDir "releases"
 $sharedDir = Join-Path $BaseDir "shared"
