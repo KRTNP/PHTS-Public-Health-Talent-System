@@ -1,6 +1,6 @@
-# GitHub Production Setup
+# GitHub Production Setup (Team of 3)
 
-This repository is configured to run production gates on `main`:
+This repository is configured to run gates on both `main` and `dev`:
 - CI (`backend-test`, `frontend-build`)
 - Snyk dependency scan
 - CodeQL scan
@@ -11,7 +11,7 @@ Run:
 
 ```bash
 cd /home/krtn/projects/phts
-GH_TOKEN=<your_github_token> ./scripts/github/apply-production-repo-settings.sh KRTNP phts-uttaradit-hospital main
+GH_TOKEN=<your_github_token> ./scripts/github/apply-production-repo-settings.sh KRTNP phts-uttaradit-hospital
 ```
 
 ## 2) Configure repository secrets
@@ -25,7 +25,7 @@ Environment secrets (for `production`):
 
 ## 3) Configure branch rules in UI (verify)
 
-In `Settings -> Branches -> Branch protection rules` for `main`, ensure:
+In `Settings -> Branches -> Branch protection rules` for both `main` and `dev`, ensure:
 - Require a pull request before merging
 - Require approvals: `1`
 - Require review from Code Owners
@@ -50,4 +50,17 @@ Recommended:
 - Rebase merge disabled
 - Merge commit disabled
 
-This keeps `main` linear and aligned with `required_linear_history=true`.
+This keeps `main`/`dev` linear and aligned with `required_linear_history=true`.
+
+## 6) Team workflow
+
+- `main` = production only
+- `dev` = integration branch
+- `feature/*`, `fix/*`, `chore/*` = short-lived work branches
+- `hotfix/*` = urgent fixes from `main`
+
+Flow:
+1. Branch from `dev`
+2. Open PR into `dev`
+3. After QA/UAT, open PR `dev -> main`
+4. Deploy from `main` only
