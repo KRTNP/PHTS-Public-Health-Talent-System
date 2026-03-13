@@ -76,7 +76,13 @@ jobs:
           npm run lint:all
           npm run typecheck:all
           npm run test:all
-          npm run build:all
+
+      - name: Build production artifact
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:4000/api
+          TZ: Asia/Bangkok
+        run: npm run build:all
 
       - id: release_meta
         name: Resolve release id
