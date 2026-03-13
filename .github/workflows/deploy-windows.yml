@@ -125,7 +125,7 @@ jobs:
           path: .
 
       - name: Deploy release
-        shell: pwsh
+        shell: powershell
         run: |
           $artifact = "phts-${{ needs.build-artifact.outputs.release_id }}.zip"
           .\scripts\windows\deploy.ps1 `
