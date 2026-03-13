@@ -51,6 +51,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test -- --coverage
       - uses: codecov/codecov-action@v4
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         with:
           files: backend/coverage/lcov.info
           flags: backend
