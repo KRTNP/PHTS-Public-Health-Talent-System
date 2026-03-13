@@ -25,6 +25,22 @@ concurrency:
 jobs:
   build-artifact:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     outputs:
       release_id: ${{ steps.release_meta.outputs.release_id }}
     steps:
@@ -44,6 +60,18 @@ jobs:
         run: npm run install:all
 
       - name: Verify quality gates
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: rootpass
+          DB_NAME: phts_test
+          TEST_DB_NAME: phts_test
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          JWT_SECRET: ci-test-secret
+          NODE_ENV: test
+          TZ: Asia/Bangkok
         run: |
           npm run lint:all
           npm run typecheck:all
