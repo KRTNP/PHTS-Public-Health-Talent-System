@@ -56,10 +56,11 @@ jobs:
       - run: npm test -- --coverage
       - uses: codecov/codecov-action@v4
         if: ${{ env.CODECOV_TOKEN != '' }}
+        continue-on-error: true
         with:
           files: backend/coverage/lcov.info
           flags: backend
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   frontend-build:
     runs-on: ubuntu-latest
