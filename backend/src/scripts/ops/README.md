@@ -16,6 +16,10 @@ Note:
 - Backup schedule now has a built-in worker in backend app process (`BACKUP_WORKER_ENABLED=true`).
 - `jobs:run` cron can still be used as an ops fallback if needed.
 
+Backup script runtime:
+- Windows native: use `src/scripts/ops/backup/backup.ps1` with PowerShell (`BACKUP_COMMAND=...powershell.exe`).
+- Linux: use `src/scripts/ops/backup/backup.sh` with bash.
+
 ## Run specific jobs
 
 ```bash

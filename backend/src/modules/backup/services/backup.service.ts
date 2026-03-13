@@ -14,7 +14,8 @@ const BACKUP_LAST_RUN_PREFIX = 'system:backup:last-run:';
 const DEFAULT_BACKUP_HOUR = 2;
 const DEFAULT_BACKUP_MINUTE = 0;
 const DEFAULT_BACKUP_TIMEZONE = process.env.BACKUP_JOB_TIMEZONE || 'Asia/Bangkok';
-const CURRENT_BACKUP_SCRIPT_REL = 'src/scripts/ops/backup/backup.sh';
+const CURRENT_BACKUP_SCRIPT_REL_BASH = 'src/scripts/ops/backup/backup.sh';
+const CURRENT_BACKUP_SCRIPT_REL_POWERSHELL = 'src/scripts/ops/backup/backup.ps1';
 
 type BackupConfig = {
   enabled: boolean;
@@ -153,28 +154,42 @@ function resolveExistingPath(candidates: string[]): string | null {
   return null;
 }
 
-function normalizeBackupArgs(command: string, args: string[], workdir: string): string[] {
-  const executable = path.basename(command).toLowerCase();
-  const isShellCommand = executable === 'bash' || executable === 'sh';
-  if (!isShellCommand || args.length === 0) return args;
+function getExecutableName(command: string): string {
+  return command.replace(/\\/g, '/').split('/').pop()?.toLowerCase() ?? '';
+}
 
-  const [firstArg, ...rest] = args;
-  const normalizedFirstArg = firstArg.replace(/\\/g, '/');
-  const isCurrentScriptArg =
-    normalizedFirstArg === CURRENT_BACKUP_SCRIPT_REL ||
-    normalizedFirstArg.endsWith(`/${CURRENT_BACKUP_SCRIPT_REL}`);
-  if (!isCurrentScriptArg) return args;
+function isShellInterpreter(executable: string): boolean {
+  return ['bash', 'sh', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe'].includes(executable);
+}
 
-  const existingCurrentPath = resolveExistingPath([
-    path.resolve(workdir, CURRENT_BACKUP_SCRIPT_REL),
-    path.resolve(process.cwd(), CURRENT_BACKUP_SCRIPT_REL),
+function resolveManagedScriptPath(scriptArg: string, workdir: string): string | null {
+  const normalizedArg = scriptArg.replace(/\\/g, '/');
+  const managedRelPaths = [CURRENT_BACKUP_SCRIPT_REL_BASH, CURRENT_BACKUP_SCRIPT_REL_POWERSHELL];
+  const matchedRelPath = managedRelPaths.find(
+    (relPath) => normalizedArg === relPath || normalizedArg.endsWith(`/${relPath}`),
+  );
+  if (!matchedRelPath) return null;
+
+  return resolveExistingPath([
+    path.resolve(workdir, matchedRelPath),
+    path.resolve(process.cwd(), matchedRelPath),
   ]);
+}
 
-  if (existingCurrentPath) {
-    return [existingCurrentPath, ...rest];
+function normalizeBackupArgs(command: string, args: string[], workdir: string): string[] {
+  const executable = getExecutableName(command);
+  if (!isShellInterpreter(executable) || args.length === 0) return args;
+
+  const normalizedArgs = [...args];
+  for (let i = 0; i < normalizedArgs.length; i += 1) {
+    const resolvedPath = resolveManagedScriptPath(normalizedArgs[i], workdir);
+    if (resolvedPath) {
+      normalizedArgs[i] = resolvedPath;
+      break;
+    }
   }
 
-  return args;
+  return normalizedArgs;
 }
 
 function resolveBackupFilePath(output: string, workdir: string): string | null {

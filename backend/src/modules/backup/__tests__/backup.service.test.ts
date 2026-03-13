@@ -24,6 +24,13 @@ jest.mock('node:child_process', () => ({
   ),
 }));
 
+jest.mock('node:fs', () => ({
+  __esModule: true,
+  default: {
+    existsSync: jest.fn().mockReturnValue(false),
+  },
+}));
+
 jest.mock('node:fs/promises', () => ({
   stat: jest.fn().mockResolvedValue({ size: 1024 }),
 }));
@@ -104,5 +111,47 @@ describe('Backup Service Configuration', () => {
 
     expect(schedule.hour).toBe(3);
     expect(schedule.minute).toBe(15);
+  });
+
+  it('normalizes backup.ps1 path for powershell command', async () => {
+    const oldEnabled = process.env.BACKUP_ENABLED;
+    const oldCmd = process.env.BACKUP_COMMAND;
+    const oldArgs = process.env.BACKUP_ARGS;
+    const oldWorkdir = process.env.BACKUP_WORKDIR;
+    process.env.BACKUP_ENABLED = 'true';
+    process.env.BACKUP_COMMAND = '/windows/System32/WindowsPowerShell/v1.0/powershell.exe';
+    process.env.BACKUP_ARGS = JSON.stringify([
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      'src/scripts/ops/backup/backup.ps1',
+    ]);
+    process.env.BACKUP_WORKDIR = '/app/backend';
+
+    jest.resetModules();
+    const fsModule = (await import('node:fs')).default as unknown as {
+      existsSync: jest.Mock;
+    };
+    fsModule.existsSync.mockImplementation((candidate: string) =>
+      candidate.endsWith('/src/scripts/ops/backup/backup.ps1'),
+    );
+    const { runBackupJob } = await import('@/modules/backup/services/backup.service.js');
+    await runBackupJob();
+
+    const childProcess = await import('node:child_process');
+    const execFileMock = childProcess.execFile as unknown as jest.Mock;
+    const execArgs = execFileMock.mock.calls[0]?.[1] as string[];
+    expect(execArgs).toContain('/app/backend/src/scripts/ops/backup/backup.ps1');
+    expect(execArgs).not.toContain('src/scripts/ops/backup/backup.ps1');
+
+    if (oldEnabled !== undefined) process.env.BACKUP_ENABLED = oldEnabled;
+    else delete process.env.BACKUP_ENABLED;
+    if (oldCmd !== undefined) process.env.BACKUP_COMMAND = oldCmd;
+    else delete process.env.BACKUP_COMMAND;
+    if (oldArgs !== undefined) process.env.BACKUP_ARGS = oldArgs;
+    else delete process.env.BACKUP_ARGS;
+    if (oldWorkdir !== undefined) process.env.BACKUP_WORKDIR = oldWorkdir;
+    else delete process.env.BACKUP_WORKDIR;
   });
 });
