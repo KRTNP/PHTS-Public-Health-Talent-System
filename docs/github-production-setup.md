@@ -64,3 +64,5 @@ Flow:
 2. Open PR into `dev`
 3. After QA/UAT, open PR `dev -> main`
 4. Deploy from `main` only
+
+- smoke run 20260313-151221
