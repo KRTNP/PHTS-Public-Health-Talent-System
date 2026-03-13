@@ -16,6 +16,10 @@ Note:
 - Backup schedule now has a built-in worker in backend app process (`BACKUP_WORKER_ENABLED=true`).
 - `jobs:run` cron can still be used as an ops fallback if needed.
 
+Backup script runtime:
+- Windows native: use `src/scripts/ops/backup/backup.ps1` with PowerShell (`BACKUP_COMMAND=...powershell.exe`).
+- Linux: use `src/scripts/ops/backup/backup.sh` with bash.
+
 ## Run specific jobs
 
 ```bash
@@ -42,12 +46,8 @@ npm run backup:worker
 
 ## Archived one-off scripts
 
-Legacy one-off scripts (including legacy movement report and manual payroll import helpers)
-are kept under:
-
-```bash
-src/scripts/archive/manual/
-```
+Legacy one-off scripts are intentionally removed from `main`.
+Keep ad-hoc operational scripts in a separate maintenance branch or runbook repo.
 
 ## Notification outbox notes
 
