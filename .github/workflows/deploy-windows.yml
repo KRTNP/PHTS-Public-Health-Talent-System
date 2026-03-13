@@ -13,6 +13,13 @@ on:
         default: "main"
         type: string
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-windows-production
+  cancel-in-progress: false
+
 jobs:
   build-artifact:
     runs-on: ubuntu-latest
@@ -77,6 +84,7 @@ jobs:
   deploy:
     needs: build-artifact
     runs-on: [self-hosted, windows, x64]
+    environment: production
     steps:
       - uses: actions/checkout@v4
 

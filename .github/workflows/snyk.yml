@@ -2,12 +2,16 @@ name: Snyk
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
-    branches: ['**']
+    branches: [main]
   schedule:
     - cron: '0 4 * * 1'
   workflow_dispatch:
+
+concurrency:
+  group: snyk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   dependency-scan:

@@ -1,0 +1,6 @@
+* @KRTNP
+
+# Optional finer-grain ownership
+backend/** @KRTNP
+frontend/** @KRTNP
+.github/** @KRTNP

@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a defect with clear reproduction steps
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Paste relevant error output or screenshots
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who/what is affected
