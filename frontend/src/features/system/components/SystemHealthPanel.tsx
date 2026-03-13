@@ -39,8 +39,7 @@ export const SystemHealthPanel = memo(function SystemHealthPanel({
         <CardHeader className="border-b bg-muted/5 pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Activity className="h-4 w-4 text-muted-foreground" /> สถานะบริการหลัก (Service
-              Health)
+              <Activity className="h-4 w-4 text-muted-foreground" /> สถานะบริการหลัก
             </CardTitle>
             <Badge
               variant={hasServiceRisk ? 'destructive' : 'outline'}
@@ -165,8 +164,7 @@ export const SystemHealthPanel = memo(function SystemHealthPanel({
         <CardHeader className="border-b bg-muted/5 pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <RefreshCw className="h-4 w-4 text-muted-foreground" /> คิวงานประมวลผล (Processing
-              Queues)
+              <RefreshCw className="h-4 w-4 text-muted-foreground" /> คิวงานประมวลผล
             </CardTitle>
             <Button
               variant="outline"

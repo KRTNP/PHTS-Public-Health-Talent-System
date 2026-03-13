@@ -154,7 +154,7 @@ export function SyncGovernanceCards({
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2 text-muted-foreground">
               <FileQuestion className="h-4 w-4" />
-              <p className="text-sm font-medium text-foreground">คุณภาพข้อมูล (Status Code)</p>
+              <p className="text-sm font-medium text-foreground">คุณภาพข้อมูล</p>
             </div>
           </div>
           <div className="flex items-baseline gap-2">

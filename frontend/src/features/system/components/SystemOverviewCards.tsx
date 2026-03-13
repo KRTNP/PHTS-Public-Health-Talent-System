@@ -59,7 +59,7 @@ export const SystemOverviewCards = memo(function SystemOverviewCards({
       >
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            โหมดปิดปรับปรุง (Maintenance)
+            โหมดปิดปรับปรุง
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -90,7 +90,7 @@ export const SystemOverviewCards = memo(function SystemOverviewCards({
       <Card className="border-border shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            คิวงานค้าง (Queue Backlog)
+            คิวงานค้าง
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -123,7 +123,7 @@ export const SystemOverviewCards = memo(function SystemOverviewCards({
       >
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            งานที่ล้มเหลว (Failed Jobs)
+            งานที่ล้มเหลว
           </CardTitle>
         </CardHeader>
         <CardContent>
