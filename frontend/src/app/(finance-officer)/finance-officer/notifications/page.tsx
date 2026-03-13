@@ -1,0 +1,8 @@
+import { NotificationsPage } from "@/features/notification/page"
+export const dynamic = 'force-dynamic'
+
+
+
+export default function FinanceOfficerNotificationsPage() {
+  return <NotificationsPage />
+}

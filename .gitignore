@@ -1,0 +1,119 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+**/.history/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.yarn/logs/
+
+# Build outputs
+dist/
+build/
+coverage/
+.nyc_output/
+.cache/
+.turbo/
+.swc/
+*.tsbuildinfo
+*.sarif
+codeql-db/
+.eslintcache
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test
+.env.test.local
+.env.perf
+.env.production.local
+.envrc
+backend/src/scripts/ops/backup/autobackup.env
+
+# Keep env templates
+!*.env.example
+!backend/.env.example
+
+# Deployment
+.vercel
+
+# Runtime / temp files
+tmp/
+temp/
+import_data/
+*.tmp
+*:Zone.Identifier
+
+# Certificates and secrets
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Database dumps and local DBs
+*.sql
+*.dump
+*.bak
+*.backup
+*.sqlite
+*.sqlite3
+*.db
+
+# AI assistant files (may contain credentials)
+CLAUDE.md
+AGENTS.md
+
+# Uploads / generated files
+uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Miscellaneous
+
+# SonarScanner
+.scannerwork/
+
+# Legacy / local-only directories
+
+# Skills / local agent state
+/.agents/
+/skills-lock.json
+
+# Local OCR experimentation artifacts
+/backend/.venv-ocr/
+/ocr/
+
+# Security scan artifacts (local only)
+.snyk-*.json
+.snyk-cache/
+
+# Local backup/safety workspace
+/safe/

@@ -1,0 +1,392 @@
+type OcrDocument = {
+  fileName?: string | null;
+  markdown?: string | null;
+};
+
+export type OcrDocumentKind =
+  | "assignment_order"
+  | "memo"
+  | "license"
+  | "general";
+
+export type MemoSummary = {
+  fileName: string;
+  documentNo: string | null;
+  subject: string | null;
+  department: string | null;
+  documentDate: string | null;
+  addressedTo: string | null;
+  personMatched: boolean;
+  personLine: string | null;
+};
+
+export type OcrDocumentOverview = {
+  total: number;
+  memo: number;
+  license: number;
+  assignment_order: number;
+  general: number;
+};
+
+const PERSON_TITLES = ["นาย", "นางสาว", "นาง", "แพทย์หญิง", "แพทย์ชาย"];
+
+const normalizeWhitespace = (value: string) =>
+  value.replace(/\s+/g, " ").replace(/[ \t]+$/gm, "").trim();
+
+const OCR_COMMON_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/(?:บนทกขอความ|บันทึกขอความ)/g, "บันทึกข้อความ"],
+  [/(?:เรอง)/g, "เรื่อง"],
+  [/(?:ไบอนุญาต|โบอนุญาต|บอนญาต)/g, "ใบอนุญาต"],
+  [/(?:หผดอายุ|ทมดอาย|มดอายุ)/g, "หมดอายุ"],
+  [/(?:ตออายุตรงที|ตอยอายุตรงที)/g, "ต่ออายุครั้งที่"],
+  [/(?:จอกใบอนุญาต|ลอกใบอนญาต)/g, "ออกใบอนุญาตนี้ให้แก่"],
+];
+
+export const normalizeOcrAnalysisText = (value: string): string => {
+  let normalized = normalizeWhitespace(value)
+    .replace(/([ก-๙])(?:[.,:;|])+([ก-๙])/g, "$1$2")
+    .replace(/[|]{2,}/g, " ")
+    .replace(/[ \t]+/g, " ");
+
+  for (const [pattern, replacement] of OCR_COMMON_REPLACEMENTS) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+  return normalizeWhitespace(normalized);
+};
+
+export const isLikelyOcrNoiseLine = (line: string): boolean => {
+  const normalized = normalizeOcrAnalysisText(line);
+  if (!normalized) return true;
+  const readableChars = (normalized.match(/[\u0E00-\u0E7Fa-zA-Z0-9]/g) ?? [])
+    .length;
+  const symbolChars = (normalized.match(/[^\u0E00-\u0E7Fa-zA-Z0-9\s]/g) ?? [])
+    .length;
+  if (readableChars < 5) return true;
+  if (normalized.length < 8) return true;
+  return symbolChars > readableChars;
+};
+
+const ASSIGNMENT_ORDER_TITLE_PATTERN = /(?:คำสั่ง|คําสั่ง|คำสัง|คําสัง)/;
+const ASSIGNMENT_ORDER_ACTION_PATTERN = /(มอบหมาย|รับผิดชอบ|ปฏิบัติงาน)/;
+const THAI_DIGITS = "๐๑๒๓๔๕๖๗๘๙";
+
+const normalizeNameForMatch = (value: string) => {
+  let normalized = normalizeOcrAnalysisText(value);
+  for (const title of PERSON_TITLES) {
+    if (normalized.startsWith(title)) {
+      normalized = normalized.slice(title.length).trim();
+      break;
+    }
+  }
+  return normalized.replace(/\s+/g, "").toLowerCase();
+};
+
+const splitNameTokensForMatch = (value: string): string[] => {
+  let normalized = normalizeOcrAnalysisText(value);
+  for (const title of PERSON_TITLES) {
+    if (normalized.startsWith(title)) {
+      normalized = normalized.slice(title.length).trim();
+      break;
+    }
+  }
+  return normalized
+    .split(/\s+/)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+};
+
+const extractFirst = (markdown: string, patterns: RegExp[]): string | null => {
+  for (const pattern of patterns) {
+    const match = markdown.match(pattern);
+    const value = match?.[1] ? normalizeOcrAnalysisText(match[1]) : "";
+    if (value) return value;
+  }
+  return null;
+};
+
+const toArabicDigits = (value: string): string =>
+  value.replace(/[๐-๙]/g, (char) => String(THAI_DIGITS.indexOf(char)));
+
+const normalizeMemoDepartment = (value: string | null): string | null => {
+  if (!value) return null;
+  return normalizeOcrAnalysisText(value).replace(/อตรดิตถ์/g, "อุตรดิตถ์");
+};
+
+const normalizeMemoSubject = (value: string | null): string | null => {
+  if (!value) return null;
+  return normalizeOcrAnalysisText(value)
+    .replace(/ส[ำํา]\s*เนา/g, "สำเนา")
+    .replace(/สํา\s*เนา/g, "สำเนา");
+};
+
+const normalizeMemoDocumentNo = (value: string | null): string | null => {
+  if (!value) return null;
+  const normalized = toArabicDigits(normalizeOcrAnalysisText(value))
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/\s+/g, " ");
+  const compact = normalized.replace(/\s+/g, "");
+  const match = compact.match(/^([ก-ฮ]{1,4})([0-9]{4})([0-9]{3})\/([0-9]{5})$/);
+  if (match?.[1] && match?.[2] && match?.[3] && match?.[4]) {
+    return `${match[1]} ${match[2]}.${match[3]}/${match[4]}`;
+  }
+  return normalized;
+};
+
+const detectContextMemoYear = (markdown: string): number | null => {
+  const normalized = toArabicDigits(markdown);
+  const years = Array.from(normalized.matchAll(/(?:พ\.ศ\.\s*)?([0-9]{4})/g))
+    .map((match) => Number(match[1]))
+    .filter((year) => Number.isFinite(year) && year >= 2550 && year <= 2600);
+  if (years.length === 0) return null;
+  const counts = new Map<number, number>();
+  for (const year of years) {
+    counts.set(year, (counts.get(year) ?? 0) + 1);
+  }
+  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+};
+
+const normalizeMemoDocumentDate = (value: string | null, markdown: string): string | null => {
+  if (!value) return null;
+  const normalized = normalizeOcrAnalysisText(value);
+  const normalizedDigits = toArabicDigits(normalized);
+  const yearMatch = normalizedDigits.match(/([0-9]{4})/);
+  if (!yearMatch?.[1]) return normalizedDigits;
+  const year = Number(yearMatch[1]);
+  if (Number.isFinite(year) && year >= 2550 && year <= 2600) {
+    return normalizedDigits;
+  }
+  const contextYear = detectContextMemoYear(markdown);
+  if (!contextYear) return normalizedDigits;
+  return normalizedDigits.replace(/[0-9]{4}/, String(contextYear));
+};
+
+const extractMentionedPeople = (lines: string[]): string[] => {
+  const seen = new Set<string>();
+  const people: string[] = [];
+
+  for (const line of lines) {
+    const matches = line.matchAll(
+      /(นาย|นางสาว|นาง|แพทย์หญิง|แพทย์ชาย)\s*[^\s\d\/]{1,60}\s+[^\s\d\/]{1,60}/g,
+    );
+    for (const match of matches) {
+      const name = normalizeOcrAnalysisText(match[0] || "");
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      people.push(name);
+    }
+  }
+
+  return people;
+};
+
+const buildLines = (markdown: string) =>
+  markdown
+    .split(/\r?\n/)
+    .map((line) => normalizeOcrAnalysisText(line))
+    .filter((line) => {
+      if (line.length === 0) return false;
+      if (!isLikelyOcrNoiseLine(line)) return true;
+      // Keep short Thai-only tokens as potential split surname lines from OCR.
+      return /^[ก-๙]{4,}$/.test(line);
+    });
+
+const looksLikeAssignmentOrderHeading = (lines: string[]) => {
+  const headerWindow = lines.slice(0, 6);
+  return headerWindow.some(
+    (line) =>
+      ASSIGNMENT_ORDER_TITLE_PATTERN.test(line) &&
+      (ASSIGNMENT_ORDER_ACTION_PATTERN.test(line) ||
+        /^คำสั่ง/.test(line) ||
+        /^คําสั่ง/.test(line) ||
+        /^คำสัง/.test(line) ||
+        /^คําสัง/.test(line)),
+  );
+};
+
+const findPersonLine = (lines: string[], personName: string): string | null => {
+  const normalizedPerson = normalizeNameForMatch(personName);
+  if (!normalizedPerson) return null;
+  for (const rawLine of lines) {
+    if (normalizeNameForMatch(rawLine).includes(normalizedPerson)) {
+      return normalizeOcrAnalysisText(rawLine);
+    }
+  }
+
+  const [firstToken, ...restTokens] = splitNameTokensForMatch(personName);
+  const lastToken = restTokens.length > 0 ? restTokens[restTokens.length - 1] : null;
+  if (!firstToken || !lastToken) return null;
+
+  const normalizedLines = lines.map((line) => normalizeNameForMatch(line));
+  for (let index = 0; index < lines.length; index += 1) {
+    const current = normalizedLines[index] ?? "";
+    if (!current.includes(firstToken)) continue;
+
+    for (let near = Math.max(0, index - 2); near <= Math.min(lines.length - 1, index + 2); near += 1) {
+      if (near === index) continue;
+      const candidate = normalizedLines[near] ?? "";
+      if (!candidate.includes(lastToken)) continue;
+      return normalizeOcrAnalysisText(`${lines[index]} ${lines[near]}`);
+    }
+  }
+
+  return null;
+};
+
+export const detectOcrDocumentKind = (document: OcrDocument): OcrDocumentKind => {
+  const markdown = normalizeOcrAnalysisText(document.markdown || "");
+  const fileName = normalizeWhitespace(document.fileName || "").toLowerCase();
+  const lines = buildLines(document.markdown || "");
+  const noisyLicenseSignalCount = [
+    /(?:ใบอนุญาต|ไบอนุญาต|บอนญาต)/.test(markdown),
+    /(?:ประกอบวิชา|วิชาจี|วิชาชี|วิชาชีพ).*(?:พยาบาล|ผยาบาล|แยายาล|เภสัช)/.test(
+      markdown,
+    ),
+    /(?:ต่ออายุครั้งที่|ตออายุตรงที|ตอยอายุตรงที)/.test(markdown),
+    /(?:หมดอายุ|หผดอายุ)/.test(markdown),
+    /(?:ออกใบอนุญาตนี้ให้แก่|จอกใบอนุญาต|ลอกใบอนญาต)/.test(markdown),
+  ].filter(Boolean).length;
+  const memoSignalCount = [
+    lines.some((line) => /(?:บันทึกข้อความ|บนทกขอความ|บันทึกขอความ)/.test(line)),
+    lines.some((line) => /^ส่วนราชการ\s+/.test(line)),
+    lines.some((line) => /^เรียน\s+/.test(line)),
+    lines.some((line) => /(?:เรื่อง|เรอง)\s+/.test(line)),
+    lines.some((line) => /วันที่\s+/.test(line)),
+  ].filter(Boolean).length;
+
+  if (memoSignalCount >= 3) {
+    return "memo";
+  }
+
+  if (
+    looksLikeAssignmentOrderHeading(lines) &&
+    ASSIGNMENT_ORDER_ACTION_PATTERN.test(markdown)
+  ) {
+    return "assignment_order";
+  }
+
+  if (
+    /ใบอนุญาตประกอบวิชาชีพ/.test(markdown) ||
+    noisyLicenseSignalCount >= 2 ||
+    fileName.includes("license") ||
+    fileName.includes("ใบอนุญาต")
+  ) {
+    return "license";
+  }
+
+  return "general";
+};
+
+export const getOcrDocumentTypeLabel = (kind: OcrDocumentKind): string => {
+  switch (kind) {
+    case "assignment_order":
+      return "คำสั่งมอบหมายงาน";
+    case "memo":
+      return "หนังสือนำส่ง";
+    case "license":
+      return "ใบอนุญาต";
+    default:
+      return "เอกสารทั่วไป";
+  }
+};
+
+export const buildOcrDocumentOverview = (
+  documents: OcrDocument[],
+): OcrDocumentOverview => {
+  const summary: OcrDocumentOverview = {
+    total: 0,
+    memo: 0,
+    license: 0,
+    assignment_order: 0,
+    general: 0,
+  };
+
+  for (const document of documents) {
+    const markdown = String(document.markdown ?? "").trim();
+    if (!markdown) continue;
+    summary.total += 1;
+    summary[detectOcrDocumentKind(document)] += 1;
+  }
+
+  return summary;
+};
+
+export const findMentionedPeopleInMemoDocuments = (
+  documents: OcrDocument[],
+): string[] => {
+  const seen = new Set<string>();
+  const people: string[] = [];
+
+  for (const document of documents) {
+    if (detectOcrDocumentKind(document) !== "memo") continue;
+    const lines = buildLines(document.markdown || "");
+    for (const name of extractMentionedPeople(lines)) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      people.push(name);
+    }
+  }
+
+  return people;
+};
+
+export const parseMemoSummary = (
+  document: OcrDocument,
+  personName: string,
+): MemoSummary | null => {
+  const rawMarkdown = document.markdown || "";
+  if (!rawMarkdown.trim() || detectOcrDocumentKind(document) !== "memo") {
+    return null;
+  }
+
+  const lines = buildLines(rawMarkdown);
+  const markdown = lines.join("\n");
+  const personLine = findPersonLine(lines, personName);
+  const documentNoRaw = extractFirst(markdown, [/^ที่\s+([^\n]+)/m]);
+  const subjectRaw = extractFirst(markdown, [/เรื่อง\s+([^\n]+)/]);
+  const departmentRaw = extractFirst(markdown, [/^ส่วนราชการ\s+([^\n]+?)(?:โทร|$)/m]);
+  const documentDateRaw = extractFirst(markdown, [/^วันที่\s+([^\n]+)/m]);
+
+  return {
+    fileName: document.fileName?.trim() || "เอกสาร OCR",
+    documentNo: normalizeMemoDocumentNo(documentNoRaw),
+    subject: normalizeMemoSubject(subjectRaw),
+    department: normalizeMemoDepartment(departmentRaw),
+    documentDate: normalizeMemoDocumentDate(documentDateRaw, markdown),
+    addressedTo: extractFirst(markdown, [/^เรียน\s+([^\n]+)/m]),
+    personMatched: Boolean(personLine),
+    personLine,
+  };
+};
+
+export const findMemoSummary = (
+  documents: OcrDocument[],
+  personName: string,
+): MemoSummary | null => {
+  let best: { score: number; summary: MemoSummary } | null = null;
+
+  for (const document of documents) {
+    const summary = parseMemoSummary(document, personName);
+    if (!summary) continue;
+    if (!summary.personMatched) continue;
+
+    const score =
+      100 +
+      (summary.subject ? 10 : 0) +
+      (summary.documentNo ? 5 : 0) +
+      (summary.addressedTo ? 3 : 0);
+
+    if (!best || score > best.score) {
+      best = { score, summary };
+    }
+  }
+
+  return best?.summary ?? null;
+};
+
+export const shouldSuppressMemoOcrActions = (
+  document: OcrDocument,
+  personName: string,
+): boolean => {
+  const summary = parseMemoSummary(document, personName);
+  return Boolean(summary && !summary.personMatched);
+};

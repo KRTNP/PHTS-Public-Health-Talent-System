@@ -1,0 +1,472 @@
+import { RowDataPacket, ResultSetHeader, PoolConnection } from "mysql2/promise";
+import db from "@config/database.js";
+import {
+  PayPeriod,
+  PeriodStatus,
+  SnapshotStatus,
+} from "@/modules/payroll/entities/payroll.entity.js";
+
+export class PayrollPeriodRepository {
+  static buildListPeriodsQuery(): string {
+    return `
+      SELECT
+        p.*,
+        p.created_by,
+        COALESCE(
+          NULLIF(
+            TRIM(
+              CONCAT(
+                IFNULL(COALESCE(e.first_name, s.first_name), ''),
+                ' ',
+                IFNULL(COALESCE(e.last_name, s.last_name), '')
+              )
+            ),
+            ''
+          ),
+          u.citizen_id,
+          'ระบบ'
+        ) AS created_by_name
+      FROM pay_periods p
+      LEFT JOIN users u ON p.created_by = u.id
+      LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+      LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
+      ORDER BY p.period_year DESC, p.period_month DESC
+    `;
+  }
+
+  static async findPeriodByMonthYear(
+    month: number,
+    year: number,
+  ): Promise<PayPeriod | null> {
+    const [rows] = await db.query<RowDataPacket[]>(
+      "SELECT * FROM pay_periods WHERE period_month = ? AND period_year = ?",
+      [month, year],
+    );
+    return (rows[0] as PayPeriod) ?? null;
+  }
+
+  static async insertPeriod(
+    month: number,
+    year: number,
+    status: PeriodStatus,
+    createdBy?: number | null,
+  ): Promise<number> {
+    const [res] = await db.execute<ResultSetHeader>(
+      "INSERT INTO pay_periods (period_month, period_year, status, created_by) VALUES (?, ?, ?, ?)",
+      [month, year, status, createdBy ?? null],
+    );
+    return res.insertId;
+  }
+
+  static async findPeriodById(
+    periodId: number,
+    conn?: PoolConnection,
+  ): Promise<PayPeriod | null> {
+    const executor = conn ?? db;
+    const [rows] = await executor.query<RowDataPacket[]>(
+      `
+      SELECT
+        p.*,
+        p.created_by,
+        COALESCE(
+          NULLIF(
+            TRIM(
+              CONCAT(
+                IFNULL(COALESCE(e.first_name, s.first_name), ''),
+                ' ',
+                IFNULL(COALESCE(e.last_name, s.last_name), '')
+              )
+            ),
+            ''
+          ),
+          u.citizen_id,
+          'ระบบ'
+        ) AS created_by_name
+      FROM pay_periods p
+      LEFT JOIN users u ON p.created_by = u.id
+      LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+      LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
+      WHERE p.period_id = ?
+      LIMIT 1
+      `,
+      [periodId],
+    );
+    return (rows[0] as PayPeriod) ?? null;
+  }
+
+  static async findPeriodByIdForUpdate(
+    periodId: number,
+    conn: PoolConnection,
+  ): Promise<PayPeriod | null> {
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `
+      SELECT
+        p.*,
+        p.created_by,
+        COALESCE(
+          NULLIF(
+            TRIM(
+              CONCAT(
+                IFNULL(COALESCE(e.first_name, s.first_name), ''),
+                ' ',
+                IFNULL(COALESCE(e.last_name, s.last_name), '')
+              )
+            ),
+            ''
+          ),
+          u.citizen_id,
+          'ระบบ'
+        ) AS created_by_name
+      FROM pay_periods p
+      LEFT JOIN users u ON p.created_by = u.id
+      LEFT JOIN emp_profiles e ON u.citizen_id = e.citizen_id
+      LEFT JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
+      WHERE p.period_id = ?
+      FOR UPDATE
+      `,
+      [periodId],
+    );
+    return (rows[0] as PayPeriod) ?? null;
+  }
+
+  static async findAllPeriods(): Promise<PayPeriod[]> {
+    const [rows] = await db.query<RowDataPacket[]>(
+      PayrollPeriodRepository.buildListPeriodsQuery(),
+    );
+    return rows as PayPeriod[];
+  }
+
+  static async findPeriodsByStatus(
+    status: PeriodStatus,
+    limit = 10,
+  ): Promise<PayPeriod[]> {
+    const safeLimit = Math.max(1, Math.min(limit, 100));
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT * FROM pay_periods
+       WHERE status = ?
+       ORDER BY period_year DESC, period_month DESC
+       LIMIT ${safeLimit}`,
+      [status],
+    );
+    return rows as PayPeriod[];
+  }
+
+  static async findPeriodItems(
+    periodId: number,
+  ): Promise<RowDataPacket[]> {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `
+      SELECT
+        pi.period_item_id,
+        pi.period_id,
+        pi.request_id,
+        pi.user_id,
+        pi.citizen_id,
+        pi.snapshot_id,
+        r.request_no,
+        r.personnel_type,
+        r.current_department,
+        e.first_name,
+        e.last_name,
+        e.position_name
+      FROM pay_period_items pi
+      LEFT JOIN req_submissions r ON r.request_id = pi.request_id
+      LEFT JOIN users u ON u.id = pi.user_id
+      LEFT JOIN emp_profiles e ON e.citizen_id = COALESCE(u.citizen_id, pi.citizen_id)
+      WHERE pi.period_id = ?
+      ORDER BY e.first_name ASC, e.last_name ASC, COALESCE(u.citizen_id, pi.citizen_id) ASC
+      `,
+      [periodId],
+    );
+    return rows;
+  }
+
+  static async findPeriodItemCitizenIds(
+    periodId: number,
+    conn: PoolConnection,
+  ): Promise<string[]> {
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `
+        SELECT DISTINCT COALESCE(u.citizen_id, pi.citizen_id) AS citizen_id
+        FROM pay_period_items pi
+        LEFT JOIN users u ON u.id = pi.user_id
+        WHERE pi.period_id = ?
+      `,
+      [periodId],
+    );
+    return rows.map((r: any) => r.citizen_id);
+  }
+
+  static async insertPeriodItem(
+    periodId: number,
+    requestId: number,
+    userId: number | null,
+    citizenId: string,
+    snapshotId: number | null,
+    conn: PoolConnection,
+  ): Promise<void> {
+    await conn.execute(
+      `
+      INSERT INTO pay_period_items (period_id, request_id, user_id, citizen_id, snapshot_id)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE snapshot_id = VALUES(snapshot_id)
+      `,
+      [periodId, requestId, userId, citizenId, snapshotId],
+    );
+  }
+
+  static async deletePeriodItem(
+    periodId: number,
+    itemId: number,
+    conn: PoolConnection,
+  ): Promise<void> {
+    await conn.execute(
+      `DELETE FROM pay_period_items WHERE period_id = ? AND period_item_id = ?`,
+      [periodId, itemId],
+    );
+  }
+
+  static async findRequestCitizenId(
+    requestId: number,
+    conn: PoolConnection,
+  ): Promise<string | null> {
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT citizen_id FROM req_submissions WHERE request_id = ?`,
+      [requestId],
+    );
+    return (rows[0] as any)?.citizen_id ?? null;
+  }
+
+  static async findRequestUserId(
+    requestId: number,
+    conn: PoolConnection,
+  ): Promise<number | null> {
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT user_id FROM req_submissions WHERE request_id = ?`,
+      [requestId],
+    );
+    return (rows[0] as any)?.user_id ?? null;
+  }
+
+  static async findUserIdMapByCitizenIds(
+    citizenIds: string[],
+    conn: PoolConnection,
+  ): Promise<Map<string, number>> {
+    if (!citizenIds.length) return new Map();
+    const placeholders = citizenIds.map(() => "?").join(",");
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT id, citizen_id FROM users WHERE citizen_id IN (${placeholders})`,
+      citizenIds,
+    );
+    const map = new Map<string, number>();
+    rows.forEach((row: any) => {
+      if (row.citizen_id && row.id) {
+        map.set(String(row.citizen_id), Number(row.id));
+      }
+    });
+    return map;
+  }
+
+  static async findLatestVerificationSnapshotId(
+    requestId: number,
+    conn: PoolConnection,
+  ): Promise<number | null> {
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `
+      SELECT snapshot_id
+      FROM req_verification_snapshots
+      WHERE request_id = ?
+      ORDER BY created_at DESC, snapshot_id DESC
+      LIMIT 1
+      `,
+      [requestId],
+    );
+    return (rows[0] as any)?.snapshot_id ?? null;
+  }
+
+  static async updatePeriodTotals(
+    periodId: number,
+    totalAmount: number,
+    headCount: number,
+    conn: PoolConnection,
+  ): Promise<void> {
+    await conn.execute(
+      "UPDATE pay_periods SET total_amount = ?, total_headcount = ?, updated_at = NOW() WHERE period_id = ?",
+      [totalAmount, headCount, periodId],
+    );
+  }
+
+  static async updatePeriodStatus(
+    periodId: number,
+    status: PeriodStatus,
+    conn: PoolConnection,
+  ): Promise<void> {
+    let sql = "UPDATE pay_periods SET status = ?";
+    const params: unknown[] = [status];
+
+    if (status === PeriodStatus.CLOSED) {
+      sql += ", closed_at = NOW()";
+    }
+
+    sql += " WHERE period_id = ?";
+    params.push(periodId);
+
+    await conn.execute(sql, params);
+  }
+
+  static async updatePeriodFreeze(
+    periodId: number,
+    isFrozen: boolean,
+    actorId: number | null,
+    conn: PoolConnection,
+  ): Promise<void> {
+    await conn.execute(
+      `
+      UPDATE pay_periods
+      SET frozen_at = ?, frozen_by = ?, snapshot_status = ?, snapshot_ready_at = ?, updated_at = NOW()
+      WHERE period_id = ?
+      `,
+      [
+        isFrozen ? new Date() : null,
+        isFrozen ? actorId : null,
+        isFrozen ? SnapshotStatus.READY : SnapshotStatus.PENDING,
+        isFrozen ? new Date() : null,
+        periodId,
+      ],
+    );
+  }
+
+  static async updatePeriodLock(
+    periodId: number,
+    isLocked: boolean,
+    conn: PoolConnection,
+  ): Promise<void> {
+    await conn.execute(
+      `
+      UPDATE pay_periods
+      SET is_locked = ?, updated_at = NOW()
+      WHERE period_id = ?
+      `,
+      [isLocked ? 1 : 0, periodId],
+    );
+  }
+
+  static async updatePeriodSnapshotStatus(
+    periodId: number,
+    status: SnapshotStatus,
+    conn: PoolConnection,
+    options?: { readyAt?: Date | null },
+  ): Promise<void> {
+    await conn.execute(
+      `
+      UPDATE pay_periods
+      SET snapshot_status = ?, snapshot_ready_at = ?, updated_at = NOW()
+      WHERE period_id = ?
+      `,
+      [status, options?.readyAt ?? null, periodId],
+    );
+  }
+
+  static async findRequiredProfessionCodesByPeriod(
+    periodId: number,
+    conn?: PoolConnection,
+  ): Promise<string[]> {
+    const executor = conn ?? db;
+    const [rows] = await executor.query<RowDataPacket[]>(
+      `
+      SELECT DISTINCT
+        UPPER(
+          COALESCE(
+            NULLIF(p.profession_code, ''),
+            NULLIF(r.profession_code, '')
+          )
+        ) AS profession_code
+      FROM pay_results p
+      LEFT JOIN cfg_payment_rates r ON r.rate_id = p.master_rate_id
+      WHERE p.period_id = ?
+      `,
+      [periodId],
+    );
+    return rows
+      .map((row: any) => String(row.profession_code ?? "").trim())
+      .filter((code) => code.length > 0);
+  }
+
+  static async findReviewedProfessionCodesByPeriod(
+    periodId: number,
+    conn?: PoolConnection,
+  ): Promise<string[]> {
+    const executor = conn ?? db;
+    const [rows] = await executor.query<RowDataPacket[]>(
+      `
+      SELECT UPPER(profession_code) AS profession_code
+      FROM pay_period_profession_reviews
+      WHERE period_id = ?
+      `,
+      [periodId],
+    );
+    return rows
+      .map((row: any) => String(row.profession_code ?? "").trim())
+      .filter((code) => code.length > 0);
+  }
+
+  static async setProfessionReview(
+    periodId: number,
+    professionCode: string,
+    reviewed: boolean,
+    actorId: number,
+    conn?: PoolConnection,
+  ): Promise<void> {
+    const executor = conn ?? db;
+    if (reviewed) {
+      await executor.execute(
+        `
+        INSERT INTO pay_period_profession_reviews
+          (period_id, profession_code, reviewed_by, reviewed_at)
+        VALUES (?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE
+          reviewed_by = VALUES(reviewed_by),
+          reviewed_at = VALUES(reviewed_at),
+          updated_at = NOW()
+        `,
+        [periodId, professionCode, actorId],
+      );
+      return;
+    }
+
+    await executor.execute(
+      `
+      DELETE FROM pay_period_profession_reviews
+      WHERE period_id = ? AND profession_code = ?
+      `,
+      [periodId, professionCode],
+    );
+  }
+
+  static async clearProfessionReviewsByPeriod(
+    periodId: number,
+    conn?: PoolConnection,
+  ): Promise<void> {
+    const executor = conn ?? db;
+    await executor.execute(
+      `DELETE FROM pay_period_profession_reviews WHERE period_id = ?`,
+      [periodId],
+    );
+  }
+
+  static async deletePeriodItemsByPeriod(
+    periodId: number,
+    conn: PoolConnection,
+  ): Promise<void> {
+    await conn.execute("DELETE FROM pay_period_items WHERE period_id = ?", [
+      periodId,
+    ]);
+  }
+
+  static async deletePeriodById(
+    periodId: number,
+    conn: PoolConnection,
+  ): Promise<void> {
+    await conn.execute("DELETE FROM pay_periods WHERE period_id = ?", [periodId]);
+  }
+}

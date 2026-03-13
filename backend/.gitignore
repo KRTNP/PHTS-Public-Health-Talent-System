@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+/.turbo/
+/.swc/
+.cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.test
+.env.perf
+.envrc
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# Runtime data
+tmp/
+temp/
+
+# Editor directories and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Database files
+src/database/
+
+# Uploads
+uploads/
+!uploads/.gitkeep
+!uploads/documents/.gitkeep
+!uploads/signatures/.gitkeep
+
+# Backup
+/backups/
+
+# Security scan artifacts
+zap-*.html
+zap-*.json
+zap-*.txt
+zap.yaml
