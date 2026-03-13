@@ -676,6 +676,37 @@ export class TransformMonitorRepository {
     const safePage = Math.max(1, Number(input.page || 1));
     const safeLimit = Math.max(1, Math.min(Number(input.limit || 20), 200));
     const offset = (safePage - 1) * safeLimit;
+    const tableOptions = Object.keys(SYNC_RECORD_TABLE_CONFIG);
+    const emptyTableCounts = Object.fromEntries(
+      tableOptions.map((table) => [table, 0]),
+    ) as Record<string, number>;
+
+    const toTableCounts = async (batch: RowDataPacket): Promise<Record<string, number>> => {
+      const tableCounts: Record<string, number> = {};
+      for (const [tableName, tableConfig] of Object.entries(SYNC_RECORD_TABLE_CONFIG)) {
+        const tableCountRows = await query<RowDataPacket[]>(
+          `
+          SELECT COUNT(*) AS total
+          FROM \`${tableName}\`
+          WHERE \`${tableConfig.timestampColumn}\` BETWEEN ? AND ?
+          `,
+          [batch.started_at, batch.finished_at],
+        );
+        tableCounts[tableName] = Number(tableCountRows[0]?.total ?? 0);
+      }
+      return tableCounts;
+    };
+
+    const toEmptyResult = () => ({
+      rows: [],
+      total: 0,
+      page: safePage,
+      limit: safeLimit,
+      batch_id: null,
+      target_table: 'users',
+      table_options: tableOptions,
+      table_counts: emptyTableCounts,
+    });
 
     const batchRows = input.batchId
       ? await query<RowDataPacket[]>(
@@ -691,40 +722,33 @@ export class TransformMonitorRepository {
           `
           SELECT batch_id, started_at, COALESCE(finished_at, NOW()) AS finished_at
           FROM hrms_sync_batches
-          ORDER BY
-            CASE WHEN COALESCE(changed_records, 0) > 0 THEN 0 ELSE 1 END,
-            batch_id DESC
-          LIMIT 1
+          ORDER BY batch_id DESC
+          LIMIT 30
           `,
         );
 
-    const batch = batchRows[0];
-    if (!batch) {
-      return {
-        rows: [],
-        total: 0,
-        page: safePage,
-        limit: safeLimit,
-        batch_id: null,
-        target_table: 'users',
-        table_options: Object.keys(SYNC_RECORD_TABLE_CONFIG),
-        table_counts: Object.fromEntries(
-          Object.keys(SYNC_RECORD_TABLE_CONFIG).map((table) => [table, 0]),
-        ),
-      };
+    if (!batchRows[0]) {
+      return toEmptyResult();
     }
 
-    const tableCounts: Record<string, number> = {};
-    for (const [tableName, tableConfig] of Object.entries(SYNC_RECORD_TABLE_CONFIG)) {
-      const tableCountRows = await query<RowDataPacket[]>(
-        `
-        SELECT COUNT(*) AS total
-        FROM \`${tableName}\`
-        WHERE \`${tableConfig.timestampColumn}\` BETWEEN ? AND ?
-        `,
-        [batch.started_at, batch.finished_at],
-      );
-      tableCounts[tableName] = Number(tableCountRows[0]?.total ?? 0);
+    let batch = batchRows[0];
+    let tableCounts: Record<string, number> = {};
+
+    if (input.batchId) {
+      tableCounts = await toTableCounts(batch);
+    } else {
+      let selectedCounts: Record<string, number> | null = null;
+      for (const candidateBatch of batchRows) {
+        const candidateCounts = await toTableCounts(candidateBatch);
+        if (!selectedCounts) selectedCounts = candidateCounts;
+        const hasRecords = Object.values(candidateCounts).some((count) => count > 0);
+        if (hasRecords) {
+          batch = candidateBatch;
+          selectedCounts = candidateCounts;
+          break;
+        }
+      }
+      tableCounts = selectedCounts ?? emptyTableCounts;
     }
 
     const targetTable = input.targetTable && SYNC_RECORD_TABLE_CONFIG[input.targetTable]
@@ -777,7 +801,7 @@ export class TransformMonitorRepository {
       limit: safeLimit,
       batch_id: Number(batch.batch_id),
       target_table: targetTable,
-      table_options: Object.keys(SYNC_RECORD_TABLE_CONFIG),
+      table_options: tableOptions,
       table_counts: tableCounts,
     };
   }
