@@ -57,6 +57,14 @@ const prepareRequestFlowSchema = async (): Promise<void> => {
   await addColumnIfMissing(
     'ALTER TABLE req_submissions ADD COLUMN submission_data JSON NULL',
   );
+  await addColumnIfMissing(`
+    CREATE TABLE IF NOT EXISTS cfg_payment_rates (
+      rate_id INT AUTO_INCREMENT PRIMARY KEY,
+      amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+      profession_code VARCHAR(50) NOT NULL DEFAULT 'CIVIL_SERVANT',
+      is_active TINYINT(1) NOT NULL DEFAULT 1
+    )
+  `);
   await addColumnIfMissing(
     'ALTER TABLE cfg_payment_rates ADD COLUMN group_no INT NOT NULL DEFAULT 1',
   );

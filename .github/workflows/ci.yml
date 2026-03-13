@@ -37,8 +37,12 @@ jobs:
       DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: rootpass
+      DB_NAME: phts_test
+      TEST_DB_NAME: phts_test
       JWT_SECRET: ci-test-secret
       NODE_ENV: test
+      TZ: Asia/Bangkok
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,13 +55,11 @@ jobs:
       - run: npm run typecheck
       - run: npm test -- --coverage
       - uses: codecov/codecov-action@v4
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        if: ${{ env.CODECOV_TOKEN != '' }}
         with:
           files: backend/coverage/lcov.info
           flags: backend
           fail_ci_if_error: true
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   frontend-build:
     runs-on: ubuntu-latest
