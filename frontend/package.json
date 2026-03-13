@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "TZ=Asia/Bangkok next build --webpack",
-    "dev": "TZ=Asia/Bangkok next dev --hostname 0.0.0.0",
+    "build": "cross-env TZ=Asia/Bangkok next build --webpack",
+    "dev": "cross-env TZ=Asia/Bangkok next dev --hostname 0.0.0.0",
     "lint": "eslint",
-    "start": "TZ=Asia/Bangkok next start",
+    "start": "cross-env TZ=Asia/Bangkok next start",
     "test": "vitest",
     "test:smoke": "vitest --run src/features/leave-management/screens/pts-officer/LeaveManagementScreen.integration.test.tsx src/features/request/detail/timeline/ApprovalTimelineCard.test.tsx src/features/request/detail/timeline/OfficerCreatedRequestTimelineCard.test.tsx src/features/request/create/hooks/useRequestForm.test.tsx",
     "typecheck": "tsc --noEmit"
@@ -75,6 +75,7 @@
     "@types/react-signature-canvas": "^1.0.7",
     "@vitest/ui": "^4.0.18",
     "autoprefixer": "^10.4.20",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "jsdom": "^27.4.0",
