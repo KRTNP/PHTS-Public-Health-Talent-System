@@ -117,3 +117,6 @@ backend/uploads/*
 
 # Local backup/safety workspace
 /safe/
+
+# Local docs artifacts
+/docs/
