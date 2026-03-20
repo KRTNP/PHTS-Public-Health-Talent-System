@@ -1,45 +1,45 @@
-import { createHash } from 'node:crypto';
+import { createHash } from "node:crypto";
 
 export const VIEW_EMPLOYEE_COLUMNS = [
-  'citizen_id',
-  'title',
-  'first_name',
-  'last_name',
-  'sex',
-  'birth_date',
-  'position_name',
-  'position_number',
-  'level',
-  'special_position',
-  'employee_type',
-  'start_current_position',
-  'first_entry_date',
-  'mission_group',
-  'department',
-  'sub_department',
-  'specialist',
-  'expert',
-  'original_status',
-  'is_currently_active',
+  "citizen_id",
+  "title",
+  "first_name",
+  "last_name",
+  "sex",
+  "birth_date",
+  "position_name",
+  "position_number",
+  "level",
+  "special_position",
+  "employee_type",
+  "start_current_position",
+  "first_entry_date",
+  "mission_group",
+  "department",
+  "sub_department",
+  "specialist",
+  "expert",
+  "original_status",
+  "is_currently_active",
 ] as const;
 
 export const VIEW_SUPPORT_COLUMNS = [
-  'citizen_id',
-  'title',
-  'first_name',
-  'last_name',
-  'sex',
-  'position_name',
-  'position_number',
-  'level',
-  'special_position',
-  'employee_type',
-  'start_current_position',
-  'first_entry_date',
-  'mission_group',
-  'department',
-  'original_status',
-  'is_currently_active',
+  "citizen_id",
+  "title",
+  "first_name",
+  "last_name",
+  "sex",
+  "position_name",
+  "position_number",
+  "level",
+  "special_position",
+  "employee_type",
+  "start_current_position",
+  "first_entry_date",
+  "mission_group",
+  "department",
+  "original_status",
+  "is_currently_active",
 ] as const;
 
 export const citizenIdJoinBinary = (leftAlias: string, rightAlias: string) =>
@@ -419,46 +419,51 @@ export interface LeaveRecordSqlOptions {
   hasStatusColumn: boolean;
 }
 
-export const buildLeaveRecordSql = (options: LeaveRecordSqlOptions): { sql: string; fields: string[] } => {
+export const buildLeaveRecordSql = (
+  options: LeaveRecordSqlOptions,
+): { sql: string; fields: string[] } => {
   const { hasStatusColumn } = options;
   const baseFields = [
-    'ref_id',
-    'citizen_id',
-    'leave_type',
-    'start_date',
-    'end_date',
-    'duration_days',
-    'fiscal_year',
-    'remark',
+    "ref_id",
+    "citizen_id",
+    "leave_type",
+    "start_date",
+    "end_date",
+    "duration_days",
+    "fiscal_year",
+    "remark",
   ];
   const fields = [...baseFields];
   const updateFields = [
-    'leave_type = VALUES(leave_type)',
-    'start_date = VALUES(start_date)',
-    'end_date = VALUES(end_date)',
-    'duration_days = VALUES(duration_days)',
-    'fiscal_year = VALUES(fiscal_year)',
-    'remark = VALUES(remark)',
+    "leave_type = VALUES(leave_type)",
+    "start_date = VALUES(start_date)",
+    "end_date = VALUES(end_date)",
+    "duration_days = VALUES(duration_days)",
+    "fiscal_year = VALUES(fiscal_year)",
+    "remark = VALUES(remark)",
   ];
 
   if (hasStatusColumn) {
-    fields.push('status');
-    updateFields.push('status = VALUES(status)');
+    fields.push("status");
+    updateFields.push("status = VALUES(status)");
   }
-  fields.push('synced_at');
-  updateFields.push('synced_at = NOW()');
+  fields.push("synced_at");
+  updateFields.push("synced_at = NOW()");
 
-  const placeholders = fields.map(() => '?').join(', ');
+  const placeholders = fields.map(() => "?").join(", ");
   const sql = `
-    INSERT INTO leave_records (${fields.join(', ')})
+    INSERT INTO leave_records (${fields.join(", ")})
     VALUES (${placeholders})
-    ON DUPLICATE KEY UPDATE ${updateFields.join(', ')}
+    ON DUPLICATE KEY UPDATE ${updateFields.join(", ")}
   `;
 
   return { sql, fields };
 };
 
-export const buildLeaveRecordValues = (vLeave: any, options: LeaveRecordSqlOptions): any[] => {
+export const buildLeaveRecordValues = (
+  vLeave: any,
+  options: LeaveRecordSqlOptions,
+): any[] => {
   const { hasStatusColumn } = options;
   const values = [
     toNull(vLeave.ref_id),
@@ -502,70 +507,84 @@ export const buildSupportEmployeeSql = (
     hasProfileFingerprintColumn,
   } = options;
 
-  const baseFields = ['citizen_id', 'title', 'first_name', 'last_name', 'position_name'];
+  const baseFields = [
+    "citizen_id",
+    "title",
+    "first_name",
+    "last_name",
+    "position_name",
+  ];
   const fields = [...baseFields];
   const updateFields = [
-    'title = VALUES(title)',
-    'first_name = VALUES(first_name)',
-    'last_name = VALUES(last_name)',
-    'position_name = VALUES(position_name)',
+    "title = VALUES(title)",
+    "first_name = VALUES(first_name)",
+    "last_name = VALUES(last_name)",
+    "position_name = VALUES(position_name)",
   ];
 
   if (hasLevelColumn) {
-    fields.push('level');
-    updateFields.push('level = VALUES(level)');
+    fields.push("level");
+    updateFields.push("level = VALUES(level)");
   }
 
-  fields.push('special_position', 'emp_type', 'department', 'is_currently_active');
+  fields.push(
+    "special_position",
+    "emp_type",
+    "department",
+    "is_currently_active",
+  );
   updateFields.push(
-    'special_position = VALUES(special_position)',
-    'emp_type = VALUES(emp_type)',
-    'department = VALUES(department)',
-    'is_currently_active = VALUES(is_currently_active)',
+    "special_position = VALUES(special_position)",
+    "emp_type = VALUES(emp_type)",
+    "department = VALUES(department)",
+    "is_currently_active = VALUES(is_currently_active)",
   );
 
   if (options.hasOriginalStatusColumn) {
-    fields.push('original_status');
-    updateFields.push('original_status = VALUES(original_status)');
+    fields.push("original_status");
+    updateFields.push("original_status = VALUES(original_status)");
   }
   if (hasStatusCodeColumn) {
-    fields.push('status_code');
-    updateFields.push('status_code = VALUES(status_code)');
+    fields.push("status_code");
+    updateFields.push("status_code = VALUES(status_code)");
   }
   if (hasStatusTextColumn) {
-    fields.push('status_text');
-    updateFields.push('status_text = VALUES(status_text)');
+    fields.push("status_text");
+    updateFields.push("status_text = VALUES(status_text)");
   }
   if (hasSourceSystemColumn) {
-    fields.push('source_system');
-    updateFields.push('source_system = VALUES(source_system)');
+    fields.push("source_system");
+    updateFields.push("source_system = VALUES(source_system)");
   }
   if (hasSourceUpdatedAtColumn) {
-    fields.push('source_updated_at');
-    updateFields.push('source_updated_at = VALUES(source_updated_at)');
+    fields.push("source_updated_at");
+    updateFields.push("source_updated_at = VALUES(source_updated_at)");
   }
   if (hasRawSnapshotColumn) {
-    fields.push('raw_snapshot');
-    updateFields.push('raw_snapshot = VALUES(raw_snapshot)');
+    fields.push("raw_snapshot");
+    updateFields.push("raw_snapshot = VALUES(raw_snapshot)");
   }
   if (hasProfileFingerprintColumn) {
-    fields.push('profile_fingerprint');
-    updateFields.push('profile_fingerprint = VALUES(profile_fingerprint)');
+    fields.push("profile_fingerprint");
+    updateFields.push("profile_fingerprint = VALUES(profile_fingerprint)");
   }
 
-  fields.push('last_synced_at');
-  updateFields.push('last_synced_at = NOW()');
+  fields.push("last_synced_at");
+  updateFields.push("last_synced_at = NOW()");
 
-  const placeholders = fields.map(() => '?').join(', ');
+  const placeholders = fields.map(() => "?").join(", ");
   const sql = `
-    INSERT INTO emp_support_staff (${fields.join(', ')})
+    INSERT INTO emp_support_staff (${fields.join(", ")})
     VALUES (${placeholders})
-    ON DUPLICATE KEY UPDATE ${updateFields.join(', ')}
+    ON DUPLICATE KEY UPDATE ${updateFields.join(", ")}
   `;
   return { sql, fields };
 };
 
-export const buildSupportEmployeeValues = (vSup: any, options: SupportEmployeeSqlOptions): any[] => {
+export const buildSupportEmployeeValues = (
+  vSup: any,
+  options: SupportEmployeeSqlOptions,
+): any[] => {
   const {
     hasLevelColumn,
     hasStatusCodeColumn,
@@ -576,8 +595,9 @@ export const buildSupportEmployeeValues = (vSup: any, options: SupportEmployeeSq
     hasProfileFingerprintColumn,
   } = options;
   const isActive = Number(vSup.is_currently_active ?? 0) === 1;
-  const statusCode = isActive ? 'ACTIVE' : 'INACTIVE';
-  const statusText = vSup.original_status ?? (isActive ? 'ปฏิบัติงาน' : 'ไม่ปฏิบัติงาน');
+  const statusCode = isActive ? "ACTIVE" : "INACTIVE";
+  const statusText =
+    vSup.original_status ?? (isActive ? "ปฏิบัติงาน" : "ไม่ปฏิบัติงาน");
   const normalized = {
     citizen_id: toNull(vSup.citizen_id),
     position_name: toNull(vSup.position_name),
@@ -588,9 +608,9 @@ export const buildSupportEmployeeValues = (vSup: any, options: SupportEmployeeSq
     status_text: statusText,
     is_currently_active: isActive ? 1 : 0,
   };
-  const fingerprint = createHash('sha256')
+  const fingerprint = createHash("sha256")
     .update(JSON.stringify(normalized))
-    .digest('hex');
+    .digest("hex");
   const values = [
     toNull(vSup.citizen_id),
     toNull(vSup.title),
@@ -608,10 +628,11 @@ export const buildSupportEmployeeValues = (vSup: any, options: SupportEmployeeSq
     toNull(vSup.is_currently_active),
   );
 
-  if (options.hasOriginalStatusColumn) values.push(toNull(vSup.original_status));
+  if (options.hasOriginalStatusColumn)
+    values.push(toNull(vSup.original_status));
   if (hasStatusCodeColumn) values.push(statusCode);
   if (hasStatusTextColumn) values.push(statusText);
-  if (hasSourceSystemColumn) values.push('HRMS');
+  if (hasSourceSystemColumn) values.push("HRMS");
   if (hasSourceUpdatedAtColumn) values.push(new Date());
   if (hasRawSnapshotColumn) values.push(JSON.stringify(vSup));
   if (hasProfileFingerprintColumn) values.push(fingerprint);

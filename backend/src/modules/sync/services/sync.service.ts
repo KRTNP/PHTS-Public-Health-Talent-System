@@ -1,28 +1,28 @@
-import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
-import db from '@config/database.js';
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import db from "@config/database.js";
 import {
   assignRoles,
   IdentityRolePolicyService,
-} from '@/modules/identity/services/identity-role-policy.service.js';
-import { TransformMonitorRepository } from '@/modules/sync/repositories/transform-monitor.repository.js';
-import { getRoleMappingDiagnostics } from '@/modules/sync/repositories/role-mapping.repository.js';
-import { refreshReviewCycleFromSync } from '@/modules/access-review/services/access-review.service.js';
-import { getSyncRuntimeStatus } from '@/modules/sync/services/sync-status.service.js';
+} from "@/modules/identity/services/identity-role-policy.service.js";
+import { TransformMonitorRepository } from "@/modules/sync/repositories/transform-monitor.repository.js";
+import { getRoleMappingDiagnostics } from "@/modules/sync/repositories/role-mapping.repository.js";
+import { refreshReviewCycleFromSync } from "@/modules/access-review/services/access-review.service.js";
+import { getSyncRuntimeStatus } from "@/modules/sync/services/sync-status.service.js";
 import {
   claimAutoSyncWindow,
   getDueAutoSyncWindow,
-} from '@/modules/sync/services/sync-auto-schedule.service.js';
-import { clearScopeCache } from '@/modules/request/scope/application/scope.service.js';
-import { requestRepository } from '@/modules/request/data/repositories/request.repository.js';
-import { applyImmediateMovementEligibilityCutoff } from '@/modules/workforce-compliance/services/immediate-rules.service.js';
+} from "@/modules/sync/services/sync-auto-schedule.service.js";
+import { clearScopeCache } from "@/modules/request/scope/application/scope.service.js";
+import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
+import { applyImmediateMovementEligibilityCutoff } from "@/modules/workforce-compliance/services/immediate-rules.service.js";
 import type {
   SyncCoreStatus,
   SyncOverallStatus,
   SyncPostStatus,
   SyncRuntimeStatus,
   SyncStats,
-} from '@/modules/sync/services/shared/sync.types.js';
-import { createSyncStats } from '@/modules/sync/services/shared/sync-stats.service.js';
+} from "@/modules/sync/services/shared/sync.types.js";
+import { createSyncStats } from "@/modules/sync/services/shared/sync-stats.service.js";
 import {
   acquireSyncLock,
   createSyncLockValue,
@@ -30,7 +30,7 @@ import {
   releaseSyncLock,
   setLastSyncResult,
   startSyncLockHeartbeat,
-} from '@/modules/sync/services/shared/sync-lock.service.js';
+} from "@/modules/sync/services/shared/sync-lock.service.js";
 import {
   hasLeaveStatusColumn,
   hasSupportProfileFingerprintColumn,
@@ -39,14 +39,14 @@ import {
   resolveSupportStaffColumnFlags,
   upsertEmployeeProfile,
   upsertLeaveQuota,
-} from '@/modules/sync/services/shared/sync-db-helpers.service.js';
-import { syncUsersFromProfilesAndSupport } from '@/modules/sync/services/domain/sync-users.service.js';
+} from "@/modules/sync/services/shared/sync-db-helpers.service.js";
+import { syncUsersFromProfilesAndSupport } from "@/modules/sync/services/domain/sync-users.service.js";
 import {
   syncEmployees,
   syncSupportEmployees,
   upsertSingleEmployeeProfile,
   upsertSingleSupportEmployee,
-} from '@/modules/sync/services/domain/sync-hr.service.js';
+} from "@/modules/sync/services/domain/sync-hr.service.js";
 import {
   syncSignatures as runDomainSignaturesSync,
   syncLicensesAndQuotas as runDomainLicensesAndQuotasSync,
@@ -57,29 +57,27 @@ import {
   syncSingleQuotas as runSingleQuotasSync,
   syncSingleLeaves as runSingleLeavesSync,
   syncSingleMovements as runSingleMovementsSync,
-} from '@/modules/sync/services/domain/sync-domain.service.js';
-import {
-  normalizeLeaveRowWithMeta,
-} from '@/modules/sync/services/domain/leave-normalizer.service.js';
+} from "@/modules/sync/services/domain/sync-domain.service.js";
+import { normalizeLeaveRowWithMeta } from "@/modules/sync/services/domain/leave-normalizer.service.js";
 import {
   buildScopesFromSpecialPosition as buildScopesFromSpecialPositionBase,
   syncSpecialPositionScopes as runScopeSync,
   syncSpecialPositionScopesForCitizen as runScopeSyncForCitizen,
-} from '@/modules/sync/services/domain/sync-scope.service.js';
-import { assignRoleForSingleUser as assignRoleForSingleUserBase } from '@/modules/sync/services/domain/sync-role.service.js';
+} from "@/modules/sync/services/domain/sync-scope.service.js";
+import { assignRoleForSingleUser as assignRoleForSingleUserBase } from "@/modules/sync/services/domain/sync-role.service.js";
 import {
   runCoreStages,
   runPostStages,
-} from '@/modules/sync/services/pipeline/pipeline.runner.js';
+} from "@/modules/sync/services/pipeline/pipeline.runner.js";
 import {
   CORE_PIPELINE_STAGES,
   POST_PIPELINE_STAGES,
-} from '@/modules/sync/services/pipeline/pipeline.context.js';
+} from "@/modules/sync/services/pipeline/pipeline.context.js";
 import type {
   PipelineContext,
   SyncPipelineMode,
-} from '@/modules/sync/services/pipeline/pipeline.types.js';
-import { createSyncPipelineActions } from '@/modules/sync/services/pipeline/pipeline.actions.js';
+} from "@/modules/sync/services/pipeline/pipeline.types.js";
+import { createSyncPipelineActions } from "@/modules/sync/services/pipeline/pipeline.actions.js";
 import {
   VIEW_EMPLOYEE_COLUMNS,
   VIEW_SUPPORT_COLUMNS,
@@ -95,51 +93,68 @@ import {
   buildSupportViewQuery,
   citizenIdJoinBinary,
   citizenIdWhereBinary,
-} from '@/modules/sync/repositories/sync-query-builders.repository.js';
+} from "@/modules/sync/repositories/sync-query-builders.repository.js";
 
 const toDateOnly = (value: any): string | null => {
   if (!value) return null;
   if (value instanceof Date) {
     const year = value.getFullYear();
-    const month = `${value.getMonth() + 1}`.padStart(2, '0');
-    const day = `${value.getDate()}`.padStart(2, '0');
+    const month = `${value.getMonth() + 1}`.padStart(2, "0");
+    const day = `${value.getDate()}`.padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
     if (match) return `${match[1]}-${match[2]}-${match[3]}`;
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   const year = parsed.getFullYear();
-  const month = `${parsed.getMonth() + 1}`.padStart(2, '0');
-  const day = `${parsed.getDate()}`.padStart(2, '0');
+  const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
+  const day = `${parsed.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
 const isActiveStatusCode = (statusCode: string | null): boolean => {
-  const normalized = String(statusCode ?? '').trim().toUpperCase();
-  return normalized === 'ACTIVE' || normalized === 'STUDY_LEAVE';
+  const normalized = String(statusCode ?? "")
+    .trim()
+    .toUpperCase();
+  return normalized === "ACTIVE" || normalized === "STUDY_LEAVE";
 };
 
 // Used by scope sync flow where source still provides status text.
 const isActiveOriginalStatus = (status: string | null): boolean => {
   if (!status) return false;
   const normalized = status.trim();
-  return normalized.startsWith('ปฏิบัติงาน') || normalized.includes('ลาศึกษา');
+  return normalized.startsWith("ปฏิบัติงาน") || normalized.includes("ลาศึกษา");
 };
 
-const parsePositiveIntEnv = (value: string | undefined, fallback: number): number => {
-  const parsed = Number.parseInt(value ?? '', 10);
+const parsePositiveIntEnv = (
+  value: string | undefined,
+  fallback: number,
+): number => {
+  const parsed = Number.parseInt(value ?? "", 10);
   if (!Number.isFinite(parsed) || parsed < 0) return fallback;
   return parsed;
 };
 
 const getMonitorRetentionPolicy = () => ({
-  dataIssuesDays: parsePositiveIntEnv(process.env.SYNC_RETENTION_DATA_ISSUES_DAYS, 180),
-  userAuditsDays: parsePositiveIntEnv(process.env.SYNC_RETENTION_USER_AUDITS_DAYS, 180),
-  stageRunsDays: parsePositiveIntEnv(process.env.SYNC_RETENTION_STAGE_RUNS_DAYS, 120),
-  batchesDays: parsePositiveIntEnv(process.env.SYNC_RETENTION_BATCHES_DAYS, 365),
+  dataIssuesDays: parsePositiveIntEnv(
+    process.env.SYNC_RETENTION_DATA_ISSUES_DAYS,
+    180,
+  ),
+  userAuditsDays: parsePositiveIntEnv(
+    process.env.SYNC_RETENTION_USER_AUDITS_DAYS,
+    180,
+  ),
+  stageRunsDays: parsePositiveIntEnv(
+    process.env.SYNC_RETENTION_STAGE_RUNS_DAYS,
+    120,
+  ),
+  batchesDays: parsePositiveIntEnv(
+    process.env.SYNC_RETENTION_BATCHES_DAYS,
+    365,
+  ),
 });
 
 export const deriveUserIsActive = (
@@ -162,14 +177,16 @@ const isChanged = (oldVal: any, newVal: any) => {
   if (oldDate || newDate) {
     return oldDate !== newDate;
   }
-  if (typeof oldVal === 'number' && typeof newVal === 'string') {
+  if (typeof oldVal === "number" && typeof newVal === "string") {
     return oldVal !== Number.parseFloat(newVal);
   }
-  return String(oldVal ?? '') !== String(newVal ?? '');
+  return String(oldVal ?? "") !== String(newVal ?? "");
 };
 
 const getUserIdMap = async (conn: PoolConnection) => {
-  const [existingUsers] = await conn.query<RowDataPacket[]>('SELECT id, citizen_id FROM users');
+  const [existingUsers] = await conn.query<RowDataPacket[]>(
+    "SELECT id, citizen_id FROM users",
+  );
   return new Map(existingUsers.map((u) => [u.citizen_id, u.id]));
 };
 
@@ -210,7 +227,10 @@ const syncSignatures = async (conn: PoolConnection, stats: SyncStats) => {
   });
 };
 
-const syncLicensesAndQuotas = async (conn: PoolConnection, stats: SyncStats) => {
+const syncLicensesAndQuotas = async (
+  conn: PoolConnection,
+  stats: SyncStats,
+) => {
   return runDomainLicensesAndQuotasSync(conn, stats, {
     buildQuotasViewQuery,
     upsertLeaveQuota,
@@ -232,9 +252,9 @@ const syncLeaves = async (
     onLeaveReclassified: async ({ sourceKey, citizenId, remark, meta }) => {
       await TransformMonitorRepository.createDataIssue({
         batchId: batchId ?? null,
-        targetTable: 'leave_records',
+        targetTable: "leave_records",
         sourceKey,
-        issueCode: 'LEAVE_TYPE_RECLASSIFIED',
+        issueCode: "LEAVE_TYPE_RECLASSIFIED",
         issueDetail: JSON.stringify({
           citizen_id: citizenId,
           original_type: meta.original_type,
@@ -242,13 +262,13 @@ const syncLeaves = async (
           reason_code: meta.reason_code,
           remark,
         }),
-        severity: 'MEDIUM',
+        severity: "MEDIUM",
       });
     },
     onLeaveReviewFlagged: async ({ sourceKey, citizenId, remark, meta }) => {
       await TransformMonitorRepository.createDataIssue({
         batchId: batchId ?? null,
-        targetTable: 'leave_records',
+        targetTable: "leave_records",
         sourceKey,
         issueCode: meta.reason_code,
         issueDetail: JSON.stringify({
@@ -258,13 +278,13 @@ const syncLeaves = async (
           reason_text: meta.reason_text,
           remark,
         }),
-        severity: 'LOW',
+        severity: "LOW",
       });
     },
     onLeaveNormalizationIssue: async ({ sourceKey, citizenId, meta }) => {
       await TransformMonitorRepository.createDataIssue({
         batchId: batchId ?? null,
-        targetTable: 'leave_records',
+        targetTable: "leave_records",
         sourceKey,
         issueCode: meta.issue_code,
         issueDetail: JSON.stringify({
@@ -272,7 +292,7 @@ const syncLeaves = async (
           reason_text: meta.reason_text,
           ...meta.detail,
         }),
-        severity: meta.issue_code === 'LEAVE_DATE_INVALID' ? 'HIGH' : 'LOW',
+        severity: meta.issue_code === "LEAVE_DATE_INVALID" ? "HIGH" : "LOW",
       });
     },
   });
@@ -293,25 +313,30 @@ const syncSpecialPositionScopes = async (conn: PoolConnection) => {
     citizenIdJoinBinary,
     isActiveOriginalStatus,
     parseScopes: buildScopesFromSpecialPosition,
-    disableScopeMappings: requestRepository.disableScopeMappings.bind(requestRepository),
-    disableScopeMappingsByCitizenId: requestRepository.disableScopeMappingsByCitizenId.bind(
-      requestRepository,
-    ),
-    insertScopeMappings: requestRepository.insertScopeMappings.bind(requestRepository),
+    disableScopeMappings:
+      requestRepository.disableScopeMappings.bind(requestRepository),
+    disableScopeMappingsByCitizenId:
+      requestRepository.disableScopeMappingsByCitizenId.bind(requestRepository),
+    insertScopeMappings:
+      requestRepository.insertScopeMappings.bind(requestRepository),
     clearScopeCache,
   });
 };
 
-const syncSpecialPositionScopesForCitizen = async (conn: PoolConnection, citizenId: string) => {
+const syncSpecialPositionScopesForCitizen = async (
+  conn: PoolConnection,
+  citizenId: string,
+) => {
   return runScopeSyncForCitizen(conn, citizenId, {
     citizenIdJoinBinary,
     isActiveOriginalStatus,
     parseScopes: buildScopesFromSpecialPosition,
-    disableScopeMappings: requestRepository.disableScopeMappings.bind(requestRepository),
-    disableScopeMappingsByCitizenId: requestRepository.disableScopeMappingsByCitizenId.bind(
-      requestRepository,
-    ),
-    insertScopeMappings: requestRepository.insertScopeMappings.bind(requestRepository),
+    disableScopeMappings:
+      requestRepository.disableScopeMappings.bind(requestRepository),
+    disableScopeMappingsByCitizenId:
+      requestRepository.disableScopeMappingsByCitizenId.bind(requestRepository),
+    insertScopeMappings:
+      requestRepository.insertScopeMappings.bind(requestRepository),
     clearScopeCache,
   });
 };
@@ -326,7 +351,10 @@ const syncSingleSignature = async (
   });
 };
 
-const syncSingleLicenses = async (conn: PoolConnection, citizenId: string): Promise<void> => {
+const syncSingleLicenses = async (
+  conn: PoolConnection,
+  citizenId: string,
+): Promise<void> => {
   return runSingleLicensesSync(conn, citizenId);
 };
 
@@ -354,12 +382,17 @@ const syncSingleLeaves = async (
     buildSingleLeaveViewQuery,
     citizenIdWhereBinary,
     normalizeLeaveRowWithMeta,
-    onLeaveReclassified: async ({ sourceKey, citizenId: leaveCitizenId, remark, meta }) => {
+    onLeaveReclassified: async ({
+      sourceKey,
+      citizenId: leaveCitizenId,
+      remark,
+      meta,
+    }) => {
       await TransformMonitorRepository.createDataIssue({
         batchId: batchId ?? null,
-        targetTable: 'leave_records',
+        targetTable: "leave_records",
         sourceKey,
-        issueCode: 'LEAVE_TYPE_RECLASSIFIED',
+        issueCode: "LEAVE_TYPE_RECLASSIFIED",
         issueDetail: JSON.stringify({
           citizen_id: leaveCitizenId,
           original_type: meta.original_type,
@@ -367,13 +400,18 @@ const syncSingleLeaves = async (
           reason_code: meta.reason_code,
           remark,
         }),
-        severity: 'MEDIUM',
+        severity: "MEDIUM",
       });
     },
-    onLeaveReviewFlagged: async ({ sourceKey, citizenId: leaveCitizenId, remark, meta }) => {
+    onLeaveReviewFlagged: async ({
+      sourceKey,
+      citizenId: leaveCitizenId,
+      remark,
+      meta,
+    }) => {
       await TransformMonitorRepository.createDataIssue({
         batchId: batchId ?? null,
-        targetTable: 'leave_records',
+        targetTable: "leave_records",
         sourceKey,
         issueCode: meta.reason_code,
         issueDetail: JSON.stringify({
@@ -383,13 +421,17 @@ const syncSingleLeaves = async (
           reason_text: meta.reason_text,
           remark,
         }),
-        severity: 'LOW',
+        severity: "LOW",
       });
     },
-    onLeaveNormalizationIssue: async ({ sourceKey, citizenId: leaveCitizenId, meta }) => {
+    onLeaveNormalizationIssue: async ({
+      sourceKey,
+      citizenId: leaveCitizenId,
+      meta,
+    }) => {
       await TransformMonitorRepository.createDataIssue({
         batchId: batchId ?? null,
-        targetTable: 'leave_records',
+        targetTable: "leave_records",
         sourceKey,
         issueCode: meta.issue_code,
         issueDetail: JSON.stringify({
@@ -397,13 +439,16 @@ const syncSingleLeaves = async (
           reason_text: meta.reason_text,
           ...meta.detail,
         }),
-        severity: meta.issue_code === 'LEAVE_DATE_INVALID' ? 'HIGH' : 'LOW',
+        severity: meta.issue_code === "LEAVE_DATE_INVALID" ? "HIGH" : "LOW",
       });
     },
   });
 };
 
-const syncSingleMovements = async (conn: PoolConnection, citizenId: string): Promise<void> => {
+const syncSingleMovements = async (
+  conn: PoolConnection,
+  citizenId: string,
+): Promise<void> => {
   return runSingleMovementsSync(conn, citizenId, {
     applyImmediateMovementEligibilityCutoff,
   });
@@ -420,7 +465,8 @@ const assignRoleForSingleUser = async (
     roleAssignmentService: {
       PROTECTED_ROLES: IdentityRolePolicyService.PROTECTED_ROLES,
       AUTO_ASSIGNABLE_ROLES: IdentityRolePolicyService.AUTO_ASSIGNABLE_ROLES,
-      deriveRole: (hrRow: unknown) => IdentityRolePolicyService.deriveRole(hrRow as any),
+      deriveRole: (hrRow: unknown) =>
+        IdentityRolePolicyService.deriveRole(hrRow as any),
     },
     clearScopeCache,
   });
@@ -447,11 +493,11 @@ type SyncExecutionResult = {
   automation: {
     auto_cleared_issues: number;
     auto_resolved_issues: number;
-    monitor_retention:
-      | Awaited<ReturnType<typeof TransformMonitorRepository.cleanupOldMonitorData>>
-      | null;
+    monitor_retention: Awaited<
+      ReturnType<typeof TransformMonitorRepository.cleanupOldMonitorData>
+    > | null;
   };
-  stages: Awaited<ReturnType<typeof runPostStages>>['stages'];
+  stages: Awaited<ReturnType<typeof runPostStages>>["stages"];
 };
 
 export class SyncService {
@@ -480,12 +526,16 @@ export class SyncService {
     return getSyncStatusFromCache();
   }
 
-  private static async executeWithSyncLock<T>(operation: () => Promise<T>): Promise<T> {
+  private static async executeWithSyncLock<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
     const lockValue = createSyncLockValue();
     const locked = await acquireSyncLock(lockValue);
     if (!locked) {
-      console.warn('[SyncService] Synchronization aborted: already in progress.');
-      throw new Error('Synchronization is already in progress. Please wait.');
+      console.warn(
+        "[SyncService] Synchronization aborted: already in progress.",
+      );
+      throw new Error("Synchronization is already in progress. Please wait.");
     }
 
     const lockHeartbeat = startSyncLockHeartbeat(lockValue);
@@ -516,30 +566,36 @@ export class SyncService {
     let monitorRetention: Awaited<
       ReturnType<typeof TransformMonitorRepository.cleanupOldMonitorData>
     > | null = null;
-    let reconciliation: Awaited<ReturnType<typeof buildSyncReconciliation>> | null = null;
+    let reconciliation: Awaited<
+      ReturnType<typeof buildSyncReconciliation>
+    > | null = null;
 
-    if (mode === 'FULL') {
+    if (mode === "FULL") {
       try {
-        autoClearedIssues = await TransformMonitorRepository.deleteStaleIssuesForBatch({
-          batchId,
-          issueCode: 'LEAVE_TYPE_RECLASSIFIED',
-          targetTable: 'leave_records',
-        });
-        autoClearedIssues += await TransformMonitorRepository.deleteStaleIssuesForBatch({
-          batchId,
-          issueCode: 'SICK_LEAVE_FAMILY_CARE_REVIEW',
-          targetTable: 'leave_records',
-        });
-        autoClearedIssues += await TransformMonitorRepository.deleteStaleIssuesForBatch({
-          batchId,
-          issueCode: 'LEAVE_DATE_INVALID',
-          targetTable: 'leave_records',
-        });
-        autoClearedIssues += await TransformMonitorRepository.deleteStaleIssuesForBatch({
-          batchId,
-          issueCode: 'LEAVE_DATE_NORMALIZED',
-          targetTable: 'leave_records',
-        });
+        autoClearedIssues =
+          await TransformMonitorRepository.deleteStaleIssuesForBatch({
+            batchId,
+            issueCode: "LEAVE_TYPE_RECLASSIFIED",
+            targetTable: "leave_records",
+          });
+        autoClearedIssues +=
+          await TransformMonitorRepository.deleteStaleIssuesForBatch({
+            batchId,
+            issueCode: "SICK_LEAVE_FAMILY_CARE_REVIEW",
+            targetTable: "leave_records",
+          });
+        autoClearedIssues +=
+          await TransformMonitorRepository.deleteStaleIssuesForBatch({
+            batchId,
+            issueCode: "LEAVE_DATE_INVALID",
+            targetTable: "leave_records",
+          });
+        autoClearedIssues +=
+          await TransformMonitorRepository.deleteStaleIssuesForBatch({
+            batchId,
+            issueCode: "LEAVE_DATE_NORMALIZED",
+            targetTable: "leave_records",
+          });
       } catch (error) {
         warnings.push(
           `deleteStaleIssuesForBatch failed: ${
@@ -549,9 +605,10 @@ export class SyncService {
       }
 
       try {
-        monitorRetention = await TransformMonitorRepository.cleanupOldMonitorData(
-          getMonitorRetentionPolicy(),
-        );
+        monitorRetention =
+          await TransformMonitorRepository.cleanupOldMonitorData(
+            getMonitorRetentionPolicy(),
+          );
       } catch (error) {
         warnings.push(
           `cleanupOldMonitorData failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -570,8 +627,8 @@ export class SyncService {
     const durationMs = Date.now() - startTotal;
     let warningsCount = summary.warnings_count + warnings.length;
     let overallStatus = summary.overall_status;
-    if (warnings.length > 0 && overallStatus === 'SUCCESS') {
-      overallStatus = 'SUCCESS_WITH_WARNINGS';
+    if (warnings.length > 0 && overallStatus === "SUCCESS") {
+      overallStatus = "SUCCESS_WITH_WARNINGS";
     }
 
     const resultData: SyncExecutionResult = {
@@ -597,21 +654,28 @@ export class SyncService {
     try {
       await setLastSyncResult(resultData);
     } catch (error) {
-      warnings.push(`setLastSyncResult failed: ${error instanceof Error ? error.message : String(error)}`);
+      warnings.push(
+        `setLastSyncResult failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       warningsCount = summary.warnings_count + warnings.length;
-      overallStatus = 'SUCCESS_WITH_WARNINGS';
+      overallStatus = "SUCCESS_WITH_WARNINGS";
       resultData.overall_status = overallStatus;
       resultData.warnings_count = warningsCount;
       resultData.warnings = warnings;
     }
 
-    await TransformMonitorRepository.finishSyncBatchSuccess(batchId, stats, durationMs, {
-      status: 'SUCCESS',
-      coreStatus: resultData.core_status,
-      postStatus: resultData.post_status,
-      overallStatus: resultData.overall_status,
-      warningsCount: resultData.warnings_count,
-    });
+    await TransformMonitorRepository.finishSyncBatchSuccess(
+      batchId,
+      stats,
+      durationMs,
+      {
+        status: "SUCCESS",
+        coreStatus: resultData.core_status,
+        postStatus: resultData.post_status,
+        overallStatus: resultData.overall_status,
+        warningsCount: resultData.warnings_count,
+      },
+    );
 
     return resultData;
   }
@@ -635,10 +699,10 @@ export class SyncService {
     try {
       await conn.beginTransaction();
       const dbUser =
-        options.mode === 'USER' && options.citizenId
+        options.mode === "USER" && options.citizenId
           ? (
               await conn.query<RowDataPacket[]>(
-                'SELECT id, citizen_id, role FROM users WHERE citizen_id = ? LIMIT 1',
+                "SELECT id, citizen_id, role FROM users WHERE citizen_id = ? LIMIT 1",
                 [options.citizenId],
               )
             )[0][0]
@@ -649,7 +713,12 @@ export class SyncService {
         {
           getUserIdMap,
           syncEmployees: (cx, stageStats, userIdMap, deps) =>
-            syncEmployees(cx, stageStats, userIdMap, deps as Parameters<typeof syncEmployees>[3]),
+            syncEmployees(
+              cx,
+              stageStats,
+              userIdMap,
+              deps as Parameters<typeof syncEmployees>[3],
+            ),
           syncSupportEmployees: (cx, stageStats, userIdMap, deps) =>
             syncSupportEmployees(
               cx,
@@ -657,7 +726,13 @@ export class SyncService {
               userIdMap,
               deps as Parameters<typeof syncSupportEmployees>[3],
             ),
-          upsertSingleEmployeeProfile: (cx, citizenId, userIdMap, stageStats, deps) =>
+          upsertSingleEmployeeProfile: (
+            cx,
+            citizenId,
+            userIdMap,
+            stageStats,
+            deps,
+          ) =>
             upsertSingleEmployeeProfile(
               cx,
               citizenId,
@@ -739,13 +814,17 @@ export class SyncService {
           batchId,
           error instanceof Error ? error.message : String(error),
           Date.now() - startTotal,
-          { coreStatus: 'FAILED', postStatus: 'PENDING', overallStatus: 'FAILED' },
+          {
+            coreStatus: "FAILED",
+            postStatus: "PENDING",
+            overallStatus: "FAILED",
+          },
         );
         throw error;
       }
 
       console.error(
-        '[SyncService] Post-commit sync finalization failed:',
+        "[SyncService] Post-commit sync finalization failed:",
         error instanceof Error ? error.message : error,
       );
 
@@ -757,9 +836,9 @@ export class SyncService {
         stats,
         reconciliation: null,
         timestamp: new Date().toISOString(),
-        core_status: 'SUCCESS',
-        post_status: 'FAILED',
-        overall_status: 'SUCCESS_WITH_WARNINGS',
+        core_status: "SUCCESS",
+        post_status: "FAILED",
+        overall_status: "SUCCESS_WITH_WARNINGS",
         warnings_count: 1,
         warnings: [
           `post_commit_finalization_failed: ${
@@ -775,16 +854,21 @@ export class SyncService {
       };
 
       try {
-        await TransformMonitorRepository.finishSyncBatchSuccess(batchId, stats, durationMs, {
-          status: 'SUCCESS',
-          coreStatus: fallbackResult.core_status,
-          postStatus: fallbackResult.post_status,
-          overallStatus: fallbackResult.overall_status,
-          warningsCount: fallbackResult.warnings_count,
-        });
+        await TransformMonitorRepository.finishSyncBatchSuccess(
+          batchId,
+          stats,
+          durationMs,
+          {
+            status: "SUCCESS",
+            coreStatus: fallbackResult.core_status,
+            postStatus: fallbackResult.post_status,
+            overallStatus: fallbackResult.overall_status,
+            warningsCount: fallbackResult.warnings_count,
+          },
+        );
       } catch (finishError) {
         console.error(
-          '[SyncService] Failed to persist fallback sync status:',
+          "[SyncService] Failed to persist fallback sync status:",
           finishError instanceof Error ? finishError.message : finishError,
         );
       }
@@ -799,10 +883,10 @@ export class SyncService {
    * Run the full smart sync workflow with distributed lock + status caching.
    */
   static async performFullSync(options?: { triggeredBy?: number | null }) {
-    console.log('[SyncService] Requesting synchronization...');
+    console.log("[SyncService] Requesting synchronization...");
     return this.executeWithSyncLock(async () =>
       this.executePipelineSync({
-        mode: 'FULL',
+        mode: "FULL",
         triggeredBy: options?.triggeredBy ?? null,
       }),
     );
@@ -819,7 +903,7 @@ export class SyncService {
       const claimed = await claimAutoSyncWindow(dueWindow);
       if (!claimed) return null;
       return this.executePipelineSync({
-        mode: 'FULL',
+        mode: "FULL",
         triggeredBy: options?.triggeredBy ?? null,
       });
     });
@@ -828,21 +912,24 @@ export class SyncService {
   /**
    * Sync a single user by userId (granular sync).
    */
-  static async performUserSync(userId: number, options?: { triggeredBy?: number | null }) {
+  static async performUserSync(
+    userId: number,
+    options?: { triggeredBy?: number | null },
+  ) {
     const conn = await db.getConnection();
     try {
       const [userRows] = await conn.query<RowDataPacket[]>(
-        'SELECT id, citizen_id, role FROM users WHERE id = ? LIMIT 1',
+        "SELECT id, citizen_id, role FROM users WHERE id = ? LIMIT 1",
         [userId],
       );
       const dbUser = userRows[0];
       if (!dbUser?.citizen_id) {
-        throw new Error('User not found for sync');
+        throw new Error("User not found for sync");
       }
       const citizenId = String(dbUser.citizen_id);
       const result = await this.executeWithSyncLock(async () =>
         this.executePipelineSync({
-          mode: 'USER',
+          mode: "USER",
           triggeredBy: options?.triggeredBy ?? null,
           citizenId,
         }),
@@ -862,10 +949,16 @@ export class SyncService {
   }): Promise<{
     refreshed_at: string;
     sync_timestamp: string | null;
-    access_review: { cycleId: number; createdCycle: boolean; insertedItems: number };
+    access_review: {
+      cycleId: number;
+      createdCycle: boolean;
+      insertedItems: number;
+    };
   }> {
     const runtimeStatus = await getSyncRuntimeStatus();
-    const lastResult = runtimeStatus.lastResult as { timestamp?: string } | null;
+    const lastResult = runtimeStatus.lastResult as {
+      timestamp?: string;
+    } | null;
     const syncTimestamp =
       lastResult?.timestamp && !Number.isNaN(Date.parse(lastResult.timestamp))
         ? new Date(lastResult.timestamp)

@@ -9,26 +9,44 @@ export type SyncStats = {
   leaves: { upserted: number; skipped: number };
   movements: { added: number };
   roles: { updated: number; skipped: number; missing: number };
-  quality_gates: { status_code_total: number; status_code_null: number; threshold_pct: number };
+  quality_gates: {
+    status_code_total: number;
+    status_code_null: number;
+    threshold_pct: number;
+  };
 };
 
-export type SyncCoreStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
-export type SyncPostStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
-export type SyncOverallStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'SUCCESS_WITH_WARNINGS';
-export type SyncStageGroup = 'CORE' | 'POST';
-export type SyncStageStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
+export type SyncCoreStatus = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
+export type SyncPostStatus =
+  | "PENDING"
+  | "RUNNING"
+  | "SUCCESS"
+  | "FAILED"
+  | "SKIPPED";
+export type SyncOverallStatus =
+  | "RUNNING"
+  | "SUCCESS"
+  | "FAILED"
+  | "SUCCESS_WITH_WARNINGS";
+export type SyncStageGroup = "CORE" | "POST";
+export type SyncStageStatus =
+  | "PENDING"
+  | "RUNNING"
+  | "SUCCESS"
+  | "FAILED"
+  | "SKIPPED";
 
 export type SyncStageKey =
-  | 'sync-employee-profiles'
-  | 'sync-support-staff'
-  | 'sync-users'
-  | 'sync-signatures'
-  | 'sync-licenses-quotas'
-  | 'sync-leaves'
-  | 'sync-movements'
-  | 'sync-special-position-scopes'
-  | 'assign-roles'
-  | 'refresh-access-review';
+  | "sync-employee-profiles"
+  | "sync-support-staff"
+  | "sync-users"
+  | "sync-signatures"
+  | "sync-licenses-quotas"
+  | "sync-leaves"
+  | "sync-movements"
+  | "sync-special-position-scopes"
+  | "assign-roles"
+  | "refresh-access-review";
 
 export type SyncStageRun = {
   stage_run_id?: number;

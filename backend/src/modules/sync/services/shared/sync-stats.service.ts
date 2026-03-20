@@ -1,4 +1,4 @@
-import type { SyncStats } from '@/modules/sync/services/shared/sync.types.js';
+import type { SyncStats } from "@/modules/sync/services/shared/sync.types.js";
 
 export const createSyncStats = (): SyncStats => ({
   users: { added: 0, updated: 0, skipped: 0 },
@@ -11,5 +11,9 @@ export const createSyncStats = (): SyncStats => ({
   leaves: { upserted: 0, skipped: 0 },
   movements: { added: 0 },
   roles: { updated: 0, skipped: 0, missing: 0 },
-  quality_gates: { status_code_total: 0, status_code_null: 0, threshold_pct: 0 },
+  quality_gates: {
+    status_code_total: 0,
+    status_code_null: 0,
+    threshold_pct: 0,
+  },
 });

@@ -1,5 +1,8 @@
-import type { RowDataPacket } from 'mysql2/promise';
-import { HALF_DAY_LABELS, normalizeDigitsText } from '@/modules/sync/services/domain/leave-classification-rules.js';
+import type { RowDataPacket } from "mysql2/promise";
+import {
+  HALF_DAY_LABELS,
+  normalizeDigitsText,
+} from "@/modules/sync/services/domain/leave-classification-rules.js";
 
 const MIN_REASONABLE_YEAR = 1990;
 const FUTURE_YEAR_TOLERANCE = 2;
@@ -16,15 +19,27 @@ const normalizeSuspiciousFutureYear = (year: number): number => {
   if (year <= maxExpectedYear) return year;
 
   const candidateFromShiftBug = year - 43;
-  if (candidateFromShiftBug >= MIN_REASONABLE_YEAR && candidateFromShiftBug <= maxExpectedYear) {
+  if (
+    candidateFromShiftBug >= MIN_REASONABLE_YEAR &&
+    candidateFromShiftBug <= maxExpectedYear
+  ) {
     return candidateFromShiftBug;
   }
 
   return year;
 };
 
-const buildUtcDate = (year: number, month: number, day: number): Date | null => {
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+const buildUtcDate = (
+  year: number,
+  month: number,
+  day: number,
+): Date | null => {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  )
+    return null;
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
   const date = new Date(Date.UTC(year, month - 1, day));
   if (
@@ -40,7 +55,9 @@ const buildUtcDate = (year: number, month: number, day: number): Date | null => 
 export const toDateOnly = (value: unknown): Date | null => {
   if (!value) return null;
   if (value instanceof Date) {
-    return new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
+    return new Date(
+      Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()),
+    );
   }
   const text = normalizeDigitsText(String(value)).trim();
 
@@ -70,8 +87,8 @@ export const toDateOnly = (value: unknown): Date | null => {
 export const toDateString = (value: Date | null): string | null => {
   if (!value) return null;
   const year = value.getUTCFullYear();
-  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(value.getUTCDate()).padStart(2, '0');
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(value.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
@@ -100,13 +117,20 @@ export const normalizeDateRange = (row: RowDataPacket): DateRange => {
   };
 };
 
-export const resolveDurationDays = (row: RowDataPacket, range: DateRange): number => {
-  const sourceType = String(row.source_type ?? 'LEAVE');
+export const resolveDurationDays = (
+  row: RowDataPacket,
+  range: DateRange,
+): number => {
+  const sourceType = String(row.source_type ?? "LEAVE");
   const halfDay = Number(row.half_day ?? 0) === 1;
-  const endDateDetail = String(row.end_date_detail ?? '');
-  const sameDay = range.start && range.end && range.start.getTime() === range.end.getTime();
+  const endDateDetail = String(row.end_date_detail ?? "");
+  const sameDay =
+    range.start && range.end && range.start.getTime() === range.end.getTime();
   const rawDuration = diffDaysInclusive(range.start, range.end);
-  if (sourceType === 'LEAVE' && (halfDay || (sameDay && HALF_DAY_LABELS.has(endDateDetail)))) {
+  if (
+    sourceType === "LEAVE" &&
+    (halfDay || (sameDay && HALF_DAY_LABELS.has(endDateDetail)))
+  ) {
     return 0.5;
   }
   const parsed = Number(row.duration_days ?? rawDuration);

@@ -1,9 +1,9 @@
-import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
-import type { SyncStats } from '@/modules/sync/services/shared/sync.types.js';
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import type { SyncStats } from "@/modules/sync/services/shared/sync.types.js";
 import {
   computeEmployeeProfileFingerprint,
   computeSupportProfileFingerprint,
-} from '@/modules/sync/services/shared/sync-db-helpers.service.js';
+} from "@/modules/sync/services/shared/sync-db-helpers.service.js";
 
 type SupportEmployeeSqlOptions = {
   hasLevelColumn: boolean;
@@ -24,7 +24,10 @@ export const syncEmployees = async (
     viewEmployeeColumns: readonly string[];
     buildEmployeeViewQuery: () => string;
     isChanged: (oldVal: unknown, newVal: unknown) => boolean;
-    upsertEmployeeProfile: (conn: PoolConnection, vEmp: RowDataPacket) => Promise<void>;
+    upsertEmployeeProfile: (
+      conn: PoolConnection,
+      vEmp: RowDataPacket,
+    ) => Promise<void>;
     persistEmployeeProfileSyncArtifacts?: (
       conn: PoolConnection,
       vEmp: RowDataPacket,
@@ -32,7 +35,7 @@ export const syncEmployees = async (
     clearScopeCache: (userId: number) => void;
   },
 ): Promise<void> => {
-  console.log('[SyncService] Processing employees...');
+  console.log("[SyncService] Processing employees...");
   const [existingEmps] = await conn.query<RowDataPacket[]>(
     `SELECT citizen_id, position_name, level, department, sub_department,
             special_position, original_status, is_currently_active, profile_fingerprint
@@ -41,16 +44,17 @@ export const syncEmployees = async (
   const empMap = new Map(existingEmps.map((e) => [e.citizen_id, e]));
 
   const [viewEmps] = await conn.query<RowDataPacket[]>(
-    `SELECT ${deps.viewEmployeeColumns.map((column) => `e.${column}`).join(', ')}
+    `SELECT ${deps.viewEmployeeColumns.map((column) => `e.${column}`).join(", ")}
      FROM (${deps.buildEmployeeViewQuery()}) e`,
   );
 
   for (const vEmp of viewEmps) {
     const dbEmp = empMap.get(vEmp.citizen_id);
     const incomingFingerprint = computeEmployeeProfileFingerprint(vEmp);
-    const dbFingerprint = String(dbEmp?.profile_fingerprint ?? '');
+    const dbFingerprint = String(dbEmp?.profile_fingerprint ?? "");
     const hasFingerprint = dbFingerprint.length === 64;
-    const specialChanged = dbEmp && deps.isChanged(dbEmp.special_position, vEmp.special_position);
+    const specialChanged =
+      dbEmp && deps.isChanged(dbEmp.special_position, vEmp.special_position);
     if (dbEmp && hasFingerprint && dbFingerprint === incomingFingerprint) {
       stats.employees.skipped++;
       continue;
@@ -64,7 +68,8 @@ export const syncEmployees = async (
       !deps.isChanged(dbEmp.department, vEmp.department) &&
       !deps.isChanged(dbEmp.sub_department, vEmp.sub_department) &&
       !deps.isChanged(dbEmp.original_status, vEmp.original_status) &&
-      Number(dbEmp.is_currently_active ?? 0) === Number(vEmp.is_currently_active ?? 0) &&
+      Number(dbEmp.is_currently_active ?? 0) ===
+        Number(vEmp.is_currently_active ?? 0) &&
       !specialChanged
     ) {
       stats.employees.skipped++;
@@ -93,13 +98,16 @@ export const syncSupportEmployees = async (
     buildSupportViewQuery: () => string;
     isChanged: (oldVal: unknown, newVal: unknown) => boolean;
     hasSupportLevelColumn: (conn: PoolConnection) => Promise<boolean>;
-    hasSupportProfileFingerprintColumn?: (conn: PoolConnection) => Promise<boolean>;
+    hasSupportProfileFingerprintColumn?: (
+      conn: PoolConnection,
+    ) => Promise<boolean>;
     resolveSupportStaffColumnFlags?: (
       conn: PoolConnection,
     ) => Promise<SupportEmployeeSqlOptions>;
-    buildSupportEmployeeSql: (
-      options: SupportEmployeeSqlOptions,
-    ) => { sql: string; fields: string[] };
+    buildSupportEmployeeSql: (options: SupportEmployeeSqlOptions) => {
+      sql: string;
+      fields: string[];
+    };
     buildSupportEmployeeValues: (
       vSup: RowDataPacket,
       options: SupportEmployeeSqlOptions,
@@ -111,14 +119,14 @@ export const syncSupportEmployees = async (
     clearScopeCache: (userId: number) => void;
   },
 ): Promise<void> => {
-  console.log('[SyncService] Processing support employees...');
+  console.log("[SyncService] Processing support employees...");
 
   const supportFlags = deps.resolveSupportStaffColumnFlags
     ? await deps.resolveSupportStaffColumnFlags(conn)
     : { hasLevelColumn: await deps.hasSupportLevelColumn(conn) };
   const hasSupportLevel = supportFlags.hasLevelColumn;
   const hasSupportFingerprint =
-    typeof supportFlags.hasProfileFingerprintColumn === 'boolean'
+    typeof supportFlags.hasProfileFingerprintColumn === "boolean"
       ? supportFlags.hasProfileFingerprintColumn
       : deps.hasSupportProfileFingerprintColumn
         ? await deps.hasSupportProfileFingerprintColumn(conn)
@@ -132,36 +140,39 @@ export const syncSupportEmployees = async (
   const { sql } = deps.buildSupportEmployeeSql(sqlOptions);
 
   const existingColumns = [
-    'citizen_id',
-    'title',
-    'first_name',
-    'last_name',
-    'position_name',
-    ...(hasSupportLevel ? ['level'] : []),
-    'special_position',
-    'emp_type',
-    'department',
-    ...(supportFlags.hasStatusTextColumn ? ['status_text AS original_status'] : []),
-    'is_currently_active',
-    ...(hasSupportFingerprint ? ['profile_fingerprint'] : []),
+    "citizen_id",
+    "title",
+    "first_name",
+    "last_name",
+    "position_name",
+    ...(hasSupportLevel ? ["level"] : []),
+    "special_position",
+    "emp_type",
+    "department",
+    ...(supportFlags.hasStatusTextColumn
+      ? ["status_text AS original_status"]
+      : []),
+    "is_currently_active",
+    ...(hasSupportFingerprint ? ["profile_fingerprint"] : []),
   ];
   const [existingSupEmps] = await conn.query<RowDataPacket[]>(
-    `SELECT ${existingColumns.join(', ')} FROM emp_support_staff`,
+    `SELECT ${existingColumns.join(", ")} FROM emp_support_staff`,
   );
   const supEmpMap = new Map(existingSupEmps.map((e) => [e.citizen_id, e]));
 
   const [viewSupEmps] = await conn.query<RowDataPacket[]>(
-    `SELECT ${deps.viewSupportColumns.map((column) => `s.${column}`).join(', ')}
+    `SELECT ${deps.viewSupportColumns.map((column) => `s.${column}`).join(", ")}
      FROM (${deps.buildSupportViewQuery()}) s`,
   );
 
   for (const vSup of viewSupEmps) {
     const dbSup = supEmpMap.get(vSup.citizen_id);
     const incomingFingerprint = computeSupportProfileFingerprint(vSup);
-    const dbFingerprint = String(dbSup?.profile_fingerprint ?? '');
+    const dbFingerprint = String(dbSup?.profile_fingerprint ?? "");
     const useFingerprint = hasSupportFingerprint && dbFingerprint.length === 64;
 
-    const supportSpecialChanged = dbSup && deps.isChanged(dbSup.special_position, vSup.special_position);
+    const supportSpecialChanged =
+      dbSup && deps.isChanged(dbSup.special_position, vSup.special_position);
     if (dbSup && useFingerprint && dbFingerprint === incomingFingerprint) {
       stats.support_employees.skipped++;
       continue;
@@ -207,7 +218,10 @@ export const upsertSingleEmployeeProfile = async (
     buildEmployeeViewQuery: () => string;
     citizenIdWhereBinary: (alias: string, placeholder: string) => string;
     isChanged: (oldVal: unknown, newVal: unknown) => boolean;
-    upsertEmployeeProfile: (conn: PoolConnection, vEmp: RowDataPacket) => Promise<void>;
+    upsertEmployeeProfile: (
+      conn: PoolConnection,
+      vEmp: RowDataPacket,
+    ) => Promise<void>;
     persistEmployeeProfileSyncArtifacts?: (
       conn: PoolConnection,
       vEmp: RowDataPacket,
@@ -216,9 +230,9 @@ export const upsertSingleEmployeeProfile = async (
   },
 ): Promise<void> => {
   const [viewEmps] = await conn.query<RowDataPacket[]>(
-    `SELECT ${deps.viewEmployeeColumns.map((column) => `e.${column}`).join(', ')}
+    `SELECT ${deps.viewEmployeeColumns.map((column) => `e.${column}`).join(", ")}
      FROM (${deps.buildEmployeeViewQuery()}) e
-     WHERE ${deps.citizenIdWhereBinary('e', '?')}
+     WHERE ${deps.citizenIdWhereBinary("e", "?")}
      LIMIT 1`,
     [citizenId],
   );
@@ -235,7 +249,7 @@ export const upsertSingleEmployeeProfile = async (
   );
   const dbEmp = existingRows[0];
   const incomingFingerprint = computeEmployeeProfileFingerprint(vEmp);
-  const dbFingerprint = String(dbEmp?.profile_fingerprint ?? '');
+  const dbFingerprint = String(dbEmp?.profile_fingerprint ?? "");
   const hasFingerprint = dbFingerprint.length === 64;
   if (dbEmp && hasFingerprint && dbFingerprint === incomingFingerprint) {
     stats.employees.skipped++;
@@ -250,7 +264,8 @@ export const upsertSingleEmployeeProfile = async (
     !deps.isChanged(dbEmp.department, vEmp.department) &&
     !deps.isChanged(dbEmp.sub_department, vEmp.sub_department) &&
     !deps.isChanged(dbEmp.original_status, vEmp.original_status) &&
-    Number(dbEmp.is_currently_active ?? 0) === Number(vEmp.is_currently_active ?? 0) &&
+    Number(dbEmp.is_currently_active ?? 0) ===
+      Number(vEmp.is_currently_active ?? 0) &&
     !deps.isChanged(dbEmp.special_position, vEmp.special_position)
   ) {
     stats.employees.skipped++;
@@ -275,13 +290,16 @@ export const upsertSingleSupportEmployee = async (
     buildSupportViewQuery: () => string;
     citizenIdWhereBinary: (alias: string, placeholder: string) => string;
     hasSupportLevelColumn: (conn: PoolConnection) => Promise<boolean>;
-    hasSupportProfileFingerprintColumn?: (conn: PoolConnection) => Promise<boolean>;
+    hasSupportProfileFingerprintColumn?: (
+      conn: PoolConnection,
+    ) => Promise<boolean>;
     resolveSupportStaffColumnFlags?: (
       conn: PoolConnection,
     ) => Promise<SupportEmployeeSqlOptions>;
-    buildSupportEmployeeSql: (
-      options: SupportEmployeeSqlOptions,
-    ) => { sql: string; fields: string[] };
+    buildSupportEmployeeSql: (options: SupportEmployeeSqlOptions) => {
+      sql: string;
+      fields: string[];
+    };
     buildSupportEmployeeValues: (
       vSup: RowDataPacket,
       options: SupportEmployeeSqlOptions,
@@ -298,7 +316,7 @@ export const upsertSingleSupportEmployee = async (
     : { hasLevelColumn: await deps.hasSupportLevelColumn(conn) };
   const hasSupportLevel = supportFlags.hasLevelColumn;
   const hasSupportFingerprint =
-    typeof supportFlags.hasProfileFingerprintColumn === 'boolean'
+    typeof supportFlags.hasProfileFingerprintColumn === "boolean"
       ? supportFlags.hasProfileFingerprintColumn
       : deps.hasSupportProfileFingerprintColumn
         ? await deps.hasSupportProfileFingerprintColumn(conn)
@@ -311,9 +329,9 @@ export const upsertSingleSupportEmployee = async (
   const { sql: supportSql } = deps.buildSupportEmployeeSql(supportSqlOptions);
 
   const [viewSupEmps] = await conn.query<RowDataPacket[]>(
-    `SELECT ${deps.viewSupportColumns.map((column) => `s.${column}`).join(', ')}
+    `SELECT ${deps.viewSupportColumns.map((column) => `s.${column}`).join(", ")}
      FROM (${deps.buildSupportViewQuery()}) s
-     WHERE ${deps.citizenIdWhereBinary('s', '?')}
+     WHERE ${deps.citizenIdWhereBinary("s", "?")}
      LIMIT 1`,
     [citizenId],
   );
@@ -321,21 +339,23 @@ export const upsertSingleSupportEmployee = async (
   if (!vSup) return;
 
   const existingColumns = [
-    'citizen_id',
-    'title',
-    'first_name',
-    'last_name',
-    'position_name',
-    ...(hasSupportLevel ? ['level'] : []),
-    'special_position',
-    'emp_type',
-    'department',
-    ...(supportFlags.hasStatusTextColumn ? ['status_text AS original_status'] : []),
-    'is_currently_active',
-    ...(hasSupportFingerprint ? ['profile_fingerprint'] : []),
+    "citizen_id",
+    "title",
+    "first_name",
+    "last_name",
+    "position_name",
+    ...(hasSupportLevel ? ["level"] : []),
+    "special_position",
+    "emp_type",
+    "department",
+    ...(supportFlags.hasStatusTextColumn
+      ? ["status_text AS original_status"]
+      : []),
+    "is_currently_active",
+    ...(hasSupportFingerprint ? ["profile_fingerprint"] : []),
   ];
   const [existingRows] = await conn.query<RowDataPacket[]>(
-    `SELECT ${existingColumns.join(', ')}
+    `SELECT ${existingColumns.join(", ")}
      FROM emp_support_staff
      WHERE citizen_id = ?
      LIMIT 1`,
@@ -343,9 +363,11 @@ export const upsertSingleSupportEmployee = async (
   );
   const dbSup = existingRows[0];
   const incomingFingerprint = computeSupportProfileFingerprint(vSup);
-  const dbFingerprint = String(dbSup?.profile_fingerprint ?? '');
+  const dbFingerprint = String(dbSup?.profile_fingerprint ?? "");
   const useFingerprint = hasSupportFingerprint && dbFingerprint.length === 64;
-  const isChanged = deps.isChanged ?? ((oldVal, newVal) => String(oldVal ?? '') !== String(newVal ?? ''));
+  const isChanged =
+    deps.isChanged ??
+    ((oldVal, newVal) => String(oldVal ?? "") !== String(newVal ?? ""));
   if (dbSup && useFingerprint && dbFingerprint === incomingFingerprint) {
     stats.support_employees.skipped++;
     return;
@@ -361,13 +383,17 @@ export const upsertSingleSupportEmployee = async (
     !isChanged(dbSup.emp_type, vSup.employee_type) &&
     !isChanged(dbSup.department, vSup.department) &&
     !isChanged(dbSup.original_status, vSup.original_status) &&
-    Number(dbSup.is_currently_active ?? 0) === Number(vSup.is_currently_active ?? 0)
+    Number(dbSup.is_currently_active ?? 0) ===
+      Number(vSup.is_currently_active ?? 0)
   ) {
     stats.support_employees.skipped++;
     return;
   }
 
-  const supportValues = deps.buildSupportEmployeeValues(vSup, supportSqlOptions);
+  const supportValues = deps.buildSupportEmployeeValues(
+    vSup,
+    supportSqlOptions,
+  );
   await conn.execute(supportSql, supportValues);
   if (deps.persistSupportProfileSyncArtifacts) {
     await deps.persistSupportProfileSyncArtifacts(conn, vSup);

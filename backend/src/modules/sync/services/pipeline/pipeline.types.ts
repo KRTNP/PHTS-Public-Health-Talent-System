@@ -1,4 +1,4 @@
-import type { PoolConnection } from 'mysql2/promise';
+import type { PoolConnection } from "mysql2/promise";
 import type {
   SyncCoreStatus,
   SyncOverallStatus,
@@ -7,9 +7,9 @@ import type {
   SyncStageKey,
   SyncStageRun,
   SyncStats,
-} from '@/modules/sync/services/shared/sync.types.js';
+} from "@/modules/sync/services/shared/sync.types.js";
 
-export type SyncPipelineMode = 'FULL' | 'USER';
+export type SyncPipelineMode = "FULL" | "USER";
 
 export type StageActionResult = {
   skipped?: boolean;
@@ -18,16 +18,24 @@ export type StageActionResult = {
 };
 
 export type SyncPipelineActions = {
-  syncEmployeeProfiles: (ctx: PipelineContext) => Promise<StageActionResult | void>;
+  syncEmployeeProfiles: (
+    ctx: PipelineContext,
+  ) => Promise<StageActionResult | void>;
   syncSupportStaff: (ctx: PipelineContext) => Promise<StageActionResult | void>;
   syncUsers: (ctx: PipelineContext) => Promise<StageActionResult | void>;
   syncSignatures: (ctx: PipelineContext) => Promise<StageActionResult | void>;
-  syncLicensesQuotas: (ctx: PipelineContext) => Promise<StageActionResult | void>;
+  syncLicensesQuotas: (
+    ctx: PipelineContext,
+  ) => Promise<StageActionResult | void>;
   syncLeaves: (ctx: PipelineContext) => Promise<StageActionResult | void>;
   syncMovements: (ctx: PipelineContext) => Promise<StageActionResult | void>;
-  syncSpecialPositionScopes: (ctx: PipelineContext) => Promise<StageActionResult | void>;
+  syncSpecialPositionScopes: (
+    ctx: PipelineContext,
+  ) => Promise<StageActionResult | void>;
   assignRoles: (ctx: PipelineContext) => Promise<StageActionResult | void>;
-  refreshAccessReview: (ctx: PipelineContext) => Promise<StageActionResult | void>;
+  refreshAccessReview: (
+    ctx: PipelineContext,
+  ) => Promise<StageActionResult | void>;
 };
 
 export type PipelineContext = {

@@ -1,7 +1,8 @@
-const loadModule = async () => import('../../services/domain/sync-domain.service.js');
+const loadModule = async () =>
+  import("../../services/domain/sync-domain.service.js");
 
-describe('sync quotas domain', () => {
-  test('skips unchanged quotas', async () => {
+describe("sync quotas domain", () => {
+  test("skips unchanged quotas", async () => {
     const mod = await loadModule();
     const syncLicensesAndQuotas = (
       mod as {
@@ -17,22 +18,30 @@ describe('sync quotas domain', () => {
     ).syncLicensesAndQuotas;
 
     const query = jest.fn(async (sql: string) => {
-      if (sql.includes('FROM emp_licenses')) return [[]];
-      if (sql.includes('FROM hrms_databases.tb_bp_license')) return [[]];
-      if (sql.includes('FROM leave_quotas')) {
-        return [[{
-          quota_id: 1,
-          citizen_id: '1234567890123',
-          fiscal_year: 2569,
-          quota_vacation: '10.00',
-        }]];
+      if (sql.includes("FROM emp_licenses")) return [[]];
+      if (sql.includes("FROM hrms_databases.tb_bp_license")) return [[]];
+      if (sql.includes("FROM leave_quotas")) {
+        return [
+          [
+            {
+              quota_id: 1,
+              citizen_id: "1234567890123",
+              fiscal_year: 2569,
+              quota_vacation: "10.00",
+            },
+          ],
+        ];
       }
-      if (sql.includes('FROM hrms_databases.setdays')) {
-        return [[{
-          citizen_id: '1234567890123',
-          fiscal_year: 2569,
-          total_quota: '10.00',
-        }]];
+      if (sql.includes("FROM hrms_databases.setdays")) {
+        return [
+          [
+            {
+              citizen_id: "1234567890123",
+              fiscal_year: 2569,
+              total_quota: "10.00",
+            },
+          ],
+        ];
       }
       throw new Error(`Unexpected query: ${sql}`);
     });
@@ -42,7 +51,9 @@ describe('sync quotas domain', () => {
     const stats = { licenses: { upserted: 0 }, quotas: { upserted: 0 } } as any;
 
     await syncLicensesAndQuotas(conn, stats, {
-      buildQuotasViewQuery: jest.fn().mockReturnValue('SELECT * FROM hrms_databases.setdays'),
+      buildQuotasViewQuery: jest
+        .fn()
+        .mockReturnValue("SELECT * FROM hrms_databases.setdays"),
       upsertLeaveQuota,
     });
 
@@ -50,7 +61,7 @@ describe('sync quotas domain', () => {
     expect(stats.quotas.upserted).toBe(0);
   });
 
-  test('updates changed quota', async () => {
+  test("updates changed quota", async () => {
     const mod = await loadModule();
     const syncSingleQuotas = (
       mod as {
@@ -66,20 +77,28 @@ describe('sync quotas domain', () => {
     ).syncSingleQuotas;
 
     const query = jest.fn(async (sql: string) => {
-      if (sql.includes('FROM leave_quotas')) {
-        return [[{
-          quota_id: 1,
-          citizen_id: '1234567890123',
-          fiscal_year: 2569,
-          quota_vacation: '8.00',
-        }]];
+      if (sql.includes("FROM leave_quotas")) {
+        return [
+          [
+            {
+              quota_id: 1,
+              citizen_id: "1234567890123",
+              fiscal_year: 2569,
+              quota_vacation: "8.00",
+            },
+          ],
+        ];
       }
-      if (sql.includes('FROM hrms_databases.setdays')) {
-        return [[{
-          citizen_id: '1234567890123',
-          fiscal_year: 2569,
-          total_quota: '10.00',
-        }]];
+      if (sql.includes("FROM hrms_databases.setdays")) {
+        return [
+          [
+            {
+              citizen_id: "1234567890123",
+              fiscal_year: 2569,
+              total_quota: "10.00",
+            },
+          ],
+        ];
       }
       throw new Error(`Unexpected query: ${sql}`);
     });
@@ -88,13 +107,18 @@ describe('sync quotas domain', () => {
     const conn = { query, execute: jest.fn() } as any;
     const stats = { quotas: { upserted: 0 } } as any;
 
-    await syncSingleQuotas(conn, '1234567890123', stats, { upsertLeaveQuota });
+    await syncSingleQuotas(conn, "1234567890123", stats, { upsertLeaveQuota });
 
-    expect(upsertLeaveQuota).toHaveBeenCalledWith(conn, '1234567890123', 2569, '10.00');
+    expect(upsertLeaveQuota).toHaveBeenCalledWith(
+      conn,
+      "1234567890123",
+      2569,
+      "10.00",
+    );
     expect(stats.quotas.upserted).toBe(1);
   });
 
-  test('inserts new quota when missing', async () => {
+  test("inserts new quota when missing", async () => {
     const mod = await loadModule();
     const syncSingleQuotas = (
       mod as {
@@ -110,13 +134,17 @@ describe('sync quotas domain', () => {
     ).syncSingleQuotas;
 
     const query = jest.fn(async (sql: string) => {
-      if (sql.includes('FROM leave_quotas')) return [[]];
-      if (sql.includes('FROM hrms_databases.setdays')) {
-        return [[{
-          citizen_id: '1234567890123',
-          fiscal_year: 2569,
-          total_quota: '10.00',
-        }]];
+      if (sql.includes("FROM leave_quotas")) return [[]];
+      if (sql.includes("FROM hrms_databases.setdays")) {
+        return [
+          [
+            {
+              citizen_id: "1234567890123",
+              fiscal_year: 2569,
+              total_quota: "10.00",
+            },
+          ],
+        ];
       }
       throw new Error(`Unexpected query: ${sql}`);
     });
@@ -125,7 +153,7 @@ describe('sync quotas domain', () => {
     const conn = { query, execute: jest.fn() } as any;
     const stats = { quotas: { upserted: 0 } } as any;
 
-    await syncSingleQuotas(conn, '1234567890123', stats, { upsertLeaveQuota });
+    await syncSingleQuotas(conn, "1234567890123", stats, { upsertLeaveQuota });
 
     expect(upsertLeaveQuota).toHaveBeenCalledTimes(1);
     expect(stats.quotas.upserted).toBe(1);

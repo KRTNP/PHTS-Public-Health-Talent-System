@@ -1,9 +1,9 @@
-import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import {
   DB_HEAD_SCOPE_ROLE_DEPT,
   DB_HEAD_SCOPE_ROLE_SQL_LIST,
   DB_HEAD_SCOPE_ROLE_WARD,
-} from '@/shared/utils/head-scope-category.js';
+} from "@/shared/utils/head-scope-category.js";
 
 type SummaryRow = RowDataPacket & {
   total_users: number;

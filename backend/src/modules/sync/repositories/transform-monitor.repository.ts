@@ -1,5 +1,5 @@
-import { query } from '@config/database.js';
-import type { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { query } from "@config/database.js";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import type {
   SyncCoreStatus,
   SyncOverallStatus,
@@ -9,11 +9,11 @@ import type {
   SyncStageRun,
   SyncStageStatus,
   SyncStats,
-} from '@/modules/sync/services/shared/sync.types.js';
+} from "@/modules/sync/services/shared/sync.types.js";
 
-type SyncType = 'FULL' | 'USER';
+type SyncType = "FULL" | "USER";
 
-type SyncBatchStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
+type SyncBatchStatus = "RUNNING" | "SUCCESS" | "FAILED";
 
 type SyncRecordTableConfig = {
   timestampColumn: string;
@@ -23,92 +23,104 @@ type SyncRecordTableConfig = {
 
 const SYNC_RECORD_TABLE_CONFIG: Record<string, SyncRecordTableConfig> = {
   users: {
-    timestampColumn: 'updated_at',
-    selectColumns: ['id', 'citizen_id', 'role', 'is_active', 'updated_at'],
-    searchColumns: ['citizen_id', 'role'],
+    timestampColumn: "updated_at",
+    selectColumns: ["id", "citizen_id", "role", "is_active", "updated_at"],
+    searchColumns: ["citizen_id", "role"],
   },
   emp_profiles: {
-    timestampColumn: 'last_synced_at',
+    timestampColumn: "last_synced_at",
     selectColumns: [
-      'citizen_id',
-      'first_name',
-      'last_name',
-      'position_name',
-      'department',
-      'status_code',
-      'last_synced_at',
+      "citizen_id",
+      "first_name",
+      "last_name",
+      "position_name",
+      "department",
+      "status_code",
+      "last_synced_at",
     ],
-    searchColumns: ['citizen_id', 'first_name', 'last_name', 'position_name', 'department'],
+    searchColumns: [
+      "citizen_id",
+      "first_name",
+      "last_name",
+      "position_name",
+      "department",
+    ],
   },
   emp_support_staff: {
-    timestampColumn: 'last_synced_at',
+    timestampColumn: "last_synced_at",
     selectColumns: [
-      'citizen_id',
-      'first_name',
-      'last_name',
-      'position_name',
-      'department',
-      'status_code',
-      'last_synced_at',
+      "citizen_id",
+      "first_name",
+      "last_name",
+      "position_name",
+      "department",
+      "status_code",
+      "last_synced_at",
     ],
-    searchColumns: ['citizen_id', 'first_name', 'last_name', 'position_name', 'department'],
+    searchColumns: [
+      "citizen_id",
+      "first_name",
+      "last_name",
+      "position_name",
+      "department",
+    ],
   },
   leave_records: {
-    timestampColumn: 'synced_at',
+    timestampColumn: "synced_at",
     selectColumns: [
-      'id',
-      'ref_id',
-      'citizen_id',
-      'leave_type',
-      'start_date',
-      'end_date',
-      'duration_days',
-      'synced_at',
+      "id",
+      "ref_id",
+      "citizen_id",
+      "leave_type",
+      "start_date",
+      "end_date",
+      "duration_days",
+      "synced_at",
     ],
-    searchColumns: ['citizen_id', 'ref_id', 'leave_type', 'remark'],
+    searchColumns: ["citizen_id", "ref_id", "leave_type", "remark"],
   },
   emp_licenses: {
-    timestampColumn: 'synced_at',
+    timestampColumn: "synced_at",
     selectColumns: [
-      'license_id',
-      'citizen_id',
-      'license_name',
-      'license_no',
-      'valid_from',
-      'valid_until',
-      'status',
-      'synced_at',
+      "license_id",
+      "citizen_id",
+      "license_name",
+      "license_no",
+      "valid_from",
+      "valid_until",
+      "status",
+      "synced_at",
     ],
-    searchColumns: ['citizen_id', 'license_name', 'license_no'],
+    searchColumns: ["citizen_id", "license_name", "license_no"],
   },
   leave_quotas: {
-    timestampColumn: 'updated_at',
+    timestampColumn: "updated_at",
     selectColumns: [
-      'quota_id',
-      'citizen_id',
-      'fiscal_year',
-      'quota_vacation',
-      'quota_personal',
-      'quota_sick',
-      'updated_at',
+      "quota_id",
+      "citizen_id",
+      "fiscal_year",
+      "quota_vacation",
+      "quota_personal",
+      "quota_sick",
+      "updated_at",
     ],
-    searchColumns: ['citizen_id', 'fiscal_year'],
+    searchColumns: ["citizen_id", "fiscal_year"],
   },
   emp_movements: {
-    timestampColumn: 'synced_at',
+    timestampColumn: "synced_at",
     selectColumns: [
-      'movement_id',
-      'citizen_id',
-      'movement_type',
-      'effective_date',
-      'synced_at',
+      "movement_id",
+      "citizen_id",
+      "movement_type",
+      "effective_date",
+      "synced_at",
     ],
-    searchColumns: ['citizen_id', 'movement_type', 'remark'],
+    searchColumns: ["citizen_id", "movement_type", "remark"],
   },
   sig_images: {
-    timestampColumn: 'updated_at',
-    selectColumns: ['signature_id', 'user_id', 'citizen_id', 'updated_at'],
-    searchColumns: ['citizen_id', 'user_id'],
+    timestampColumn: "updated_at",
+    selectColumns: ["signature_id", "user_id", "citizen_id", "updated_at"],
+    searchColumns: ["citizen_id", "user_id"],
   },
 };
 
@@ -244,7 +256,11 @@ export class TransformMonitorRepository {
       )
       VALUES (?, 'RUNNING', 'RUNNING', 'PENDING', 'RUNNING', 0, ?, ?)
       `,
-      [input.syncType, input.triggeredBy ?? null, input.targetCitizenId ?? null],
+      [
+        input.syncType,
+        input.triggeredBy ?? null,
+        input.targetCitizenId ?? null,
+      ],
     );
     return Number((result as any).insertId);
   }
@@ -279,10 +295,10 @@ export class TransformMonitorRepository {
       WHERE batch_id = ?
       `,
       [
-        options?.status ?? 'SUCCESS',
-        options?.coreStatus ?? 'SUCCESS',
-        options?.postStatus ?? 'SUCCESS',
-        options?.overallStatus ?? 'SUCCESS',
+        options?.status ?? "SUCCESS",
+        options?.coreStatus ?? "SUCCESS",
+        options?.postStatus ?? "SUCCESS",
+        options?.overallStatus ?? "SUCCESS",
         options?.warningsCount ?? 0,
         durationMs,
         summary.totalRecords,
@@ -318,9 +334,9 @@ export class TransformMonitorRepository {
       WHERE batch_id = ?
       `,
       [
-        options?.coreStatus ?? 'FAILED',
-        options?.postStatus ?? 'PENDING',
-        options?.overallStatus ?? 'FAILED',
+        options?.coreStatus ?? "FAILED",
+        options?.postStatus ?? "PENDING",
+        options?.overallStatus ?? "FAILED",
         durationMs,
         errorMessage.slice(0, 1000),
         batchId,
@@ -338,19 +354,19 @@ export class TransformMonitorRepository {
     const updates: string[] = [];
     const params: unknown[] = [];
     if (input.coreStatus) {
-      updates.push('core_status = ?');
+      updates.push("core_status = ?");
       params.push(input.coreStatus);
     }
     if (input.postStatus) {
-      updates.push('post_status = ?');
+      updates.push("post_status = ?");
       params.push(input.postStatus);
     }
     if (input.overallStatus) {
-      updates.push('overall_status = ?');
+      updates.push("overall_status = ?");
       params.push(input.overallStatus);
     }
-    if (Object.prototype.hasOwnProperty.call(input, 'warningsCount')) {
-      updates.push('warnings_count = ?');
+    if (Object.prototype.hasOwnProperty.call(input, "warningsCount")) {
+      updates.push("warnings_count = ?");
       params.push(input.warningsCount ?? 0);
     }
     if (!updates.length) return;
@@ -358,7 +374,7 @@ export class TransformMonitorRepository {
     await query(
       `
       UPDATE hrms_sync_batches
-      SET ${updates.join(', ')}
+      SET ${updates.join(", ")}
       WHERE batch_id = ?
       `,
       params,
@@ -404,9 +420,11 @@ export class TransformMonitorRepository {
     );
   }
 
-  static async getStageRunsByBatchIds(batchIds: number[]): Promise<SyncStageRun[]> {
+  static async getStageRunsByBatchIds(
+    batchIds: number[],
+  ): Promise<SyncStageRun[]> {
     if (!batchIds.length) return [];
-    const marks = batchIds.map(() => '?').join(', ');
+    const marks = batchIds.map(() => "?").join(", ");
     return query<SyncStageRun[]>(
       `
       SELECT stage_run_id,
@@ -426,10 +444,7 @@ export class TransformMonitorRepository {
     );
   }
 
-  static async getSyncBatches(input: {
-    page: number;
-    limit: number;
-  }): Promise<{
+  static async getSyncBatches(input: { page: number; limit: number }): Promise<{
     rows: RowDataPacket[];
     total: number;
     page: number;
@@ -459,7 +474,9 @@ export class TransformMonitorRepository {
       `,
     );
     const stageRows = await this.getStageRunsByBatchIds(
-      batches.map((row) => Number(row.batch_id)).filter((v) => Number.isFinite(v)),
+      batches
+        .map((row) => Number(row.batch_id))
+        .filter((v) => Number.isFinite(v)),
     );
     const stageMap = new Map<number, SyncStageRun[]>();
     for (const stage of stageRows) {
@@ -486,7 +503,7 @@ export class TransformMonitorRepository {
     sourceKey: string;
     issueCode: string;
     issueDetail?: string | null;
-    severity?: 'LOW' | 'MEDIUM' | 'HIGH';
+    severity?: "LOW" | "MEDIUM" | "HIGH";
   }): Promise<void> {
     // Active-only issue registry (requires unique key on target_table/source_key/issue_code).
     await query<ResultSetHeader>(
@@ -506,7 +523,7 @@ export class TransformMonitorRepository {
         input.sourceKey,
         input.issueCode,
         input.issueDetail ?? null,
-        input.severity ?? 'MEDIUM',
+        input.severity ?? "MEDIUM",
       ],
     );
   }
@@ -516,7 +533,7 @@ export class TransformMonitorRepository {
     issueCode: string;
     targetTable?: string;
   }): Promise<number> {
-    const targetTableWhere = input.targetTable ? 'AND target_table = ?' : '';
+    const targetTableWhere = input.targetTable ? "AND target_table = ?" : "";
     const params: unknown[] = [input.issueCode, input.batchId];
     if (input.targetTable) params.push(input.targetTable);
 
@@ -539,7 +556,7 @@ export class TransformMonitorRepository {
     batchId?: number;
     targetTable?: string;
     issueCode?: string;
-    severity?: 'LOW' | 'MEDIUM' | 'HIGH';
+    severity?: "LOW" | "MEDIUM" | "HIGH";
   }): Promise<{
     rows: RowDataPacket[];
     total: number;
@@ -560,22 +577,22 @@ export class TransformMonitorRepository {
     const where: string[] = [];
     const params: unknown[] = [];
     if (input.batchId) {
-      where.push('batch_id = ?');
+      where.push("batch_id = ?");
       params.push(input.batchId);
     }
     if (input.targetTable) {
-      where.push('target_table = ?');
+      where.push("target_table = ?");
       params.push(input.targetTable);
     }
     if (input.issueCode) {
-      where.push('issue_code = ?');
+      where.push("issue_code = ?");
       params.push(input.issueCode);
     }
     if (input.severity) {
-      where.push('severity = ?');
+      where.push("severity = ?");
       params.push(input.severity);
     }
-    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
     const rows = await query<RowDataPacket[]>(
       `
@@ -610,8 +627,8 @@ export class TransformMonitorRepository {
     );
     const severityCounts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
     for (const row of severityRows) {
-      const severity = String(row.severity ?? '');
-      if (severity === 'HIGH' || severity === 'MEDIUM' || severity === 'LOW') {
+      const severity = String(row.severity ?? "");
+      if (severity === "HIGH" || severity === "MEDIUM" || severity === "LOW") {
         severityCounts[severity] = Number(row.total ?? 0);
       }
     }
@@ -619,10 +636,12 @@ export class TransformMonitorRepository {
     const facetWhere: string[] = [];
     const facetParams: unknown[] = [];
     if (input.batchId) {
-      facetWhere.push('batch_id = ?');
+      facetWhere.push("batch_id = ?");
       facetParams.push(input.batchId);
     }
-    const facetWhereSql = facetWhere.length ? `WHERE ${facetWhere.join(' AND ')}` : '';
+    const facetWhereSql = facetWhere.length
+      ? `WHERE ${facetWhere.join(" AND ")}`
+      : "";
 
     const tableRows = await query<RowDataPacket[]>(
       `
@@ -681,9 +700,13 @@ export class TransformMonitorRepository {
       tableOptions.map((table) => [table, 0]),
     ) as Record<string, number>;
 
-    const toTableCounts = async (batch: RowDataPacket): Promise<Record<string, number>> => {
+    const toTableCounts = async (
+      batch: RowDataPacket,
+    ): Promise<Record<string, number>> => {
       const tableCounts: Record<string, number> = {};
-      for (const [tableName, tableConfig] of Object.entries(SYNC_RECORD_TABLE_CONFIG)) {
+      for (const [tableName, tableConfig] of Object.entries(
+        SYNC_RECORD_TABLE_CONFIG,
+      )) {
         const tableCountRows = await query<RowDataPacket[]>(
           `
           SELECT COUNT(*) AS total
@@ -703,7 +726,7 @@ export class TransformMonitorRepository {
       page: safePage,
       limit: safeLimit,
       batch_id: null,
-      target_table: 'users',
+      target_table: "users",
       table_options: tableOptions,
       table_counts: emptyTableCounts,
     });
@@ -741,7 +764,9 @@ export class TransformMonitorRepository {
       for (const candidateBatch of batchRows) {
         const candidateCounts = await toTableCounts(candidateBatch);
         if (!selectedCounts) selectedCounts = candidateCounts;
-        const hasRecords = Object.values(candidateCounts).some((count) => count > 0);
+        const hasRecords = Object.values(candidateCounts).some(
+          (count) => count > 0,
+        );
         if (hasRecords) {
           batch = candidateBatch;
           selectedCounts = candidateCounts;
@@ -751,9 +776,11 @@ export class TransformMonitorRepository {
       tableCounts = selectedCounts ?? emptyTableCounts;
     }
 
-    const targetTable = input.targetTable && SYNC_RECORD_TABLE_CONFIG[input.targetTable]
-      ? input.targetTable
-      : Object.entries(tableCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'users';
+    const targetTable =
+      input.targetTable && SYNC_RECORD_TABLE_CONFIG[input.targetTable]
+        ? input.targetTable
+        : (Object.entries(tableCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+          "users");
     const config = SYNC_RECORD_TABLE_CONFIG[targetTable];
 
     const where: string[] = [`\`${config.timestampColumn}\` BETWEEN ? AND ?`];
@@ -763,15 +790,17 @@ export class TransformMonitorRepository {
       const keyword = `%${input.search.trim()}%`;
       const searchSql = config.searchColumns
         .map((column) => `CAST(\`${column}\` AS CHAR) LIKE ?`)
-        .join(' OR ');
+        .join(" OR ");
       where.push(`(${searchSql})`);
       for (let i = 0; i < config.searchColumns.length; i += 1) {
         params.push(keyword);
       }
     }
 
-    const whereSql = `WHERE ${where.join(' AND ')}`;
-    const selectColumnsSql = config.selectColumns.map((column) => `\`${column}\``).join(', ');
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+    const selectColumnsSql = config.selectColumns
+      .map((column) => `\`${column}\``)
+      .join(", ");
 
     const rows = await query<RowDataPacket[]>(
       `
@@ -792,10 +821,34 @@ export class TransformMonitorRepository {
       `,
       params,
     );
-    const total = Number(countRows[0]?.total ?? 0);
+    let total = Number(countRows[0]?.total ?? 0);
+
+    // UX fallback:
+    // When no explicit batch filter is provided and latest sync window has no rows,
+    // show latest records from selected table so monitor page does not appear empty.
+    // This preserves strict window mode for explicit batch/search queries.
+    let resolvedRows = rows;
+    if (!input.batchId && !input.search && total === 0) {
+      resolvedRows = await query<RowDataPacket[]>(
+        `
+        SELECT ${selectColumnsSql}
+        FROM \`${targetTable}\`
+        ORDER BY \`${config.timestampColumn}\` DESC
+        LIMIT ${safeLimit} OFFSET ${offset}
+        `,
+      );
+
+      const fallbackCountRows = await query<RowDataPacket[]>(
+        `
+        SELECT COUNT(*) AS total
+        FROM \`${targetTable}\`
+        `,
+      );
+      total = Number(fallbackCountRows[0]?.total ?? 0);
+    }
 
     return {
-      rows,
+      rows: resolvedRows,
       total,
       page: safePage,
       limit: safeLimit,
@@ -817,19 +870,19 @@ export class TransformMonitorRepository {
     const params: unknown[] = [];
 
     if (input.batchId) {
-      where.push('sync_batch_id = ?');
+      where.push("sync_batch_id = ?");
       params.push(input.batchId);
     }
     if (input.citizenId) {
-      where.push('citizen_id = ?');
+      where.push("citizen_id = ?");
       params.push(input.citizenId);
     }
     if (input.action) {
-      where.push('action = ?');
+      where.push("action = ?");
       params.push(input.action);
     }
 
-    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
     return query<RowDataPacket[]>(
       `
       SELECT audit_id, sync_batch_id, user_id, citizen_id, action,

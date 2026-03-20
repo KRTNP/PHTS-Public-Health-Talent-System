@@ -1,24 +1,24 @@
-import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
-import type { SyncStats } from '@/modules/sync/services/shared/sync.types.js';
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import type { SyncStats } from "@/modules/sync/services/shared/sync.types.js";
 import type {
   LeaveReclassificationMeta,
   LeaveReviewMeta,
   LeaveNormalizationIssueMeta,
-} from '@/modules/sync/services/domain/leave-normalizer.service.js';
-import { isValidCitizenId } from '@/modules/sync/services/domain/leave-normalizer.service.js';
+} from "@/modules/sync/services/domain/leave-normalizer.service.js";
+import { isValidCitizenId } from "@/modules/sync/services/domain/leave-normalizer.service.js";
 
 type LeaveRecordSqlOptions = {
   hasStatusColumn: boolean;
 };
 
 type MovementType =
-  | 'ENTRY'
-  | 'RESIGN'
-  | 'RETIRE'
-  | 'TRANSFER_OUT'
-  | 'STUDY'
-  | 'DEATH'
-  | 'OTHER';
+  | "ENTRY"
+  | "RESIGN"
+  | "RETIRE"
+  | "TRANSFER_OUT"
+  | "STUDY"
+  | "DEATH"
+  | "OTHER";
 
 type SourceMovementRow = {
   source_movement_id: number;
@@ -79,36 +79,40 @@ type ExistingQuotaRow = {
 const LEAVE_REF_ID_LOOKUP_CHUNK_SIZE = 1000;
 
 const normalizeDateOnly = (value: Date | string | null | undefined): string => {
-  if (!value) return '';
+  if (!value) return "";
   if (value instanceof Date) {
     const year = value.getFullYear();
-    const month = `${value.getMonth() + 1}`.padStart(2, '0');
-    const day = `${value.getDate()}`.padStart(2, '0');
+    const month = `${value.getMonth() + 1}`.padStart(2, "0");
+    const day = `${value.getDate()}`.padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
   return String(value).slice(0, 10);
 };
 
 const normalizeDateTime = (value: Date | string | null | undefined): string => {
-  if (!value) return '';
+  if (!value) return "";
   if (value instanceof Date) {
     const year = value.getFullYear();
-    const month = `${value.getMonth() + 1}`.padStart(2, '0');
-    const day = `${value.getDate()}`.padStart(2, '0');
-    const hours = `${value.getHours()}`.padStart(2, '0');
-    const minutes = `${value.getMinutes()}`.padStart(2, '0');
-    const seconds = `${value.getSeconds()}`.padStart(2, '0');
+    const month = `${value.getMonth() + 1}`.padStart(2, "0");
+    const day = `${value.getDate()}`.padStart(2, "0");
+    const hours = `${value.getHours()}`.padStart(2, "0");
+    const minutes = `${value.getMinutes()}`.padStart(2, "0");
+    const seconds = `${value.getSeconds()}`.padStart(2, "0");
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   }
   const raw = String(value).trim();
-  if (!raw) return '';
-  return raw.replace(' ', 'T').slice(0, 19);
+  if (!raw) return "";
+  return raw.replace(" ", "T").slice(0, 19);
 };
 
-const normalizeRemark = (value: string | null | undefined): string => String(value ?? '').trim();
-const normalizeText = (value: string | null | undefined): string => String(value ?? '').trim();
-const normalizeDecimal = (value: number | string | null | undefined): string => {
-  if (value === null || value === undefined || value === '') return '';
+const normalizeRemark = (value: string | null | undefined): string =>
+  String(value ?? "").trim();
+const normalizeText = (value: string | null | undefined): string =>
+  String(value ?? "").trim();
+const normalizeDecimal = (
+  value: number | string | null | undefined,
+): string => {
+  if (value === null || value === undefined || value === "") return "";
   const parsed = Number.parseFloat(String(value));
   if (!Number.isFinite(parsed)) return String(value).trim();
   return parsed.toFixed(2);
@@ -125,7 +129,7 @@ const buildMovementCompositeKey = (row: {
     row.movement_type,
     normalizeDateOnly(row.effective_date),
     normalizeRemark(row.remark),
-  ].join('|');
+  ].join("|");
 
 const isMovementChanged = (
   existing: ExistingMovementRow,
@@ -133,9 +137,11 @@ const isMovementChanged = (
 ): boolean =>
   existing.citizen_id !== source.citizen_id ||
   existing.movement_type !== source.movement_type ||
-  normalizeDateOnly(existing.effective_date) !== normalizeDateOnly(source.effective_date) ||
+  normalizeDateOnly(existing.effective_date) !==
+    normalizeDateOnly(source.effective_date) ||
   normalizeRemark(existing.remark) !== normalizeRemark(source.remark) ||
-  normalizeDateTime(existing.source_updated_at) !== normalizeDateTime(source.source_updated_at);
+  normalizeDateTime(existing.source_updated_at) !==
+    normalizeDateTime(source.source_updated_at);
 
 const buildLicenseCompositeKey = (row: {
   citizen_id: string;
@@ -148,7 +154,7 @@ const buildLicenseCompositeKey = (row: {
     normalizeText(row.license_no),
     normalizeDateOnly(row.valid_from),
     normalizeDateOnly(row.valid_until),
-  ].join('|');
+  ].join("|");
 
 const buildQuotaCompositeKey = (row: {
   citizen_id: string;
@@ -162,12 +168,17 @@ const isLicenseChanged = (
   existing.citizen_id !== source.citizen_id ||
   normalizeText(existing.license_name) !== normalizeText(source.license_name) ||
   normalizeText(existing.license_no) !== normalizeText(source.license_no) ||
-  normalizeDateOnly(existing.valid_from) !== normalizeDateOnly(source.valid_from) ||
-  normalizeDateOnly(existing.valid_until) !== normalizeDateOnly(source.valid_until) ||
+  normalizeDateOnly(existing.valid_from) !==
+    normalizeDateOnly(source.valid_from) ||
+  normalizeDateOnly(existing.valid_until) !==
+    normalizeDateOnly(source.valid_until) ||
   normalizeText(existing.status) !== normalizeText(source.status) ||
-  normalizeDateTime(existing.source_updated_at) !== normalizeDateTime(source.source_updated_at);
+  normalizeDateTime(existing.source_updated_at) !==
+    normalizeDateTime(source.source_updated_at);
 
-const resolveMovementRemarkExpr = async (conn: PoolConnection): Promise<string> => {
+const resolveMovementRemarkExpr = async (
+  conn: PoolConnection,
+): Promise<string> => {
   const [cols] = await conn.query<RowDataPacket[]>(
     `SELECT COLUMN_NAME
      FROM information_schema.COLUMNS
@@ -175,10 +186,12 @@ const resolveMovementRemarkExpr = async (conn: PoolConnection): Promise<string> 
        AND TABLE_NAME = 'tb_bp_status'
        AND COLUMN_NAME IN ('remark', 'comment')`,
   );
-  const colSet = new Set((cols as RowDataPacket[]).map((row) => String(row.COLUMN_NAME)));
-  if (colSet.has('remark')) return 'm.remark';
-  if (colSet.has('comment')) return 'm.comment';
-  return 'NULL';
+  const colSet = new Set(
+    (cols as RowDataPacket[]).map((row) => String(row.COLUMN_NAME)),
+  );
+  if (colSet.has("remark")) return "m.remark";
+  if (colSet.has("comment")) return "m.comment";
+  return "NULL";
 };
 
 const loadSourceMovements = async (
@@ -191,7 +204,7 @@ const loadSourceMovements = async (
     ? `
       AND CAST(m.id AS BINARY) = CAST(? AS BINARY)
     `
-    : '';
+    : "";
   if (options?.citizenId) params.push(options.citizenId);
 
   const [rows] = await conn.query<RowDataPacket[]>(
@@ -233,7 +246,7 @@ const loadSourceLicenses = async (
     ? `
       AND CAST(l.id AS BINARY) = CAST(? AS BINARY)
     `
-    : '';
+    : "";
   if (options?.citizenId) params.push(options.citizenId);
 
   const [rows] = await conn.query<RowDataPacket[]>(
@@ -300,7 +313,7 @@ const loadExistingMovements = async (
   options?: { citizenId?: string },
 ): Promise<ExistingMovementRow[]> => {
   const params: string[] = [];
-  const where = options?.citizenId ? 'WHERE citizen_id = ?' : '';
+  const where = options?.citizenId ? "WHERE citizen_id = ?" : "";
   if (options?.citizenId) params.push(options.citizenId);
   const [rows] = await conn.query<RowDataPacket[]>(
     `
@@ -326,7 +339,7 @@ const loadExistingLicenses = async (
   options?: { citizenId?: string },
 ): Promise<ExistingLicenseRow[]> => {
   const params: string[] = [];
-  const where = options?.citizenId ? 'WHERE citizen_id = ?' : '';
+  const where = options?.citizenId ? "WHERE citizen_id = ?" : "";
   if (options?.citizenId) params.push(options.citizenId);
   const [rows] = await conn.query<RowDataPacket[]>(
     `
@@ -377,7 +390,7 @@ const loadExistingQuotas = async (
   options?: { citizenId?: string },
 ): Promise<ExistingQuotaRow[]> => {
   const params: string[] = [];
-  const where = options?.citizenId ? 'WHERE citizen_id = ?' : '';
+  const where = options?.citizenId ? "WHERE citizen_id = ?" : "";
   if (options?.citizenId) params.push(options.citizenId);
   const [rows] = await conn.query<RowDataPacket[]>(
     `
@@ -395,17 +408,33 @@ const loadExistingLeavesByRefIds = async (
   refIds: string[],
   options: { hasStatusColumn: boolean },
 ): Promise<RowDataPacket[]> => {
-  const uniqueRefIds = [...new Set(refIds.map((refId) => String(refId ?? '').trim()).filter(Boolean))];
+  const uniqueRefIds = [
+    ...new Set(
+      refIds.map((refId) => String(refId ?? "").trim()).filter(Boolean),
+    ),
+  ];
   if (uniqueRefIds.length === 0) return [];
 
-  const fields = ['ref_id', 'start_date', 'end_date', 'leave_type', 'duration_days', 'fiscal_year', 'remark'];
-  if (options.hasStatusColumn) fields.push('status');
+  const fields = [
+    "ref_id",
+    "start_date",
+    "end_date",
+    "leave_type",
+    "duration_days",
+    "fiscal_year",
+    "remark",
+  ];
+  if (options.hasStatusColumn) fields.push("status");
 
   const rows: RowDataPacket[] = [];
-  for (let i = 0; i < uniqueRefIds.length; i += LEAVE_REF_ID_LOOKUP_CHUNK_SIZE) {
+  for (
+    let i = 0;
+    i < uniqueRefIds.length;
+    i += LEAVE_REF_ID_LOOKUP_CHUNK_SIZE
+  ) {
     const chunk = uniqueRefIds.slice(i, i + LEAVE_REF_ID_LOOKUP_CHUNK_SIZE);
     const [chunkRows] = await conn.query<RowDataPacket[]>(
-      `SELECT ${fields.join(', ')} FROM leave_records WHERE ref_id IN (?)`,
+      `SELECT ${fields.join(", ")} FROM leave_records WHERE ref_id IN (?)`,
       [chunk],
     );
     rows.push(...chunkRows);
@@ -414,7 +443,9 @@ const loadExistingLeavesByRefIds = async (
   return rows;
 };
 
-const cleanupOrphanSyncedLeaves = async (conn: PoolConnection): Promise<void> => {
+const cleanupOrphanSyncedLeaves = async (
+  conn: PoolConnection,
+): Promise<void> => {
   await conn.execute(
     `
       DELETE FROM leave_records
@@ -438,7 +469,10 @@ const syncMovementRows = async (
   const existingByComposite = new Map<string, ExistingMovementRow[]>();
 
   for (const row of existingRows) {
-    if (row.source_movement_id != null && !existingBySourceId.has(Number(row.source_movement_id))) {
+    if (
+      row.source_movement_id != null &&
+      !existingBySourceId.has(Number(row.source_movement_id))
+    ) {
       existingBySourceId.set(Number(row.source_movement_id), row);
       continue;
     }
@@ -525,7 +559,8 @@ const syncMovementRows = async (
         movement_type: sourceRow.movement_type,
         effective_date: normalizeDateOnly(sourceRow.effective_date),
         remark: sourceRow.remark,
-        source_updated_at: normalizeDateTime(sourceRow.source_updated_at) || null,
+        source_updated_at:
+          normalizeDateTime(sourceRow.source_updated_at) || null,
       });
       continue;
     }
@@ -557,12 +592,15 @@ const syncMovementRows = async (
   const staleMovementIds = existingRows
     .filter(
       (row) =>
-        row.source_movement_id != null && !seenSourceIds.has(Number(row.source_movement_id)),
+        row.source_movement_id != null &&
+        !seenSourceIds.has(Number(row.source_movement_id)),
     )
     .map((row) => row.movement_id);
 
   for (const movementId of staleMovementIds) {
-    await conn.execute(`DELETE FROM emp_movements WHERE movement_id = ?`, [movementId]);
+    await conn.execute(`DELETE FROM emp_movements WHERE movement_id = ?`, [
+      movementId,
+    ]);
   }
 };
 
@@ -575,7 +613,10 @@ const syncLicenseRows = async (
   const existingByComposite = new Map<string, ExistingLicenseRow[]>();
 
   for (const row of existingRows) {
-    if (row.source_license_id != null && !existingBySourceId.has(Number(row.source_license_id))) {
+    if (
+      row.source_license_id != null &&
+      !existingBySourceId.has(Number(row.source_license_id))
+    ) {
       existingBySourceId.set(Number(row.source_license_id), row);
       continue;
     }
@@ -674,7 +715,8 @@ const syncLicenseRows = async (
         valid_from: normalizeDateOnly(sourceRow.valid_from),
         valid_until: normalizeDateOnly(sourceRow.valid_until),
         status: sourceRow.status,
-        source_updated_at: normalizeDateTime(sourceRow.source_updated_at) || null,
+        source_updated_at:
+          normalizeDateTime(sourceRow.source_updated_at) || null,
       });
       upserted++;
       continue;
@@ -710,11 +752,17 @@ const syncLicenseRows = async (
   }
 
   const staleLicenseIds = existingRows
-    .filter((row) => row.source_license_id != null && !seenSourceIds.has(Number(row.source_license_id)))
+    .filter(
+      (row) =>
+        row.source_license_id != null &&
+        !seenSourceIds.has(Number(row.source_license_id)),
+    )
     .map((row) => row.license_id);
 
   for (const licenseId of staleLicenseIds) {
-    await conn.execute(`DELETE FROM emp_licenses WHERE license_id = ?`, [licenseId]);
+    await conn.execute(`DELETE FROM emp_licenses WHERE license_id = ?`, [
+      licenseId,
+    ]);
   }
 
   return upserted;
@@ -743,11 +791,20 @@ const syncQuotaRows = async (
   for (const sourceRow of sourceRows) {
     const key = buildQuotaCompositeKey(sourceRow);
     const existing = existingByKey.get(key);
-    if (existing && normalizeDecimal(existing.quota_vacation) === normalizeDecimal(sourceRow.total_quota)) {
+    if (
+      existing &&
+      normalizeDecimal(existing.quota_vacation) ===
+        normalizeDecimal(sourceRow.total_quota)
+    ) {
       continue;
     }
 
-    await deps.upsertLeaveQuota(conn, sourceRow.citizen_id, sourceRow.fiscal_year, sourceRow.total_quota);
+    await deps.upsertLeaveQuota(
+      conn,
+      sourceRow.citizen_id,
+      sourceRow.fiscal_year,
+      sourceRow.total_quota,
+    );
     upserted++;
   }
 
@@ -761,11 +818,15 @@ export const syncSignatures = async (
     buildSignaturesViewQuery: () => string;
   },
 ): Promise<void> => {
-  console.log('[SyncService] Processing signatures...');
-  const [existingSigs] = await conn.query<RowDataPacket[]>('SELECT citizen_id FROM sig_images');
+  console.log("[SyncService] Processing signatures...");
+  const [existingSigs] = await conn.query<RowDataPacket[]>(
+    "SELECT citizen_id FROM sig_images",
+  );
   const sigSet = new Set(existingSigs.map((s) => s.citizen_id));
 
-  const [viewSigs] = await conn.query<RowDataPacket[]>(deps.buildSignaturesViewQuery());
+  const [viewSigs] = await conn.query<RowDataPacket[]>(
+    deps.buildSignaturesViewQuery(),
+  );
 
   for (const vSig of viewSigs) {
     if (!vSig.citizen_id || sigSet.has(vSig.citizen_id)) {
@@ -795,20 +856,29 @@ export const syncLicensesAndQuotas = async (
     ) => Promise<void>;
   },
 ): Promise<void> => {
-  console.log('[SyncService] Processing licenses and quotas...');
+  console.log("[SyncService] Processing licenses and quotas...");
   const [sourceLicenses, existingLicenses] = await Promise.all([
     loadSourceLicenses(conn),
     loadExistingLicenses(conn),
   ]);
-  stats.licenses.upserted += await syncLicenseRows(conn, sourceLicenses, existingLicenses);
+  stats.licenses.upserted += await syncLicenseRows(
+    conn,
+    sourceLicenses,
+    existingLicenses,
+  );
 
   const [sourceQuotas, existingQuotas] = await Promise.all([
     loadSourceQuotas(conn, deps.buildQuotasViewQuery),
     loadExistingQuotas(conn),
   ]);
-  stats.quotas.upserted += await syncQuotaRows(conn, sourceQuotas, existingQuotas, {
-    upsertLeaveQuota: deps.upsertLeaveQuota,
-  });
+  stats.quotas.upserted += await syncQuotaRows(
+    conn,
+    sourceQuotas,
+    existingQuotas,
+    {
+      upsertLeaveQuota: deps.upsertLeaveQuota,
+    },
+  );
 };
 
 export const syncLeaves = async (
@@ -816,8 +886,14 @@ export const syncLeaves = async (
   stats: SyncStats,
   deps: {
     hasLeaveStatusColumn: (conn: PoolConnection) => Promise<boolean>;
-    buildLeaveRecordSql: (options: LeaveRecordSqlOptions) => { sql: string; fields: string[] };
-    buildLeaveRecordValues: (vLeave: RowDataPacket, options: LeaveRecordSqlOptions) => unknown[];
+    buildLeaveRecordSql: (options: LeaveRecordSqlOptions) => {
+      sql: string;
+      fields: string[];
+    };
+    buildLeaveRecordValues: (
+      vLeave: RowDataPacket,
+      options: LeaveRecordSqlOptions,
+    ) => unknown[];
     buildLeaveViewQuery: () => string;
     isChanged: (oldVal: unknown, newVal: unknown) => boolean;
     normalizeLeaveRowWithMeta: (row: RowDataPacket) => {
@@ -845,15 +921,17 @@ export const syncLeaves = async (
     }) => Promise<void>;
   },
 ): Promise<void> => {
-  console.log('[SyncService] Processing leave requests...');
+  console.log("[SyncService] Processing leave requests...");
   const hasStatusColumn = await deps.hasLeaveStatusColumn(conn);
 
   const sqlOptions: LeaveRecordSqlOptions = { hasStatusColumn };
   const { sql } = deps.buildLeaveRecordSql(sqlOptions);
-  const [viewLeaves] = await conn.query<RowDataPacket[]>(deps.buildLeaveViewQuery());
+  const [viewLeaves] = await conn.query<RowDataPacket[]>(
+    deps.buildLeaveViewQuery(),
+  );
   const existingLeaves = await loadExistingLeavesByRefIds(
     conn,
-    viewLeaves.map((leave) => String(leave.ref_id ?? '')),
+    viewLeaves.map((leave) => String(leave.ref_id ?? "")),
     { hasStatusColumn },
   );
   const leaveMap = new Map(existingLeaves.map((l) => [l.ref_id, l]));
@@ -861,7 +939,8 @@ export const syncLeaves = async (
   for (const sourceLeave of viewLeaves) {
     const leaveWithRawType = {
       ...sourceLeave,
-      raw_hrms_leave_type: sourceLeave.hrms_leave_type ?? sourceLeave.leave_type ?? null,
+      raw_hrms_leave_type:
+        sourceLeave.hrms_leave_type ?? sourceLeave.leave_type ?? null,
     } as RowDataPacket;
     const normalized = deps.normalizeLeaveRowWithMeta(leaveWithRawType);
     const vLeave = normalized.row;
@@ -874,19 +953,20 @@ export const syncLeaves = async (
         });
       }
     }
-    if (!vLeave.ref_id || !isValidCitizenId(vLeave.citizen_id) || !vLeave.start_date || !vLeave.end_date) {
+    if (
+      !vLeave.ref_id ||
+      !isValidCitizenId(vLeave.citizen_id) ||
+      !vLeave.start_date ||
+      !vLeave.end_date
+    ) {
       stats.leaves.skipped++;
       continue;
     }
-    if (
-      normalized.meta &&
-      deps.onLeaveReclassified &&
-      vLeave.citizen_id
-    ) {
+    if (normalized.meta && deps.onLeaveReclassified && vLeave.citizen_id) {
       await deps.onLeaveReclassified({
         sourceKey: String(vLeave.ref_id),
         citizenId: String(vLeave.citizen_id),
-        remark: String(vLeave.remark ?? ''),
+        remark: String(vLeave.remark ?? ""),
         meta: normalized.meta,
       });
     }
@@ -898,7 +978,7 @@ export const syncLeaves = async (
       await deps.onLeaveReviewFlagged({
         sourceKey: String(vLeave.ref_id),
         citizenId: String(vLeave.citizen_id),
-        remark: String(vLeave.remark ?? ''),
+        remark: String(vLeave.remark ?? ""),
         meta: normalized.reviewMeta,
       });
     }
@@ -908,17 +988,25 @@ export const syncLeaves = async (
       const dateChanged =
         deps.isChanged(dbLeave.start_date, vLeave.start_date) ||
         deps.isChanged(dbLeave.end_date, vLeave.end_date);
-      const leaveTypeChanged = deps.isChanged(dbLeave.leave_type, vLeave.leave_type);
+      const leaveTypeChanged = deps.isChanged(
+        dbLeave.leave_type,
+        vLeave.leave_type,
+      );
       const durationChanged = deps.isChanged(
         normalizeDecimal(dbLeave.duration_days),
         normalizeDecimal(vLeave.duration_days),
       );
-      const fiscalYearChanged = deps.isChanged(dbLeave.fiscal_year, vLeave.fiscal_year);
+      const fiscalYearChanged = deps.isChanged(
+        dbLeave.fiscal_year,
+        vLeave.fiscal_year,
+      );
       const remarkChanged = deps.isChanged(
         normalizeRemark(dbLeave.remark),
         normalizeRemark(vLeave.remark),
       );
-      const statusChanged = hasStatusColumn ? deps.isChanged(dbLeave.status, vLeave.status) : false;
+      const statusChanged = hasStatusColumn
+        ? deps.isChanged(dbLeave.status, vLeave.status)
+        : false;
       if (
         !dateChanged &&
         !leaveTypeChanged &&
@@ -943,10 +1031,13 @@ export const syncLeaves = async (
 export const syncMovements = async (
   conn: PoolConnection,
   deps: {
-    applyImmediateMovementEligibilityCutoff: (date: Date, conn: PoolConnection) => Promise<unknown>;
+    applyImmediateMovementEligibilityCutoff: (
+      date: Date,
+      conn: PoolConnection,
+    ) => Promise<unknown>;
   },
 ): Promise<void> => {
-  console.log('[SyncService] Processing movements...');
+  console.log("[SyncService] Processing movements...");
   const [sourceRows, existingRows] = await Promise.all([
     loadSourceMovements(conn),
     loadExistingMovements(conn),
@@ -978,7 +1069,7 @@ export const syncSingleSignature = async (
   const vSig = viewSigs[0];
   if (!vSig) return;
   const [existingSigs] = await conn.query<RowDataPacket[]>(
-    `SELECT citizen_id FROM sig_images WHERE ${deps.citizenIdWhereBinary('sig_images', '?')}`,
+    `SELECT citizen_id FROM sig_images WHERE ${deps.citizenIdWhereBinary("sig_images", "?")}`,
     [vSig.citizen_id],
   );
   if (existingSigs.length) {
@@ -1031,8 +1122,14 @@ export const syncSingleLeaves = async (
   stats: SyncStats,
   deps: {
     hasLeaveStatusColumn: (conn: PoolConnection) => Promise<boolean>;
-    buildLeaveRecordSql: (options: LeaveRecordSqlOptions) => { sql: string; fields: string[] };
-    buildLeaveRecordValues: (vLeave: RowDataPacket, options: LeaveRecordSqlOptions) => unknown[];
+    buildLeaveRecordSql: (options: LeaveRecordSqlOptions) => {
+      sql: string;
+      fields: string[];
+    };
+    buildLeaveRecordValues: (
+      vLeave: RowDataPacket,
+      options: LeaveRecordSqlOptions,
+    ) => unknown[];
     buildLeaveViewQuery: () => string;
     buildSingleLeaveViewQuery?: (citizenWhereExpr: string) => string;
     citizenIdWhereBinary: (alias: string, placeholder: string) => string;
@@ -1064,7 +1161,7 @@ export const syncSingleLeaves = async (
   const hasStatusColumn = await deps.hasLeaveStatusColumn(conn);
   const leaveSqlOptions: LeaveRecordSqlOptions = { hasStatusColumn };
   const { sql: leaveSql } = deps.buildLeaveRecordSql(leaveSqlOptions);
-  const citizenWhereExpr = deps.citizenIdWhereBinary('lr', '?');
+  const citizenWhereExpr = deps.citizenIdWhereBinary("lr", "?");
   const sourceSql = deps.buildSingleLeaveViewQuery
     ? deps.buildSingleLeaveViewQuery(citizenWhereExpr)
     : `SELECT lr.*
@@ -1082,7 +1179,8 @@ export const syncSingleLeaves = async (
   for (const sourceLeave of viewLeaves) {
     const leaveWithRawType = {
       ...sourceLeave,
-      raw_hrms_leave_type: sourceLeave.hrms_leave_type ?? sourceLeave.leave_type ?? null,
+      raw_hrms_leave_type:
+        sourceLeave.hrms_leave_type ?? sourceLeave.leave_type ?? null,
     } as RowDataPacket;
     const normalized = deps.normalizeLeaveRowWithMeta(leaveWithRawType);
     const vLeave = normalized.row;
@@ -1095,19 +1193,20 @@ export const syncSingleLeaves = async (
         });
       }
     }
-    if (!vLeave.ref_id || !isValidCitizenId(vLeave.citizen_id) || !vLeave.start_date || !vLeave.end_date) {
+    if (
+      !vLeave.ref_id ||
+      !isValidCitizenId(vLeave.citizen_id) ||
+      !vLeave.start_date ||
+      !vLeave.end_date
+    ) {
       stats.leaves.skipped++;
       continue;
     }
-    if (
-      normalized.meta &&
-      deps.onLeaveReclassified &&
-      vLeave.citizen_id
-    ) {
+    if (normalized.meta && deps.onLeaveReclassified && vLeave.citizen_id) {
       await deps.onLeaveReclassified({
         sourceKey: String(vLeave.ref_id),
         citizenId: String(vLeave.citizen_id),
-        remark: String(vLeave.remark ?? ''),
+        remark: String(vLeave.remark ?? ""),
         meta: normalized.meta,
       });
     }
@@ -1119,7 +1218,7 @@ export const syncSingleLeaves = async (
       await deps.onLeaveReviewFlagged({
         sourceKey: String(vLeave.ref_id),
         citizenId: String(vLeave.citizen_id),
-        remark: String(vLeave.remark ?? ''),
+        remark: String(vLeave.remark ?? ""),
         meta: normalized.reviewMeta,
       });
     }
@@ -1133,7 +1232,10 @@ export const syncSingleMovements = async (
   conn: PoolConnection,
   citizenId: string,
   deps: {
-    applyImmediateMovementEligibilityCutoff: (date: Date, conn: PoolConnection) => Promise<unknown>;
+    applyImmediateMovementEligibilityCutoff: (
+      date: Date,
+      conn: PoolConnection,
+    ) => Promise<unknown>;
   },
 ): Promise<void> => {
   const [sourceRows, existingRows] = await Promise.all([

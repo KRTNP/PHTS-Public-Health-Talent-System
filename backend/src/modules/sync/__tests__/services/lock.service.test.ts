@@ -1,4 +1,4 @@
-jest.mock('@config/redis.js', () => ({
+jest.mock("@config/redis.js", () => ({
   __esModule: true,
   default: {
     get: jest.fn(),
@@ -8,7 +8,7 @@ jest.mock('@config/redis.js', () => ({
   },
 }));
 
-describe('sync lock service', () => {
+describe("sync lock service", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -19,9 +19,10 @@ describe('sync lock service', () => {
     jest.restoreAllMocks();
   });
 
-  test('createSyncLockValue returns unique value even within same millisecond', async () => {
-    const dateSpy = jest.spyOn(Date, 'now').mockReturnValue(1710000000000);
-    const mod = await import('@/modules/sync/services/shared/sync-lock.service.js');
+  test("createSyncLockValue returns unique value even within same millisecond", async () => {
+    const dateSpy = jest.spyOn(Date, "now").mockReturnValue(1710000000000);
+    const mod =
+      await import("@/modules/sync/services/shared/sync-lock.service.js");
 
     const lockA = mod.createSyncLockValue();
     const lockB = mod.createSyncLockValue();
@@ -32,14 +33,15 @@ describe('sync lock service', () => {
     dateSpy.mockRestore();
   });
 
-  test('heartbeat refreshes lock only when current lock value matches owner', async () => {
-    const redis = (await import('@config/redis.js')).default as unknown as {
+  test("heartbeat refreshes lock only when current lock value matches owner", async () => {
+    const redis = (await import("@config/redis.js")).default as unknown as {
       eval: jest.Mock;
     };
-    const mod = await import('@/modules/sync/services/shared/sync-lock.service.js');
+    const mod =
+      await import("@/modules/sync/services/shared/sync-lock.service.js");
 
     redis.eval.mockResolvedValue(1);
-    const timer = mod.startSyncLockHeartbeat('lock:owner');
+    const timer = mod.startSyncLockHeartbeat("lock:owner");
 
     await jest.advanceTimersByTimeAsync(60_100);
 
@@ -47,29 +49,30 @@ describe('sync lock service', () => {
     expect(redis.eval).toHaveBeenCalledWith(
       expect.stringContaining('redis.call("GET", KEYS[1])'),
       1,
-      'system:sync:lock',
-      'lock:owner',
-      '300',
+      "system:sync:lock",
+      "lock:owner",
+      "300",
     );
     clearInterval(timer);
   });
 
-  test('releaseSyncLock deletes lock only when current lock value matches owner', async () => {
-    const redis = (await import('@config/redis.js')).default as unknown as {
+  test("releaseSyncLock deletes lock only when current lock value matches owner", async () => {
+    const redis = (await import("@config/redis.js")).default as unknown as {
       eval: jest.Mock;
       get: jest.Mock;
       del: jest.Mock;
     };
-    const mod = await import('@/modules/sync/services/shared/sync-lock.service.js');
+    const mod =
+      await import("@/modules/sync/services/shared/sync-lock.service.js");
 
     redis.eval.mockResolvedValue(1);
-    await mod.releaseSyncLock('lock:owner');
+    await mod.releaseSyncLock("lock:owner");
 
     expect(redis.eval).toHaveBeenCalledWith(
       expect.stringContaining('redis.call("GET", KEYS[1])'),
       1,
-      'system:sync:lock',
-      'lock:owner',
+      "system:sync:lock",
+      "lock:owner",
     );
     expect(redis.get).not.toHaveBeenCalled();
     expect(redis.del).not.toHaveBeenCalled();

@@ -1,17 +1,22 @@
-import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
-import { createHash } from 'node:crypto';
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import { createHash } from "node:crypto";
 
-const parseBooleanEnv = (value: string | undefined, fallback: boolean): boolean => {
+const parseBooleanEnv = (
+  value: string | undefined,
+  fallback: boolean,
+): boolean => {
   if (value == null) return fallback;
   const normalized = value.trim().toLowerCase();
   if (!normalized) return fallback;
-  return ['1', 'true', 'yes', 'on'].includes(normalized);
+  return ["1", "true", "yes", "on"].includes(normalized);
 };
 
 const isSyncHistoryArtifactsEnabled = (): boolean =>
   parseBooleanEnv(process.env.SYNC_HISTORY_ARTIFACTS_ENABLED, true);
 
-export const hasLeaveStatusColumn = async (conn: PoolConnection): Promise<boolean> => {
+export const hasLeaveStatusColumn = async (
+  conn: PoolConnection,
+): Promise<boolean> => {
   const [leaveCols] = await conn.query<RowDataPacket[]>(
     `SELECT COLUMN_NAME
      FROM information_schema.COLUMNS
@@ -19,11 +24,15 @@ export const hasLeaveStatusColumn = async (conn: PoolConnection): Promise<boolea
        AND TABLE_NAME = 'leave_records'
        AND COLUMN_NAME IN ('status')`,
   );
-  const leaveColumnSet = new Set((leaveCols as RowDataPacket[]).map((row) => row.COLUMN_NAME));
-  return leaveColumnSet.has('status');
+  const leaveColumnSet = new Set(
+    (leaveCols as RowDataPacket[]).map((row) => row.COLUMN_NAME),
+  );
+  return leaveColumnSet.has("status");
 };
 
-export const hasSupportLevelColumn = async (conn: PoolConnection): Promise<boolean> => {
+export const hasSupportLevelColumn = async (
+  conn: PoolConnection,
+): Promise<boolean> => {
   const [supportCols] = await conn.query<RowDataPacket[]>(
     `SELECT COLUMN_NAME
      FROM information_schema.COLUMNS
@@ -31,8 +40,10 @@ export const hasSupportLevelColumn = async (conn: PoolConnection): Promise<boole
        AND TABLE_NAME = 'emp_support_staff'
        AND COLUMN_NAME IN ('level')`,
   );
-  const supportColumnSet = new Set((supportCols as RowDataPacket[]).map((row) => row.COLUMN_NAME));
-  return supportColumnSet.has('level');
+  const supportColumnSet = new Set(
+    (supportCols as RowDataPacket[]).map((row) => row.COLUMN_NAME),
+  );
+  return supportColumnSet.has("level");
 };
 
 export type SupportStaffColumnFlags = {
@@ -70,15 +81,15 @@ export const resolveSupportStaffColumnFlags = async (
   const columns = new Set(rows.map((row) => String(row.COLUMN_NAME)));
 
   return {
-    hasLevelColumn: columns.has('level'),
-    hasOriginalStatusColumn: columns.has('original_status'),
-    hasStatusCodeColumn: columns.has('status_code'),
-    hasStatusTextColumn: columns.has('status_text'),
-    hasSourceSystemColumn: columns.has('source_system'),
-    hasSourceUpdatedAtColumn: columns.has('source_updated_at'),
-    hasLastSyncBatchIdColumn: columns.has('last_sync_batch_id'),
-    hasRawSnapshotColumn: columns.has('raw_snapshot'),
-    hasProfileFingerprintColumn: columns.has('profile_fingerprint'),
+    hasLevelColumn: columns.has("level"),
+    hasOriginalStatusColumn: columns.has("original_status"),
+    hasStatusCodeColumn: columns.has("status_code"),
+    hasStatusTextColumn: columns.has("status_text"),
+    hasSourceSystemColumn: columns.has("source_system"),
+    hasSourceUpdatedAtColumn: columns.has("source_updated_at"),
+    hasLastSyncBatchIdColumn: columns.has("last_sync_batch_id"),
+    hasRawSnapshotColumn: columns.has("raw_snapshot"),
+    hasProfileFingerprintColumn: columns.has("profile_fingerprint"),
   };
 };
 
@@ -93,12 +104,12 @@ const buildNormalizedProfile = (vEmp: RowDataPacket) => {
   const statusText = vEmp.original_status ? String(vEmp.original_status) : null;
   const isCurrentlyActive = Number(vEmp.is_currently_active) === 1 ? 1 : 0;
   const statusCode = !statusText
-    ? 'UNKNOWN'
-    : statusText.includes('ลาศึกษา')
-      ? 'STUDY_LEAVE'
+    ? "UNKNOWN"
+    : statusText.includes("ลาศึกษา")
+      ? "STUDY_LEAVE"
       : isCurrentlyActive
-        ? 'ACTIVE'
-        : 'INACTIVE';
+        ? "ACTIVE"
+        : "INACTIVE";
 
   const normalized = {
     citizen_id: vEmp.citizen_id ?? null,
@@ -112,9 +123,9 @@ const buildNormalizedProfile = (vEmp: RowDataPacket) => {
     is_currently_active: isCurrentlyActive,
   };
 
-  const profileFingerprint = createHash('sha256')
+  const profileFingerprint = createHash("sha256")
     .update(JSON.stringify(normalized))
-    .digest('hex');
+    .digest("hex");
 
   return {
     statusText,
@@ -125,7 +136,9 @@ const buildNormalizedProfile = (vEmp: RowDataPacket) => {
   };
 };
 
-export const computeEmployeeProfileFingerprint = (vEmp: RowDataPacket): string => {
+export const computeEmployeeProfileFingerprint = (
+  vEmp: RowDataPacket,
+): string => {
   return buildNormalizedProfile(vEmp).profileFingerprint;
 };
 
@@ -150,9 +163,9 @@ const resolveFingerprintColumns = async (
   );
 
   return {
-    hasEmpFp: fpCols.some((r) => r.TABLE_NAME === 'emp_profiles'),
-    hasHistoryFp: fpCols.some((r) => r.TABLE_NAME === 'emp_profile_history'),
-    hasRawFp: fpCols.some((r) => r.TABLE_NAME === 'emp_profile_raw_snapshots'),
+    hasEmpFp: fpCols.some((r) => r.TABLE_NAME === "emp_profiles"),
+    hasHistoryFp: fpCols.some((r) => r.TABLE_NAME === "emp_profile_history"),
+    hasRawFp: fpCols.some((r) => r.TABLE_NAME === "emp_profile_raw_snapshots"),
   };
 };
 
@@ -202,7 +215,7 @@ export const upsertEmployeeProfile = async (
       vEmp.position_name,
       vEmp.position_number,
       vEmp.level,
-      (vEmp.special_position || '').substring(0, 65535),
+      (vEmp.special_position || "").substring(0, 65535),
       vEmp.employee_type,
       vEmp.department,
       vEmp.sub_department,
@@ -258,7 +271,7 @@ export const persistEmployeeProfileSyncArtifacts = async (
     `
       SELECT history_id, position_name, level, department, sub_department,
              special_position, status_code, status_text, is_currently_active
-             ${fpCols.hasHistoryFp ? ', profile_fingerprint' : ''}
+             ${fpCols.hasHistoryFp ? ", profile_fingerprint" : ""}
       FROM emp_profile_history
       WHERE citizen_id = ? AND valid_to IS NULL
       ORDER BY history_id DESC
@@ -270,19 +283,26 @@ export const persistEmployeeProfileSyncArtifacts = async (
 
   const isSameByFingerprint =
     fpCols.hasHistoryFp && lastHistory
-      ? String(lastHistory.profile_fingerprint ?? '') === profileFingerprint
+      ? String(lastHistory.profile_fingerprint ?? "") === profileFingerprint
       : false;
 
   const isSameByFields =
     lastHistory &&
-    String(lastHistory.position_name ?? '') === String(normalized.position_name ?? '') &&
-    String(lastHistory.level ?? '') === String(normalized.level ?? '') &&
-    String(lastHistory.department ?? '') === String(normalized.department ?? '') &&
-    String(lastHistory.sub_department ?? '') === String(normalized.sub_department ?? '') &&
-    String(lastHistory.special_position ?? '') === String(normalized.special_position ?? '') &&
-    String(lastHistory.status_code ?? '') === String(normalized.status_code ?? '') &&
-    String(lastHistory.status_text ?? '') === String(normalized.status_text ?? '') &&
-    Number(lastHistory.is_currently_active ?? 0) === Number(normalized.is_currently_active ?? 0);
+    String(lastHistory.position_name ?? "") ===
+      String(normalized.position_name ?? "") &&
+    String(lastHistory.level ?? "") === String(normalized.level ?? "") &&
+    String(lastHistory.department ?? "") ===
+      String(normalized.department ?? "") &&
+    String(lastHistory.sub_department ?? "") ===
+      String(normalized.sub_department ?? "") &&
+    String(lastHistory.special_position ?? "") ===
+      String(normalized.special_position ?? "") &&
+    String(lastHistory.status_code ?? "") ===
+      String(normalized.status_code ?? "") &&
+    String(lastHistory.status_text ?? "") ===
+      String(normalized.status_text ?? "") &&
+    Number(lastHistory.is_currently_active ?? 0) ===
+      Number(normalized.is_currently_active ?? 0);
 
   if (isSameByFingerprint || isSameByFields) {
     return;
@@ -400,8 +420,8 @@ export const upsertLeaveQuota = async (
 
 const buildNormalizedSupportProfile = (vSup: RowDataPacket) => {
   const isCurrentlyActive = Number(vSup.is_currently_active) === 1 ? 1 : 0;
-  const statusCode = isCurrentlyActive ? 'ACTIVE' : 'INACTIVE';
-  const statusText = isCurrentlyActive ? 'ปฏิบัติงาน' : 'ไม่ปฏิบัติงาน';
+  const statusCode = isCurrentlyActive ? "ACTIVE" : "INACTIVE";
+  const statusText = isCurrentlyActive ? "ปฏิบัติงาน" : "ไม่ปฏิบัติงาน";
 
   const normalized = {
     citizen_id: vSup.citizen_id ?? null,
@@ -414,9 +434,9 @@ const buildNormalizedSupportProfile = (vSup: RowDataPacket) => {
     is_currently_active: isCurrentlyActive,
   };
 
-  const profileFingerprint = createHash('sha256')
+  const profileFingerprint = createHash("sha256")
     .update(JSON.stringify(normalized))
-    .digest('hex');
+    .digest("hex");
 
   return {
     statusCode,
@@ -426,7 +446,9 @@ const buildNormalizedSupportProfile = (vSup: RowDataPacket) => {
   };
 };
 
-export const computeSupportProfileFingerprint = (vSup: RowDataPacket): string => {
+export const computeSupportProfileFingerprint = (
+  vSup: RowDataPacket,
+): string => {
   return buildNormalizedSupportProfile(vSup).profileFingerprint;
 };
 
@@ -461,11 +483,15 @@ const resolveSupportFingerprintColumns = async (
   );
 
   return {
-    hasSupportHistoryTable: tableSet.has('emp_support_staff_history'),
-    hasSupportRawTable: tableSet.has('emp_support_staff_raw_snapshots'),
-    hasSupportFp: fpCols.some((r) => r.TABLE_NAME === 'emp_support_staff'),
-    hasSupportHistoryFp: fpCols.some((r) => r.TABLE_NAME === 'emp_support_staff_history'),
-    hasSupportRawFp: fpCols.some((r) => r.TABLE_NAME === 'emp_support_staff_raw_snapshots'),
+    hasSupportHistoryTable: tableSet.has("emp_support_staff_history"),
+    hasSupportRawTable: tableSet.has("emp_support_staff_raw_snapshots"),
+    hasSupportFp: fpCols.some((r) => r.TABLE_NAME === "emp_support_staff"),
+    hasSupportHistoryFp: fpCols.some(
+      (r) => r.TABLE_NAME === "emp_support_staff_history",
+    ),
+    hasSupportRawFp: fpCols.some(
+      (r) => r.TABLE_NAME === "emp_support_staff_raw_snapshots",
+    ),
   };
 };
 
@@ -474,7 +500,8 @@ export const persistSupportProfileSyncArtifacts = async (
   vSup: RowDataPacket,
   syncBatchId: number | null,
 ): Promise<void> => {
-  const { normalized, profileFingerprint } = buildNormalizedSupportProfile(vSup);
+  const { normalized, profileFingerprint } =
+    buildNormalizedSupportProfile(vSup);
   const supportCols = await resolveSupportStaffColumnFlags(conn);
   const fpCols = await resolveSupportFingerprintColumns(conn);
 
@@ -522,7 +549,7 @@ export const persistSupportProfileSyncArtifacts = async (
       `
         SELECT history_id, position_name, level, department, special_position,
                status_code, status_text, is_currently_active
-               ${fpCols.hasSupportHistoryFp ? ', profile_fingerprint' : ''}
+               ${fpCols.hasSupportHistoryFp ? ", profile_fingerprint" : ""}
         FROM emp_support_staff_history
         WHERE citizen_id = ? AND valid_to IS NULL
         ORDER BY history_id DESC
@@ -535,18 +562,24 @@ export const persistSupportProfileSyncArtifacts = async (
 
   const isSameByFingerprint =
     fpCols.hasSupportHistoryFp && lastHistory
-      ? String(lastHistory.profile_fingerprint ?? '') === profileFingerprint
+      ? String(lastHistory.profile_fingerprint ?? "") === profileFingerprint
       : false;
 
   const isSameByFields =
     lastHistory &&
-    String(lastHistory.position_name ?? '') === String(normalized.position_name ?? '') &&
-    String(lastHistory.level ?? '') === String(normalized.level ?? '') &&
-    String(lastHistory.department ?? '') === String(normalized.department ?? '') &&
-    String(lastHistory.special_position ?? '') === String(normalized.special_position ?? '') &&
-    String(lastHistory.status_code ?? '') === String(normalized.status_code ?? '') &&
-    String(lastHistory.status_text ?? '') === String(normalized.status_text ?? '') &&
-    Number(lastHistory.is_currently_active ?? 0) === Number(normalized.is_currently_active ?? 0);
+    String(lastHistory.position_name ?? "") ===
+      String(normalized.position_name ?? "") &&
+    String(lastHistory.level ?? "") === String(normalized.level ?? "") &&
+    String(lastHistory.department ?? "") ===
+      String(normalized.department ?? "") &&
+    String(lastHistory.special_position ?? "") ===
+      String(normalized.special_position ?? "") &&
+    String(lastHistory.status_code ?? "") ===
+      String(normalized.status_code ?? "") &&
+    String(lastHistory.status_text ?? "") ===
+      String(normalized.status_text ?? "") &&
+    Number(lastHistory.is_currently_active ?? 0) ===
+      Number(normalized.is_currently_active ?? 0);
 
   if (isSameByFingerprint || isSameByFields) {
     return;

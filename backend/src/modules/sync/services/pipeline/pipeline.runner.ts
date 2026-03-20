@@ -1,10 +1,10 @@
-import { TransformMonitorRepository } from '@/modules/sync/repositories/transform-monitor.repository.js';
+import { TransformMonitorRepository } from "@/modules/sync/repositories/transform-monitor.repository.js";
 import type {
   PipelineContext,
   PipelineExecutionSummary,
   PipelineStageDefinition,
   StageExecutionResult,
-} from '@/modules/sync/services/pipeline/pipeline.types.js';
+} from "@/modules/sync/services/pipeline/pipeline.types.js";
 
 const runSingleStage = async (
   ctx: PipelineContext,
@@ -20,7 +20,7 @@ const runSingleStage = async (
 
   try {
     const stageResult = await stage.run(ctx);
-    const status = stageResult?.skipped ? 'SKIPPED' : 'SUCCESS';
+    const status = stageResult?.skipped ? "SKIPPED" : "SUCCESS";
     const finishedAt = new Date();
     const durationMs = Date.now() - started;
     await TransformMonitorRepository.finishStageRun({
@@ -46,7 +46,7 @@ const runSingleStage = async (
     const message = error instanceof Error ? error.message : String(error);
     await TransformMonitorRepository.finishStageRun({
       stageRunId,
-      status: 'FAILED',
+      status: "FAILED",
       errorMessage: message,
       durationMs,
     });
@@ -55,7 +55,7 @@ const runSingleStage = async (
       batch_id: ctx.batchId,
       stage_key: stage.key,
       stage_group: stage.group,
-      status: 'FAILED',
+      status: "FAILED",
       error_message: message,
       started_at: startedAt,
       finished_at: finishedAt,
@@ -76,32 +76,34 @@ export const runCoreStages = async (input: {
 
   await TransformMonitorRepository.updateBatchPipelineStatus({
     batchId: context.batchId,
-    coreStatus: 'RUNNING',
-    postStatus: 'PENDING',
-    overallStatus: 'RUNNING',
+    coreStatus: "RUNNING",
+    postStatus: "PENDING",
+    overallStatus: "RUNNING",
     warningsCount: 0,
   });
 
   for (const stage of coreStages) {
     const result = await runSingleStage(context, stage);
     stageResults.push(result);
-    if (result.status === 'FAILED') {
+    if (result.status === "FAILED") {
       await TransformMonitorRepository.updateBatchPipelineStatus({
         batchId: context.batchId,
-        coreStatus: 'FAILED',
-        postStatus: 'PENDING',
-        overallStatus: 'FAILED',
+        coreStatus: "FAILED",
+        postStatus: "PENDING",
+        overallStatus: "FAILED",
         warningsCount: 0,
       });
-      throw new Error(result.error_message ?? `Core stage failed: ${result.stage_key}`);
+      throw new Error(
+        result.error_message ?? `Core stage failed: ${result.stage_key}`,
+      );
     }
   }
 
   await TransformMonitorRepository.updateBatchPipelineStatus({
     batchId: context.batchId,
-    coreStatus: 'SUCCESS',
-    postStatus: 'RUNNING',
-    overallStatus: 'RUNNING',
+    coreStatus: "SUCCESS",
+    postStatus: "RUNNING",
+    overallStatus: "RUNNING",
   });
 
   return stageResults;
@@ -118,14 +120,14 @@ export const runPostStages = async (input: {
   for (const stage of postStages) {
     const result = await runSingleStage(context, stage);
     stageResults.push(result);
-    if (result.status === 'FAILED') postFailed = true;
+    if (result.status === "FAILED") postFailed = true;
   }
 
   const warningsCount = countWarnings(stageResults);
   const summary: PipelineExecutionSummary = {
-    core_status: 'SUCCESS',
-    post_status: postFailed ? 'FAILED' : 'SUCCESS',
-    overall_status: postFailed ? 'SUCCESS_WITH_WARNINGS' : 'SUCCESS',
+    core_status: "SUCCESS",
+    post_status: postFailed ? "FAILED" : "SUCCESS",
+    overall_status: postFailed ? "SUCCESS_WITH_WARNINGS" : "SUCCESS",
     warnings_count: warningsCount,
     stages: stageResults,
   };

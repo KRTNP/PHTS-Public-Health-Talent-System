@@ -315,7 +315,7 @@ export default function SyncGovernancePage() {
         {/* --- Right Column: Deep Dive Data Tabs --- */}
         <div className="lg:col-span-8">
           <Card className="border-border shadow-sm overflow-hidden min-h-[600px] flex flex-col">
-            <Tabs defaultValue="issues" className="flex-1 flex flex-col">
+            <Tabs defaultValue="records" className="flex-1 flex flex-col">
               <div className="bg-muted/10 border-b px-4 py-2">
                 <TabsList className="grid w-full sm:w-[450px] grid-cols-2 bg-transparent p-0">
                   <TabsTrigger
@@ -337,6 +337,7 @@ export default function SyncGovernancePage() {
                 isLoading={dataIssuesQuery.isLoading}
                 total={Number(dataIssuesResponse?.total ?? 0)}
                 rows={dataIssues}
+                hasBatches={Boolean(latestBatchId)}
                 showAdvancedFilters={showAdvancedIssueFilters}
                 onToggleAdvancedFilters={() => setShowAdvancedIssueFilters((value) => !value)}
                 onExportCsv={handleExportIssuesCsv}

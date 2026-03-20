@@ -18,6 +18,7 @@ type SyncMonitorIssuesTabProps = {
   isLoading: boolean;
   total: number;
   rows: DataIssueRecord[];
+  hasBatches: boolean;
   showAdvancedFilters: boolean;
   onToggleAdvancedFilters: () => void;
   onExportCsv: () => void;
@@ -72,6 +73,7 @@ export function SyncMonitorIssuesTab({
   isLoading,
   total,
   rows,
+  hasBatches,
   showAdvancedFilters,
   onToggleAdvancedFilters,
   onExportCsv,
@@ -233,7 +235,11 @@ export function SyncMonitorIssuesTab({
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-center">
             <AlertCircle className="mb-3 h-10 w-10 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">ไม่พบรายการปัญหาตามเงื่อนไขที่ค้นหา</p>
+            <p className="text-sm text-muted-foreground">
+              {hasBatches
+                ? "ไม่พบปัญหาข้อมูลจากการซิงก์ (สถานะปกติ)"
+                : "ยังไม่มีข้อมูลการซิงก์ในระบบ"}
+            </p>
           </div>
         ) : (
           <div className="space-y-4">

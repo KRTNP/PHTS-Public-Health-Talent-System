@@ -1,28 +1,29 @@
-import type { RowDataPacket } from 'mysql2/promise';
+import type { RowDataPacket } from "mysql2/promise";
 import {
   buildLeaveReviewMeta,
   buildReclassificationMeta,
   classifyLeaveType,
   type LeaveReclassificationMeta,
   type LeaveReviewMeta,
-} from '@/modules/sync/services/domain/leave-classifier.js';
+} from "@/modules/sync/services/domain/leave-classifier.js";
 import {
   fiscalYearFromDate,
   normalizeDateRange,
   resolveDurationDays,
   toDateOnly,
   toDateString,
-} from '@/modules/sync/services/domain/leave-date-normalizer.js';
+} from "@/modules/sync/services/domain/leave-date-normalizer.js";
 
 const normalizeCitizenId = (value: unknown): string => {
-  const digits = String(value ?? '').replace(/\D/g, '');
+  const digits = String(value ?? "").replace(/\D/g, "");
   return digits;
 };
 
-export const isValidCitizenId = (value: unknown): boolean => /^[0-9]{13}$/.test(normalizeCitizenId(value));
+export const isValidCitizenId = (value: unknown): boolean =>
+  /^[0-9]{13}$/.test(normalizeCitizenId(value));
 
 export type LeaveNormalizationIssueMeta = {
-  issue_code: 'LEAVE_DATE_INVALID' | 'LEAVE_DATE_NORMALIZED';
+  issue_code: "LEAVE_DATE_INVALID" | "LEAVE_DATE_NORMALIZED";
   reason_text: string;
   detail: Record<string, string | null>;
 };
@@ -34,18 +35,20 @@ const buildNormalizationIssues = (input: {
 }): LeaveNormalizationIssueMeta[] => {
   const rawStartValue = input.row.start_date;
   const rawEndValue = input.row.end_date;
-  const rawStartDate = String(rawStartValue ?? '').trim() || null;
-  const rawEndDate = String(rawEndValue ?? '').trim() || null;
+  const rawStartDate = String(rawStartValue ?? "").trim() || null;
+  const rawEndDate = String(rawEndValue ?? "").trim() || null;
   const canonicalStartDate = toDateString(toDateOnly(rawStartValue));
   const canonicalEndDate = toDateString(toDateOnly(rawEndValue));
-  const comparableStartDate = rawStartValue instanceof Date ? canonicalStartDate : rawStartDate;
-  const comparableEndDate = rawEndValue instanceof Date ? canonicalEndDate : rawEndDate;
+  const comparableStartDate =
+    rawStartValue instanceof Date ? canonicalStartDate : rawStartDate;
+  const comparableEndDate =
+    rawEndValue instanceof Date ? canonicalEndDate : rawEndDate;
   const issues: LeaveNormalizationIssueMeta[] = [];
 
   if ((rawStartDate && !input.startDate) || (rawEndDate && !input.endDate)) {
     issues.push({
-      issue_code: 'LEAVE_DATE_INVALID',
-      reason_text: 'ไม่สามารถแปลงวันที่ลาได้จากข้อมูลต้นทาง',
+      issue_code: "LEAVE_DATE_INVALID",
+      reason_text: "ไม่สามารถแปลงวันที่ลาได้จากข้อมูลต้นทาง",
       detail: {
         start_date: rawStartDate,
         end_date: rawEndDate,
@@ -60,8 +63,8 @@ const buildNormalizationIssues = (input: {
     comparableEndDate !== null && comparableEndDate !== input.endDate;
   if (normalizedStartChanged || normalizedEndChanged) {
     issues.push({
-      issue_code: 'LEAVE_DATE_NORMALIZED',
-      reason_text: 'ระบบปรับรูปแบบหรือแก้ไขวันที่ลาให้เป็นค่าที่ใช้งานได้',
+      issue_code: "LEAVE_DATE_NORMALIZED",
+      reason_text: "ระบบปรับรูปแบบหรือแก้ไขวันที่ลาให้เป็นค่าที่ใช้งานได้",
       detail: {
         original_start_date: rawStartDate,
         normalized_start_date: input.startDate,
@@ -74,7 +77,9 @@ const buildNormalizationIssues = (input: {
   return issues;
 };
 
-export const normalizeLeaveRowWithMeta = (row: RowDataPacket): {
+export const normalizeLeaveRowWithMeta = (
+  row: RowDataPacket,
+): {
   row: RowDataPacket;
   meta: LeaveReclassificationMeta | null;
   reviewMeta: LeaveReviewMeta | null;
@@ -83,9 +88,13 @@ export const normalizeLeaveRowWithMeta = (row: RowDataPacket): {
   const range = normalizeDateRange(row);
   const durationDays = resolveDurationDays(row, range);
 
-  const remark = String(row.remark ?? '');
-  const classifiedSourceLeaveType = String(row.hrms_leave_type ?? row.leave_type ?? '');
-  const originalLeaveType = String(row.raw_hrms_leave_type ?? classifiedSourceLeaveType);
+  const remark = String(row.remark ?? "");
+  const classifiedSourceLeaveType = String(
+    row.hrms_leave_type ?? row.leave_type ?? "",
+  );
+  const originalLeaveType = String(
+    row.raw_hrms_leave_type ?? classifiedSourceLeaveType,
+  );
   const leaveType = classifyLeaveType({
     hrmsLeaveType: classifiedSourceLeaveType,
     remark,
@@ -94,7 +103,7 @@ export const normalizeLeaveRowWithMeta = (row: RowDataPacket): {
   });
 
   const normalizedRow = {
-    ref_id: String(row.ref_id ?? '').trim(),
+    ref_id: String(row.ref_id ?? "").trim(),
     citizen_id: normalizeCitizenId(row.citizen_id),
     leave_type: leaveType,
     start_date: toDateString(range.start),
@@ -102,7 +111,7 @@ export const normalizeLeaveRowWithMeta = (row: RowDataPacket): {
     duration_days: durationDays,
     fiscal_year: fiscalYearFromDate(range.start),
     remark,
-    status: String(row.status ?? 'approved'),
+    status: String(row.status ?? "approved"),
   } as RowDataPacket;
 
   return {
