@@ -111,7 +111,11 @@ export class PayrollPeriodService {
     requestIds: number[],
     actorId?: number,
   ) {
-    return PayrollPeriodItemService.addPeriodItems(periodId, requestIds, actorId);
+    return PayrollPeriodItemService.addPeriodItems(
+      periodId,
+      requestIds,
+      actorId,
+    );
   }
 
   static async removePeriodItem(

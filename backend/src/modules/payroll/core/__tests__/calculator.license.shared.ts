@@ -1,7 +1,7 @@
 export const makeBaseInput = (overrides: Record<string, any> = {}) => ({
   eligibilityRows: [
     {
-      effective_date: '2024-01-01',
+      effective_date: "2024-01-01",
       expiry_date: null,
       rate: 6000,
       rate_id: 90,
@@ -9,14 +9,14 @@ export const makeBaseInput = (overrides: Record<string, any> = {}) => ({
   ],
   movementRows: [],
   employeeRow: {
-    position_name: 'เจ้าหน้าที่',
-    start_work_date: '2020-01-01',
+    position_name: "เจ้าหน้าที่",
+    start_work_date: "2020-01-01",
   },
   licenseRows: [
     {
-      valid_from: '2024-01-01',
-      valid_until: '2025-12-31',
-      status: 'ACTIVE',
+      valid_from: "2024-01-01",
+      valid_until: "2025-12-31",
+      status: "ACTIVE",
     },
   ],
   leaveRows: [],

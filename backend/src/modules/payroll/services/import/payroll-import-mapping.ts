@@ -29,7 +29,9 @@ const normalizeText = (value: string | null | undefined): string | null => {
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
-const deriveShortSubItem = (value: string | null | undefined): string | null => {
+const deriveShortSubItem = (
+  value: string | null | undefined,
+): string | null => {
   const normalized = normalizeText(value);
   if (!normalized) return null;
   const segments = normalized.split(".");
@@ -99,7 +101,11 @@ export const resolveImportedRateId = (
   const normalizedGroup = normalizeText(row.sourceGroupNo);
 
   if (!selectors.groupNo) {
-    if (professionCode === "NURSE" && normalizedClause === "1.1" && row.announcedRate === 1000) {
+    if (
+      professionCode === "NURSE" &&
+      normalizedClause === "1.1" &&
+      row.announcedRate === 1000
+    ) {
       const fallbackRate = rates.find(
         (rate) =>
           rate.professionCode === professionCode &&
@@ -133,7 +139,8 @@ export const resolveImportedRateId = (
     (rate) =>
       rate.professionCode === professionCode &&
       rate.groupNo === selectors.groupNo &&
-      (row.announcedRate === null || round2(rate.amount) === round2(row.announcedRate)),
+      (row.announcedRate === null ||
+        round2(rate.amount) === round2(row.announcedRate)),
   );
 
   const subItemCandidates = [
@@ -156,13 +163,16 @@ export const resolveImportedRateId = (
     selectors.itemNo === "2.2" &&
     selectors.subItemNo === null
   ) {
-    const nursePrimaryCareRate = scopedRates.find((rate) => rate.rateId === 107);
+    const nursePrimaryCareRate = scopedRates.find(
+      (rate) => rate.rateId === 107,
+    );
     if (nursePrimaryCareRate) return nursePrimaryCareRate.rateId;
   }
 
   const exactItem = selectors.itemNo
     ? scopedRates.find(
-        (rate) => rate.itemNo === selectors.itemNo && (rate.subItemNo ?? null) === null,
+        (rate) =>
+          rate.itemNo === selectors.itemNo && (rate.subItemNo ?? null) === null,
       )
     : null;
   if (exactItem) return exactItem.rateId;
@@ -185,10 +195,12 @@ export const deriveImportedPayoutMetrics = ({
   deductedDays: number;
 } => {
   const calculatedAmount = round2(
-    monthlyAmount ?? ((totalAmount ?? 0) - (retroactiveAmount ?? 0)),
+    monthlyAmount ?? (totalAmount ?? 0) - (retroactiveAmount ?? 0),
   );
-  const retroactive = round2(retroactiveAmount ?? ((totalAmount ?? 0) - calculatedAmount));
-  const totalPayable = round2(totalAmount ?? (calculatedAmount + retroactive));
+  const retroactive = round2(
+    retroactiveAmount ?? (totalAmount ?? 0) - calculatedAmount,
+  );
+  const totalPayable = round2(totalAmount ?? calculatedAmount + retroactive);
 
   if (!announcedRate || announcedRate <= 0 || daysInMonth <= 0) {
     return {
@@ -202,7 +214,10 @@ export const deriveImportedPayoutMetrics = ({
 
   const eligibleDays = Math.max(
     0,
-    Math.min(daysInMonth, round2((calculatedAmount / announcedRate) * daysInMonth)),
+    Math.min(
+      daysInMonth,
+      round2((calculatedAmount / announcedRate) * daysInMonth),
+    ),
   );
 
   return {

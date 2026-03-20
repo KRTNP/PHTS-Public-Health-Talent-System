@@ -4,7 +4,7 @@ import {
   formatLocalDate,
   isHoliday,
   makeLocalDate,
-} from '@/modules/payroll/core/utils/date.utils.js';
+} from "@/modules/payroll/core/utils/date.utils.js";
 
 describe("payroll core utils", () => {
   test("formatLocalDate returns yyyy-mm-dd or empty on invalid", () => {

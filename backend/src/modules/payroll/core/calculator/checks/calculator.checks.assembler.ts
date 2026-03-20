@@ -102,10 +102,13 @@ export const createCheckAccumulator = (): CheckAccumulator => {
   return { checkAggs, ensureAgg, updateAggRange };
 };
 
-export const buildLeaveByIdMap = (mergedLeaves: LeaveRow[]): Map<number, LeaveRow> => {
+export const buildLeaveByIdMap = (
+  mergedLeaves: LeaveRow[],
+): Map<number, LeaveRow> => {
   const leaveById = new Map<number, LeaveRow>();
   for (const leave of mergedLeaves) {
-    if (leave.id !== undefined && leave.id !== null) leaveById.set(Number(leave.id), leave);
+    if (leave.id !== undefined && leave.id !== null)
+      leaveById.set(Number(leave.id), leave);
   }
   return leaveById;
 };
@@ -134,18 +137,25 @@ export const addPendingReturnReportChecks = (
   ensureAgg: EnsureAggFn,
   updateAggRange: UpdateAggRangeFn,
 ): void => {
-  const returnReportRequiredTypes = new Set<string>(RETURN_REPORT_REQUIRED_LEAVE_TYPES);
+  const returnReportRequiredTypes = new Set<string>(
+    RETURN_REPORT_REQUIRED_LEAVE_TYPES,
+  );
   const monthEndStr = formatLocalDate(endOfMonth);
   for (const leave of mergedLeaves) {
     const leaveType = String(leave.leave_type ?? "");
     if (!returnReportRequiredTypes.has(leaveType)) continue;
-    if (leave.id === undefined || leave.id === null || Number(leave.id) <= 0) continue;
+    if (leave.id === undefined || leave.id === null || Number(leave.id) <= 0)
+      continue;
     if (Number(leave.require_return_report ?? 0) !== 1) continue;
 
-    const status = String((leave as any).return_report_status ?? "").toUpperCase();
+    const status = String(
+      (leave as any).return_report_status ?? "",
+    ).toUpperCase();
     if (status === "DONE") continue;
 
-    const leaveEndStr = formatLocalDate((leave as any).document_end_date ?? leave.end_date);
+    const leaveEndStr = formatLocalDate(
+      (leave as any).document_end_date ?? leave.end_date,
+    );
     if (!leaveEndStr || leaveEndStr > monthEndStr) continue;
 
     const agg = ensureAgg("PENDING_RETURN_REPORT");
@@ -155,7 +165,9 @@ export const addPendingReturnReportChecks = (
       type: "leave",
       leave_record_id: Number(leave.id),
       leave_type: leaveType,
-      start_date: formatLocalDate((leave as any).document_start_date ?? leave.start_date),
+      start_date: formatLocalDate(
+        (leave as any).document_start_date ?? leave.start_date,
+      ),
       end_date: leaveEndStr,
       return_report_status: status || null,
     });
@@ -179,9 +191,17 @@ export const processDailyPeriods = ({
   };
 
   for (const period of orderedPeriods) {
-    for (let d = new Date(period.start); d <= period.end; d.setDate(d.getDate() + 1)) {
+    for (
+      let d = new Date(period.start);
+      d <= period.end;
+      d.setDate(d.getDate() + 1)
+    ) {
       const dateStr = formatLocalDate(d);
-      const activeEligibility = getActiveEligibility(eligibilityState, eligibilities, d.getTime());
+      const activeEligibility = getActiveEligibility(
+        eligibilityState,
+        eligibilities,
+        d.getTime(),
+      );
       const currentRate = activeEligibility ? activeEligibility.rate : 0;
 
       if (activeEligibility) {
@@ -251,11 +271,15 @@ export const addNotWorkingCheck = (
     .filter((m) => new Date(m.effective_date) <= endOfMonth)
     .slice(-10)
     .forEach((m) => {
-      pushEvidence(agg, `movement:${formatLocalDate(m.effective_date)}:${m.movement_type}`, {
-        type: "movement",
-        movement_type: String(m.movement_type),
-        effective_date: formatLocalDate(m.effective_date),
-      });
+      pushEvidence(
+        agg,
+        `movement:${formatLocalDate(m.effective_date)}:${m.movement_type}`,
+        {
+          type: "movement",
+          movement_type: String(m.movement_type),
+          effective_date: formatLocalDate(m.effective_date),
+        },
+      );
     });
 };
 
@@ -279,11 +303,19 @@ export const addEligibilityGapCheck = ({
   agg.impactAmount = Math.max(
     0,
     expectedFull -
-      Number(totals.totalPayment.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber()),
+      Number(
+        totals.totalPayment
+          .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+          .toNumber(),
+      ),
   );
   const monthStartStr = formatLocalDate(startOfMonth);
   const monthEndStr = formatLocalDate(endOfMonth);
-  const missingRanges = buildEligibilityGapRanges(firstWorkDay, lastWorkDay, coverage);
+  const missingRanges = buildEligibilityGapRanges(
+    firstWorkDay,
+    lastWorkDay,
+    coverage,
+  );
   setEligibilityGapRange(agg, missingRanges);
   addEligibilityGapRangeEvidence(
     agg,
@@ -293,12 +325,21 @@ export const addEligibilityGapCheck = ({
     firstWorkDay,
     lastWorkDay,
   );
-  addOverlappingEligibilityEvidence(agg, eligibilities, monthStartStr, monthEndStr);
+  addOverlappingEligibilityEvidence(
+    agg,
+    eligibilities,
+    monthStartStr,
+    monthEndStr,
+  );
 };
 
-export const buildPayrollChecks = (checkAggs: Map<PayrollCheckCode, CheckAgg>): PayrollCheck[] => {
+export const buildPayrollChecks = (
+  checkAggs: Map<PayrollCheckCode, CheckAgg>,
+): PayrollCheck[] => {
   return Array.from(checkAggs.values())
-    .filter((agg) => agg.impactDays > 0.0001 || Math.abs(agg.impactAmount) > 0.01)
+    .filter(
+      (agg) => agg.impactDays > 0.0001 || Math.abs(agg.impactAmount) > 0.01,
+    )
     .map((agg) => {
       const severity = reasonSeverity(agg.code);
       const impactDays = Number.parseFloat(agg.impactDays.toFixed(2));
@@ -309,11 +350,15 @@ export const buildPayrollChecks = (checkAggs: Map<PayrollCheckCode, CheckAgg>): 
       const title = checkTitle(agg.code);
       const summaryParts: string[] = [];
       if (agg.code === "PENDING_RETURN_REPORT") {
-        summaryParts.push(`พบ ${impactDays.toLocaleString("th-TH")} รายการที่ยังไม่รายงานตัวกลับ`);
+        summaryParts.push(
+          `พบ ${impactDays.toLocaleString("th-TH")} รายการที่ยังไม่รายงานตัวกลับ`,
+        );
       } else {
         summaryParts.push(`กระทบ ${impactDays.toLocaleString("th-TH")} วัน`);
         if (impactAmount !== null && impactAmount > 0) {
-          summaryParts.push(`ประมาณ -${impactAmount.toLocaleString("th-TH")} บาท`);
+          summaryParts.push(
+            `ประมาณ -${impactAmount.toLocaleString("th-TH")} บาท`,
+          );
         }
       }
       if (agg.code === "ELIGIBILITY_GAP" && agg.rangeLabel) {

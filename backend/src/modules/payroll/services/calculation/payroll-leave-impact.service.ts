@@ -19,7 +19,11 @@ import {
   countCalendarDays,
   isHoliday,
 } from "@/modules/payroll/core/utils/date.utils.js";
-import { LEAVE_RULES, type LeaveRuleType, type LeaveUnit } from "@/modules/payroll/payroll.constants.js";
+import {
+  LEAVE_RULES,
+  type LeaveRuleType,
+  type LeaveUnit,
+} from "@/modules/payroll/payroll.constants.js";
 import {
   calculateLeaveQuotaStatus,
   type LeavePolicyInputRow,
@@ -105,14 +109,24 @@ const calculateOverlapDuration = (
   end: Date,
   holidays: string[],
 ): number => {
-  const durationOverride = leave.document_duration_days ?? leave.duration_days ?? null;
-  if (durationOverride !== null && durationOverride > 0 && durationOverride < 1) {
+  const durationOverride =
+    leave.document_duration_days ?? leave.duration_days ?? null;
+  if (
+    durationOverride !== null &&
+    durationOverride > 0 &&
+    durationOverride < 1
+  ) {
     const dateStr = formatLocalDate(start);
     if (isWeekend(start) || isHoliday(dateStr, holidays)) return 0;
     return 0.5;
   }
 
-  const rule = LEAVE_RULES[String(leave.leave_type ?? "").trim().toLowerCase()];
+  const rule =
+    LEAVE_RULES[
+      String(leave.leave_type ?? "")
+        .trim()
+        .toLowerCase()
+    ];
   if (!rule) return countBusinessDays(start, end, holidays);
   return rule.unit === "calendar_days"
     ? countCalendarDays(start, end)
@@ -127,7 +141,9 @@ const buildQuotaDecisionMap = (
       Number(leaveId),
       {
         overQuota: Boolean(value.overQuota),
-        exceedDate: value.exceedDate ? parseLocalDateString(value.exceedDate) : null,
+        exceedDate: value.exceedDate
+          ? parseLocalDateString(value.exceedDate)
+          : null,
       },
     ]),
   );
@@ -150,7 +166,10 @@ export function buildPayrollLeaveImpactSummary(
   const monthEnd = makeLocalDate(year, month, 0);
   const daysInMonth = monthEnd.getDate();
   const dailyRate = daysInMonth > 0 ? baseRate / daysInMonth : 0;
-  const studyLeaveRows = buildStudyLeaveRowsFromMovements(input.movementRows ?? [], monthEnd);
+  const studyLeaveRows = buildStudyLeaveRowsFromMovements(
+    input.movementRows ?? [],
+    monthEnd,
+  );
   const leaveRows = assignSyntheticIdsToLeaves([
     ...(input.leaveRows as LeaveRow[]),
     ...studyLeaveRows,
@@ -197,13 +216,20 @@ export function buildPayrollLeaveImpactSummary(
 
   const deductedDaysByLeaveId = new Map<number, number>();
   for (const reasons of reasonsByDate.values()) {
-    for (const reason of reasons) addReasonWeight(deductedDaysByLeaveId, reason);
+    for (const reason of reasons)
+      addReasonWeight(deductedDaysByLeaveId, reason);
   }
 
   const leavesInPeriod = (leaveRows as LeaveImpactInputRow[])
     .map((leave) => {
-      const rawStart = resolveEffectiveDate(leave.document_start_date, leave.start_date);
-      const rawEnd = resolveEffectiveDate(leave.document_end_date, leave.end_date);
+      const rawStart = resolveEffectiveDate(
+        leave.document_start_date,
+        leave.start_date,
+      );
+      const rawEnd = resolveEffectiveDate(
+        leave.document_end_date,
+        leave.end_date,
+      );
       const overlapStart = rawStart < monthStart ? monthStart : rawStart;
       const overlapEnd = rawEnd > monthEnd ? monthEnd : rawEnd;
       if (overlapEnd < overlapStart) return null;
@@ -211,11 +237,22 @@ export function buildPayrollLeaveImpactSummary(
       const leaveRecordId =
         leave.id !== undefined && leave.id !== null ? Number(leave.id) : null;
       const leaveStatus =
-        leaveRecordId !== null ? afterStatus.perLeave[leaveRecordId] : undefined;
+        leaveRecordId !== null
+          ? afterStatus.perLeave[leaveRecordId]
+          : undefined;
       const deductedDays =
-        leaveRecordId !== null ? Number(deductedDaysByLeaveId.get(leaveRecordId) ?? 0) : 0;
-      const daysInPeriod = calculateOverlapDuration(leave, overlapStart, overlapEnd, holidays);
-      const isNoPay = Number(leave.is_no_pay ?? 0) === 1 || Number(leave.pay_exception ?? 0) === 1;
+        leaveRecordId !== null
+          ? Number(deductedDaysByLeaveId.get(leaveRecordId) ?? 0)
+          : 0;
+      const daysInPeriod = calculateOverlapDuration(
+        leave,
+        overlapStart,
+        overlapEnd,
+        holidays,
+      );
+      const isNoPay =
+        Number(leave.is_no_pay ?? 0) === 1 ||
+        Number(leave.pay_exception ?? 0) === 1;
 
       return {
         leaveRecordId,
@@ -231,11 +268,13 @@ export function buildPayrollLeaveImpactSummary(
         overQuota: Boolean(leaveStatus?.overQuota),
         exceedDate: leaveStatus?.exceedDate ?? null,
         returnReportStatus:
-          leave.return_report_status === null || leave.return_report_status === undefined
+          leave.return_report_status === null ||
+          leave.return_report_status === undefined
             ? null
             : String(leave.return_report_status),
         studyInstitution:
-          leave.study_institution === null || leave.study_institution === undefined
+          leave.study_institution === null ||
+          leave.study_institution === undefined
             ? null
             : String(leave.study_institution),
         studyProgram:
@@ -256,7 +295,9 @@ export function buildPayrollLeaveImpactSummary(
       return (left.leaveRecordId ?? 0) - (right.leaveRecordId ?? 0);
     });
 
-  const leaveTypesInPeriod = new Set(leavesInPeriod.map((leave) => leave.leaveType));
+  const leaveTypesInPeriod = new Set(
+    leavesInPeriod.map((leave) => leave.leaveType),
+  );
   const quotaTypes = new Set([
     ...Object.keys(beforeStatus.perType),
     ...Object.keys(afterStatus.perType),
@@ -265,40 +306,49 @@ export function buildPayrollLeaveImpactSummary(
 
   const quotaByType: PayrollLeaveImpactQuota[] = [];
   for (const leaveType of quotaTypes) {
-      const normalizedLeaveType = String(leaveType ?? "").trim().toLowerCase();
-      const before = beforeStatus.perType[normalizedLeaveType];
-      const after = afterStatus.perType[normalizedLeaveType];
-      const quotaLimit = after?.limit ?? before?.limit ?? null;
-      const usedBeforePeriod = Number(before?.used ?? 0);
-      const usedAfterPeriod = Number(after?.used ?? 0);
+    const normalizedLeaveType = String(leaveType ?? "")
+      .trim()
+      .toLowerCase();
+    const before = beforeStatus.perType[normalizedLeaveType];
+    const after = afterStatus.perType[normalizedLeaveType];
+    const quotaLimit = after?.limit ?? before?.limit ?? null;
+    const usedBeforePeriod = Number(before?.used ?? 0);
+    const usedAfterPeriod = Number(after?.used ?? 0);
 
-      if (
-        quotaLimit === null &&
-        usedBeforePeriod <= 0 &&
-        usedAfterPeriod <= 0 &&
-        !leaveTypesInPeriod.has(leaveType)
-      ) {
-        continue;
-      }
-
-      quotaByType.push({
-        leaveType,
-        quotaLimit,
-        ruleType: LEAVE_RULES[normalizedLeaveType]?.rule_type ?? "cumulative",
-        tracksBalance: (LEAVE_RULES[normalizedLeaveType]?.rule_type ?? "cumulative") === "cumulative",
-        quotaUnit: LEAVE_RULES[normalizedLeaveType]?.unit ?? null,
-        usedBeforePeriod,
-        usedInPeriod: Math.max(0, usedAfterPeriod - usedBeforePeriod),
-        remainingBeforePeriod: before?.remaining ?? null,
-        remainingAfterPeriod: after?.remaining ?? null,
-        overQuota: Boolean(after?.overQuota),
-        exceedDate: after?.exceedDate ?? null,
-      });
+    if (
+      quotaLimit === null &&
+      usedBeforePeriod <= 0 &&
+      usedAfterPeriod <= 0 &&
+      !leaveTypesInPeriod.has(leaveType)
+    ) {
+      continue;
     }
-  quotaByType.sort((left, right) => left.leaveType.localeCompare(right.leaveType, "th"));
+
+    quotaByType.push({
+      leaveType,
+      quotaLimit,
+      ruleType: LEAVE_RULES[normalizedLeaveType]?.rule_type ?? "cumulative",
+      tracksBalance:
+        (LEAVE_RULES[normalizedLeaveType]?.rule_type ?? "cumulative") ===
+        "cumulative",
+      quotaUnit: LEAVE_RULES[normalizedLeaveType]?.unit ?? null,
+      usedBeforePeriod,
+      usedInPeriod: Math.max(0, usedAfterPeriod - usedBeforePeriod),
+      remainingBeforePeriod: before?.remaining ?? null,
+      remainingAfterPeriod: after?.remaining ?? null,
+      overQuota: Boolean(after?.overQuota),
+      exceedDate: after?.exceedDate ?? null,
+    });
+  }
+  quotaByType.sort((left, right) =>
+    left.leaveType.localeCompare(right.leaveType, "th"),
+  );
 
   const deductedDays = Number(
-    Array.from(deductionMap.values()).reduce((total, value) => total + Number(value ?? 0), 0),
+    Array.from(deductionMap.values()).reduce(
+      (total, value) => total + Number(value ?? 0),
+      0,
+    ),
   );
 
   return {

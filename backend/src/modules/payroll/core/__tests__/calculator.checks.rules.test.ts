@@ -143,7 +143,15 @@ describe("calculator.checks.rules", () => {
         ],
       ]),
       quotaInfoByLeaveId: new Map([
-        [7, { limit: 10, duration: 12, exceedDate: "2026-02-05", leaveType: "sick" }],
+        [
+          7,
+          {
+            limit: 10,
+            duration: 12,
+            exceedDate: "2026-02-05",
+            leaveType: "sick",
+          },
+        ],
       ]),
     };
 

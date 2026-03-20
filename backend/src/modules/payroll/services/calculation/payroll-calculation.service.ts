@@ -10,8 +10,14 @@ export class PayrollCalculationService {
     year: number,
     conn: PoolConnection,
   ): Promise<string[]> {
-    const holidayRows = await PayrollRepository.findHolidays(year - 1, year, conn);
-    return holidayRows.map((h: any) => calculator.formatLocalDate(h.holiday_date));
+    const holidayRows = await PayrollRepository.findHolidays(
+      year - 1,
+      year,
+      conn,
+    );
+    return holidayRows.map((h: any) =>
+      calculator.formatLocalDate(h.holiday_date),
+    );
   }
 
   private static applyRetroDeductCheck(
@@ -21,9 +27,7 @@ export class PayrollCalculationService {
     if (!retroDetails || retroDetails.length === 0) return;
     const negative = retroDetails.filter((detail) => detail.diff < -0.01);
     if (negative.length === 0) return;
-    const total = Math.abs(
-      negative.reduce((sum, item) => sum + item.diff, 0),
-    );
+    const total = Math.abs(negative.reduce((sum, item) => sum + item.diff, 0));
     const checks = currentResult.checks ?? [];
     checks.push({
       code: "RETRO_DEDUCT",
@@ -45,7 +49,10 @@ export class PayrollCalculationService {
     currentResult.checks = checks;
   }
 
-  private static buildReturnReportMap(leaveRows: any[], returnReportRows: any[]) {
+  private static buildReturnReportMap(
+    leaveRows: any[],
+    returnReportRows: any[],
+  ) {
     const leaveIdToCitizen = new Map<number, string>();
     leaveRows.forEach((row) => {
       if (row.id) leaveIdToCitizen.set(row.id, row.citizen_id);
@@ -91,7 +98,8 @@ export class PayrollCalculationService {
       conn,
     );
     const eligMap = buildGroupMap(batchData.eligibilityRows, (row) => {
-      if (!row.expiry_date && row.expiry_date_alt) row.expiry_date = row.expiry_date_alt;
+      if (!row.expiry_date && row.expiry_date_alt)
+        row.expiry_date = row.expiry_date_alt;
     });
     const moveMap = buildGroupMap(batchData.movementRows);
     const empMap = buildSingleMap(batchData.employeeRows);
@@ -138,7 +146,8 @@ export class PayrollCalculationService {
         retroResult.retroDetails as any[] | undefined,
       );
 
-      const grandTotal = currentResult.netPayment + (currentResult.retroactiveTotal || 0);
+      const grandTotal =
+        currentResult.netPayment + (currentResult.retroactiveTotal || 0);
       if (grandTotal <= 0 && currentResult.netPayment <= 0) {
         continue;
       }
@@ -185,7 +194,10 @@ export class PayrollCalculationService {
       const periodItemCitizenIds =
         await PayrollRepository.findPeriodItemCitizenIds(periodId, conn);
 
-      const holidays = await PayrollCalculationService.loadHolidayDates(year, conn);
+      const holidays = await PayrollCalculationService.loadHolidayDates(
+        year,
+        conn,
+      );
 
       const eligibleCitizenIds =
         periodItemCitizenIds.length > 0
@@ -199,13 +211,16 @@ export class PayrollCalculationService {
       for (let i = 0; i < eligibleCitizenIds.length; i += CHUNK_SIZE) {
         const citizenIds = eligibleCitizenIds.slice(i, i + CHUNK_SIZE);
         if (citizenIds.length === 0) continue;
-        const chunkResult = await PayrollCalculationService.processCitizenChunk(conn, {
-          year,
-          month,
-          periodId,
-          citizenIds,
-          holidays,
-        });
+        const chunkResult = await PayrollCalculationService.processCitizenChunk(
+          conn,
+          {
+            year,
+            month,
+            periodId,
+            citizenIds,
+            holidays,
+          },
+        );
         totalAmount += chunkResult.totalAmount;
         headCount += chunkResult.headCount;
       }

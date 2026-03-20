@@ -3,7 +3,9 @@ import { PayrollRepository } from "@/modules/payroll/repositories/payroll.reposi
 test("leave rows query uses date overlap instead of fiscal year", () => {
   const query = PayrollRepository.buildLeaveRowsQuery("?,?");
 
-  expect(query).toContain("COALESCE(ext.document_start_date, lr.start_date) <= ?");
+  expect(query).toContain(
+    "COALESCE(ext.document_start_date, lr.start_date) <= ?",
+  );
   expect(query).toContain("COALESCE(ext.document_end_date, lr.end_date) >= ?");
   expect(query).not.toContain("lr.fiscal_year");
 });

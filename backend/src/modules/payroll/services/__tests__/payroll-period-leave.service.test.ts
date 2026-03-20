@@ -14,13 +14,16 @@ jest.mock("@/modules/payroll/repositories/payroll.repository.js", () => ({
   },
 }));
 
-jest.mock("@/modules/leave-management/repositories/leave-management.repository.js", () => ({
-  LeaveManagementRepository: jest.fn().mockImplementation(() => ({
-    listLeaveManagementByPeriod,
-    countLeaveManagementByPeriod,
-    summarizeLeaveManagementByProfessionByPeriod,
-  })),
-}));
+jest.mock(
+  "@/modules/leave-management/repositories/leave-management.repository.js",
+  () => ({
+    LeaveManagementRepository: jest.fn().mockImplementation(() => ({
+      listLeaveManagementByPeriod,
+      countLeaveManagementByPeriod,
+      summarizeLeaveManagementByProfessionByPeriod,
+    })),
+  }),
+);
 
 describe("PayrollPeriodLeaveService", () => {
   const release = jest.fn();
@@ -39,10 +42,9 @@ describe("PayrollPeriodLeaveService", () => {
       period_month: 3,
       period_year: 2026,
     });
-    (PayrollRepository.findPeriodItemCitizenIds as jest.Mock).mockResolvedValue([
-      "1111111111111",
-      "2222222222222",
-    ]);
+    (PayrollRepository.findPeriodItemCitizenIds as jest.Mock).mockResolvedValue(
+      ["1111111111111", "2222222222222"],
+    );
     (PayrollRepository.findPayoutsByPeriod as jest.Mock).mockResolvedValue([
       { citizen_id: "1111111111111" },
       { citizen_id: "2222222222222" },
@@ -77,9 +79,9 @@ describe("PayrollPeriodLeaveService", () => {
       period_month: 2,
       period_year: 2569,
     });
-    (PayrollRepository.findPeriodItemCitizenIds as jest.Mock).mockResolvedValue([
-      "1600100184751",
-    ]);
+    (PayrollRepository.findPeriodItemCitizenIds as jest.Mock).mockResolvedValue(
+      ["1600100184751"],
+    );
     (PayrollRepository.findPayoutsByPeriod as jest.Mock).mockResolvedValue([
       { citizen_id: "1600100184751" },
     ]);
@@ -87,9 +89,10 @@ describe("PayrollPeriodLeaveService", () => {
       { profession_code: "NURSE", profession_name: "พยาบาล", leave_count: 3 },
     ] as any);
 
-    const result = await PayrollPeriodLeaveService.summarizePeriodLeavesByProfession(9, {
-      search: "พยาบาล",
-    });
+    const result =
+      await PayrollPeriodLeaveService.summarizePeriodLeavesByProfession(9, {
+        search: "พยาบาล",
+      });
 
     expect(summarizeLeaveManagementByProfessionByPeriod).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -111,10 +114,13 @@ describe("PayrollPeriodLeaveService", () => {
       period_year: 2026,
     });
     (PayrollRepository.findPayoutsByPeriod as jest.Mock).mockResolvedValue([]);
-    (PayrollRepository.findPeriodItemCitizenIds as jest.Mock).mockResolvedValue([]);
+    (PayrollRepository.findPeriodItemCitizenIds as jest.Mock).mockResolvedValue(
+      [],
+    );
 
     const listResult = await PayrollPeriodLeaveService.listPeriodLeaves(33, {});
-    const summaryResult = await PayrollPeriodLeaveService.summarizePeriodLeavesByProfession(33, {});
+    const summaryResult =
+      await PayrollPeriodLeaveService.summarizePeriodLeavesByProfession(33, {});
 
     expect(listResult).toEqual({
       items: [],
@@ -138,9 +144,9 @@ describe("PayrollPeriodLeaveService", () => {
       period_year: 2026,
     });
     (PayrollRepository.findPayoutsByPeriod as jest.Mock).mockResolvedValue([]);
-    (PayrollRepository.findPeriodItemCitizenIds as jest.Mock).mockResolvedValue([
-      "9999999999999",
-    ]);
+    (PayrollRepository.findPeriodItemCitizenIds as jest.Mock).mockResolvedValue(
+      ["9999999999999"],
+    );
     listLeaveManagementByPeriod.mockResolvedValue([{ id: 7 }] as any);
     countLeaveManagementByPeriod.mockResolvedValue(1);
 

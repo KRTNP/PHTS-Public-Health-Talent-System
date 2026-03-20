@@ -1,6 +1,9 @@
 import { PoolConnection, RowDataPacket } from "mysql2/promise";
 import pool from "@config/database.js";
-import { formatLocalDate, makeLocalDate } from "@/modules/payroll/core/utils/date.utils.js";
+import {
+  formatLocalDate,
+  makeLocalDate,
+} from "@/modules/payroll/core/utils/date.utils.js";
 import type {
   EmployeeBatchData,
   HolidayRow,
@@ -24,13 +27,16 @@ const attachReturnReportEvents = (
     return leaveRows.map((row) => ({ ...row, return_report_events: [] }));
   }
 
-  const eventMap = new Map<number, Array<{
-    report_date: string;
-    resume_date: string | null;
-    resume_study_institution: string | null;
-    resume_study_program: string | null;
-    resume_study_major: string | null;
-  }>>();
+  const eventMap = new Map<
+    number,
+    Array<{
+      report_date: string;
+      resume_date: string | null;
+      resume_study_institution: string | null;
+      resume_study_program: string | null;
+      resume_study_major: string | null;
+    }>
+  >();
   for (const event of eventRows) {
     const leaveId = Number(event.leave_record_id);
     if (!Number.isFinite(leaveId)) continue;
@@ -148,8 +154,14 @@ export async function loadEmployeeBatchData(
     `,
     [citizenId, endOfMonthStr, startOfMonthStr],
   );
-  const returnReportEventRows = await loadReturnReportEventRows(dbConn, citizenId);
-  const leaveRows = attachReturnReportEvents(rawLeaveRows, returnReportEventRows);
+  const returnReportEventRows = await loadReturnReportEventRows(
+    dbConn,
+    citizenId,
+  );
+  const leaveRows = attachReturnReportEvents(
+    rawLeaveRows,
+    returnReportEventRows,
+  );
 
   const [noSalaryRows] = await dbConn.query<RowDataPacket[]>(
     `
@@ -208,7 +220,9 @@ export async function loadEmployeeBatchData(
     licenseRows,
     leaveRows,
     quotaRow: quotaRows[0] || null,
-    holidays: (holidayRows as HolidayRow[]).map((h) => formatLocalDate(h.holiday_date)),
+    holidays: (holidayRows as HolidayRow[]).map((h) =>
+      formatLocalDate(h.holiday_date),
+    ),
     noSalaryPeriods: noSalaryRows,
     returnReportRows,
   };

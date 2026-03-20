@@ -122,7 +122,10 @@ export class PayrollRepository {
     requestId: number,
     conn: PoolConnection,
   ): Promise<number | null> {
-    return PayrollPeriodRepository.findLatestVerificationSnapshotId(requestId, conn);
+    return PayrollPeriodRepository.findLatestVerificationSnapshotId(
+      requestId,
+      conn,
+    );
   }
 
   static async updatePeriodTotals(
@@ -187,14 +190,20 @@ export class PayrollRepository {
     periodId: number,
     conn?: PoolConnection,
   ): Promise<string[]> {
-    return PayrollPeriodRepository.findRequiredProfessionCodesByPeriod(periodId, conn);
+    return PayrollPeriodRepository.findRequiredProfessionCodesByPeriod(
+      periodId,
+      conn,
+    );
   }
 
   static async findReviewedProfessionCodesByPeriod(
     periodId: number,
     conn?: PoolConnection,
   ): Promise<string[]> {
-    return PayrollPeriodRepository.findReviewedProfessionCodesByPeriod(periodId, conn);
+    return PayrollPeriodRepository.findReviewedProfessionCodesByPeriod(
+      periodId,
+      conn,
+    );
   }
 
   static async setProfessionReview(
@@ -217,7 +226,10 @@ export class PayrollRepository {
     periodId: number,
     conn?: PoolConnection,
   ): Promise<void> {
-    return PayrollPeriodRepository.clearProfessionReviewsByPeriod(periodId, conn);
+    return PayrollPeriodRepository.clearProfessionReviewsByPeriod(
+      periodId,
+      conn,
+    );
   }
 
   static async deletePayResultsByPeriod(
@@ -231,7 +243,10 @@ export class PayrollRepository {
     periodId: number,
     conn: PoolConnection,
   ): Promise<void> {
-    return PayrollPayoutRepository.deletePayResultChecksByPeriod(periodId, conn);
+    return PayrollPayoutRepository.deletePayResultChecksByPeriod(
+      periodId,
+      conn,
+    );
   }
 
   static async deletePayResultItemsByPeriod(
@@ -276,19 +291,27 @@ export class PayrollRepository {
     return PayrollPayoutRepository.findPayoutsByPeriod(periodId);
   }
 
-  static async findPayoutChecksByPayoutId(payoutId: number): Promise<RowDataPacket[]> {
+  static async findPayoutChecksByPayoutId(
+    payoutId: number,
+  ): Promise<RowDataPacket[]> {
     return PayrollPayoutRepository.findPayoutChecksByPayoutId(payoutId);
   }
 
-  static async findPaymentRatesByIds(rateIds: number[]): Promise<RowDataPacket[]> {
+  static async findPaymentRatesByIds(
+    rateIds: number[],
+  ): Promise<RowDataPacket[]> {
     return PayrollPayoutRepository.findPaymentRatesByIds(rateIds);
   }
 
-  static async findPayoutItemsByPayoutId(payoutId: number): Promise<RowDataPacket[]> {
+  static async findPayoutItemsByPayoutId(
+    payoutId: number,
+  ): Promise<RowDataPacket[]> {
     return PayrollPayoutRepository.findPayoutItemsByPayoutId(payoutId);
   }
 
-  static async findPayoutDetailById(payoutId: number): Promise<RowDataPacket | null> {
+  static async findPayoutDetailById(
+    payoutId: number,
+  ): Promise<RowDataPacket | null> {
     return PayrollPayoutRepository.findPayoutDetailById(payoutId);
   }
 
@@ -353,7 +376,10 @@ export class PayrollRepository {
     return PayrollQueryRepository.buildLeaveRowsQuery(ph);
   }
 
-  static getFiscalYearRange(fiscalYear: number): { start: string; end: string } {
+  static getFiscalYearRange(fiscalYear: number): {
+    start: string;
+    end: string;
+  } {
     return PayrollQueryRepository.getFiscalYearRange(fiscalYear);
   }
 

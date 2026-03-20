@@ -238,7 +238,10 @@ export const getPeriodLeaves = async (req: Request, res: Response) => {
       sort_by?: "start_date" | "name";
       sort_dir?: "asc" | "desc";
     };
-    const result = await PayrollService.getPeriodLeaves(Number(periodId), params);
+    const result = await PayrollService.getPeriodLeaves(
+      Number(periodId),
+      params,
+    );
     res.json({ success: true, data: result.items, meta: result });
   } catch (error: any) {
     if (handlePeriodVisibilityError(res, error)) {
@@ -248,7 +251,10 @@ export const getPeriodLeaves = async (req: Request, res: Response) => {
   }
 };
 
-export const getPeriodLeaveProfessionSummary = async (req: Request, res: Response) => {
+export const getPeriodLeaveProfessionSummary = async (
+  req: Request,
+  res: Response,
+) => {
   try {
     const { periodId } = req.params;
     if (!periodId) {
@@ -264,7 +270,10 @@ export const getPeriodLeaveProfessionSummary = async (req: Request, res: Respons
       pending_report?: boolean;
       search?: string;
     };
-    const rows = await PayrollService.getPeriodLeaveProfessionSummary(Number(periodId), params);
+    const rows = await PayrollService.getPeriodLeaveProfessionSummary(
+      Number(periodId),
+      params,
+    );
     res.json({ success: true, data: rows });
   } catch (error: any) {
     if (handlePeriodVisibilityError(res, error)) {
@@ -321,8 +330,7 @@ export const updatePayout = async (
     const reqWithUser = req as Request & {
       user?: { id?: number | string; userId?: number | string };
     };
-    const actorId =
-      reqWithUser.user?.id ?? reqWithUser.user?.userId ?? null;
+    const actorId = reqWithUser.user?.id ?? reqWithUser.user?.userId ?? null;
 
     const payload = req.body as {
       eligible_days?: number;

@@ -1,10 +1,10 @@
-import { calculateMonthlyWithData } from '@/modules/payroll/core/calculator/facade/calculator.js';
+import { calculateMonthlyWithData } from "@/modules/payroll/core/calculator/facade/calculator.js";
 
-test('no license record yields zero payment even with eligibility', async () => {
+test("no license record yields zero payment even with eligibility", async () => {
   const result = await calculateMonthlyWithData(2024, 10, {
     eligibilityRows: [
       {
-        effective_date: '2024-09-01',
+        effective_date: "2024-09-01",
         expiry_date: null,
         rate: 5000,
         rate_id: 84,
@@ -12,13 +12,13 @@ test('no license record yields zero payment even with eligibility', async () => 
     ],
     movementRows: [
       {
-        effective_date: '2022-01-01',
-        movement_type: 'ENTRY',
+        effective_date: "2022-01-01",
+        movement_type: "ENTRY",
       },
     ],
     employeeRow: {
-      position_name: 'เจ้าหน้าที่',
-      start_work_date: '2020-01-01',
+      position_name: "เจ้าหน้าที่",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [],
     leaveRows: [],
@@ -32,11 +32,11 @@ test('no license record yields zero payment even with eligibility', async () => 
   expect(result.eligibleDays).toBe(0);
 });
 
-test('study movement uses precomputed quota path without fallback and deducts over-quota days', async () => {
+test("study movement uses precomputed quota path without fallback and deducts over-quota days", async () => {
   const result = await calculateMonthlyWithData(2024, 12, {
     eligibilityRows: [
       {
-        effective_date: '2024-10-01',
+        effective_date: "2024-10-01",
         expiry_date: null,
         rate: 5000,
         rate_id: 84,
@@ -44,23 +44,23 @@ test('study movement uses precomputed quota path without fallback and deducts ov
     ],
     movementRows: [
       {
-        effective_date: '2020-01-01',
-        movement_type: 'ENTRY',
+        effective_date: "2020-01-01",
+        movement_type: "ENTRY",
       },
       {
-        effective_date: '2024-10-01',
-        movement_type: 'STUDY',
+        effective_date: "2024-10-01",
+        movement_type: "STUDY",
       },
     ],
     employeeRow: {
-      position_name: 'เจ้าหน้าที่',
-      start_work_date: '2020-01-01',
+      position_name: "เจ้าหน้าที่",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [
       {
-        valid_from: '2024-01-01',
-        valid_until: '2025-12-31',
-        status: 'ACTIVE',
+        valid_from: "2024-01-01",
+        valid_until: "2025-12-31",
+        status: "ACTIVE",
       },
     ],
     leaveRows: [],
@@ -74,11 +74,11 @@ test('study movement uses precomputed quota path without fallback and deducts ov
   expect(result.netPayment).toBe(161.29);
 });
 
-test('return report shortens study leave deduction window for synthetic study leave id', async () => {
+test("return report shortens study leave deduction window for synthetic study leave id", async () => {
   const baseInput = {
     eligibilityRows: [
       {
-        effective_date: '2024-10-01',
+        effective_date: "2024-10-01",
         expiry_date: null,
         rate: 5000,
         rate_id: 84,
@@ -86,23 +86,23 @@ test('return report shortens study leave deduction window for synthetic study le
     ],
     movementRows: [
       {
-        effective_date: '2020-01-01',
-        movement_type: 'ENTRY',
+        effective_date: "2020-01-01",
+        movement_type: "ENTRY",
       },
       {
-        effective_date: '2024-10-01',
-        movement_type: 'STUDY',
+        effective_date: "2024-10-01",
+        movement_type: "STUDY",
       },
     ],
     employeeRow: {
-      position_name: 'เจ้าหน้าที่',
-      start_work_date: '2020-01-01',
+      position_name: "เจ้าหน้าที่",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [
       {
-        valid_from: '2024-01-01',
-        valid_until: '2025-12-31',
-        status: 'ACTIVE',
+        valid_from: "2024-01-01",
+        valid_until: "2025-12-31",
+        status: "ACTIVE",
       },
     ],
     leaveRows: [],
@@ -120,38 +120,40 @@ test('return report shortens study leave deduction window for synthetic study le
     returnReportRows: [
       {
         leave_record_id: -1,
-        return_date: '2024-12-20',
+        return_date: "2024-12-20",
       },
     ],
   });
 
   expect(withoutReturn.totalDeductionDays).toBe(30);
-  expect(withReturn.totalDeductionDays).toBeLessThan(withoutReturn.totalDeductionDays);
+  expect(withReturn.totalDeductionDays).toBeLessThan(
+    withoutReturn.totalDeductionDays,
+  );
 });
 
-test('multiple return reports use earliest resume boundary for synthetic study leave', async () => {
+test("multiple return reports use earliest resume boundary for synthetic study leave", async () => {
   const baseInput = {
     eligibilityRows: [
       {
-        effective_date: '2024-10-01',
+        effective_date: "2024-10-01",
         expiry_date: null,
         rate: 5000,
         rate_id: 84,
       },
     ],
     movementRows: [
-      { effective_date: '2020-01-01', movement_type: 'ENTRY' },
-      { effective_date: '2024-10-01', movement_type: 'STUDY' },
+      { effective_date: "2020-01-01", movement_type: "ENTRY" },
+      { effective_date: "2024-10-01", movement_type: "STUDY" },
     ],
     employeeRow: {
-      position_name: 'เจ้าหน้าที่',
-      start_work_date: '2020-01-01',
+      position_name: "เจ้าหน้าที่",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [
       {
-        valid_from: '2024-01-01',
-        valid_until: '2025-12-31',
-        status: 'ACTIVE',
+        valid_from: "2024-01-01",
+        valid_until: "2025-12-31",
+        status: "ACTIVE",
       },
     ],
     leaveRows: [],
@@ -162,15 +164,15 @@ test('multiple return reports use earliest resume boundary for synthetic study l
 
   const withSingleLateReturn = await calculateMonthlyWithData(2024, 12, {
     ...baseInput,
-    returnReportRows: [{ leave_record_id: -1, return_date: '2024-12-20' }],
+    returnReportRows: [{ leave_record_id: -1, return_date: "2024-12-20" }],
   });
 
   const withMultipleReturns = await calculateMonthlyWithData(2024, 12, {
     ...baseInput,
     returnReportRows: [
-      { leave_record_id: -1, return_date: '2024-12-20' },
-      { leave_record_id: -1, return_date: '2024-12-10' },
-      { leave_record_id: -1, return_date: '2024-12-25' },
+      { leave_record_id: -1, return_date: "2024-12-20" },
+      { leave_record_id: -1, return_date: "2024-12-10" },
+      { leave_record_id: -1, return_date: "2024-12-25" },
     ],
   });
 
@@ -179,57 +181,57 @@ test('multiple return reports use earliest resume boundary for synthetic study l
   );
 });
 
-test('education leave 902 pauses for B leave 903 and then resumes A on the same leave record', async () => {
+test("education leave 902 pauses for B leave 903 and then resumes A on the same leave record", async () => {
   const result = await calculateMonthlyWithData(2026, 4, {
     eligibilityRows: [
       {
-        effective_date: '2026-01-01',
+        effective_date: "2026-01-01",
         expiry_date: null,
         rate: 6200,
         rate_id: 90,
       },
     ],
-    movementRows: [{ effective_date: '2020-01-01', movement_type: 'ENTRY' }],
+    movementRows: [{ effective_date: "2020-01-01", movement_type: "ENTRY" }],
     employeeRow: {
-      position_name: 'นายแพทย์',
-      start_work_date: '2020-01-01',
+      position_name: "นายแพทย์",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [
       {
-        valid_from: '2026-01-01',
-        valid_until: '2026-12-31',
-        status: 'ACTIVE',
+        valid_from: "2026-01-01",
+        valid_until: "2026-12-31",
+        status: "ACTIVE",
       },
     ],
     leaveRows: [
       {
         id: 902,
-        leave_type: 'education',
-        start_date: '2026-01-01',
-        end_date: '2026-04-21',
+        leave_type: "education",
+        start_date: "2026-01-01",
+        end_date: "2026-04-21",
         duration_days: 111,
-        study_institution: 'HOSPITAL',
-        study_program: 'A',
-        study_major: 'A',
+        study_institution: "HOSPITAL",
+        study_program: "A",
+        study_major: "A",
         return_report_events: [
           {
-            report_date: '2026-01-31',
-            resume_date: '2026-03-03',
+            report_date: "2026-01-31",
+            resume_date: "2026-03-03",
           },
         ],
       },
       {
         id: 903,
-        leave_type: 'education',
-        start_date: '2026-02-15',
-        end_date: '2026-03-01',
+        leave_type: "education",
+        start_date: "2026-02-15",
+        end_date: "2026-03-01",
         duration_days: 15,
-        study_institution: 'HOSPITAL',
-        study_program: 'B',
-        study_major: 'B',
+        study_institution: "HOSPITAL",
+        study_program: "B",
+        study_major: "B",
         return_report_events: [
           {
-            report_date: '2026-03-02',
+            report_date: "2026-03-02",
           },
         ],
       },
@@ -248,64 +250,64 @@ test('education leave 902 pauses for B leave 903 and then resumes A on the same 
   expect(result.eligibleDays).toBe(10);
 });
 
-test('education leave 902 still needs final return report after ending on 2026-04-21', async () => {
+test("education leave 902 still needs final return report after ending on 2026-04-21", async () => {
   const result = await calculateMonthlyWithData(2026, 4, {
     eligibilityRows: [
       {
-        effective_date: '2026-01-01',
+        effective_date: "2026-01-01",
         expiry_date: null,
         rate: 6200,
         rate_id: 90,
       },
     ],
-    movementRows: [{ effective_date: '2020-01-01', movement_type: 'ENTRY' }],
+    movementRows: [{ effective_date: "2020-01-01", movement_type: "ENTRY" }],
     employeeRow: {
-      position_name: 'นายแพทย์',
-      start_work_date: '2020-01-01',
+      position_name: "นายแพทย์",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [
       {
-        valid_from: '2026-01-01',
-        valid_until: '2026-12-31',
-        status: 'ACTIVE',
+        valid_from: "2026-01-01",
+        valid_until: "2026-12-31",
+        status: "ACTIVE",
       },
     ],
     leaveRows: [
       {
         id: 902,
-        leave_type: 'education',
-        start_date: '2026-01-01',
-        end_date: '2026-04-21',
+        leave_type: "education",
+        start_date: "2026-01-01",
+        end_date: "2026-04-21",
         duration_days: 111,
-        study_institution: 'HOSPITAL',
-        study_program: 'A',
-        study_major: 'A',
+        study_institution: "HOSPITAL",
+        study_program: "A",
+        study_major: "A",
         require_return_report: 1,
-        return_report_status: 'PENDING',
+        return_report_status: "PENDING",
         return_report_events: [
           {
-            report_date: '2026-01-31',
-            resume_date: '2026-03-03',
-            resume_study_institution: 'HOSPITAL',
-            resume_study_program: 'A',
-            resume_study_major: 'A',
+            report_date: "2026-01-31",
+            resume_date: "2026-03-03",
+            resume_study_institution: "HOSPITAL",
+            resume_study_program: "A",
+            resume_study_major: "A",
           },
         ],
       },
       {
         id: 903,
-        leave_type: 'education',
-        start_date: '2026-02-15',
-        end_date: '2026-03-01',
+        leave_type: "education",
+        start_date: "2026-02-15",
+        end_date: "2026-03-01",
         duration_days: 15,
-        study_institution: 'HOSPITAL',
-        study_program: 'B',
-        study_major: 'B',
+        study_institution: "HOSPITAL",
+        study_program: "B",
+        study_major: "B",
         require_return_report: 1,
-        return_report_status: 'DONE',
+        return_report_status: "DONE",
         return_report_events: [
           {
-            report_date: '2026-03-02',
+            report_date: "2026-03-02",
           },
         ],
       },
@@ -316,82 +318,84 @@ test('education leave 902 still needs final return report after ending on 2026-0
     returnReportRows: [],
   });
 
-  expect(result.checks?.some((c) => c.code === 'PENDING_RETURN_REPORT')).toBe(true);
+  expect(result.checks?.some((c) => c.code === "PENDING_RETURN_REPORT")).toBe(
+    true,
+  );
   expect(
     result.checks?.some(
       (c) =>
-        c.code === 'PENDING_RETURN_REPORT' &&
+        c.code === "PENDING_RETURN_REPORT" &&
         c.evidence.some(
           (ev) =>
-            ev.type === 'leave' &&
+            ev.type === "leave" &&
             ev.leave_record_id === 902 &&
-            ev.return_report_status === 'PENDING',
+            ev.return_report_status === "PENDING",
         ),
     ),
   ).toBe(true);
 });
 
-test('education leave 902 does not stay pending after final return report following 2026-04-21', async () => {
+test("education leave 902 does not stay pending after final return report following 2026-04-21", async () => {
   const result = await calculateMonthlyWithData(2026, 4, {
     eligibilityRows: [
       {
-        effective_date: '2026-01-01',
+        effective_date: "2026-01-01",
         expiry_date: null,
         rate: 6200,
         rate_id: 90,
       },
     ],
-    movementRows: [{ effective_date: '2020-01-01', movement_type: 'ENTRY' }],
+    movementRows: [{ effective_date: "2020-01-01", movement_type: "ENTRY" }],
     employeeRow: {
-      position_name: 'นายแพทย์',
-      start_work_date: '2020-01-01',
+      position_name: "นายแพทย์",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [
       {
-        valid_from: '2026-01-01',
-        valid_until: '2026-12-31',
-        status: 'ACTIVE',
+        valid_from: "2026-01-01",
+        valid_until: "2026-12-31",
+        status: "ACTIVE",
       },
     ],
     leaveRows: [
       {
         id: 902,
-        leave_type: 'education',
-        start_date: '2026-01-01',
-        end_date: '2026-04-21',
+        leave_type: "education",
+        start_date: "2026-01-01",
+        end_date: "2026-04-21",
         duration_days: 111,
-        study_institution: 'HOSPITAL',
-        study_program: 'A',
-        study_major: 'A',
+        study_institution: "HOSPITAL",
+        study_program: "A",
+        study_major: "A",
         require_return_report: 1,
-        return_report_status: 'DONE',
+        return_report_status: "DONE",
         return_report_events: [
           {
-            report_date: '2026-01-31',
-            resume_date: '2026-03-03',
-            resume_study_institution: 'HOSPITAL',
-            resume_study_program: 'A',
-            resume_study_major: 'A',
+            report_date: "2026-01-31",
+            resume_date: "2026-03-03",
+            resume_study_institution: "HOSPITAL",
+            resume_study_program: "A",
+            resume_study_major: "A",
           },
           {
-            report_date: '2026-04-22',
+            report_date: "2026-04-22",
           },
         ],
       },
       {
         id: 903,
-        leave_type: 'education',
-        start_date: '2026-02-15',
-        end_date: '2026-03-01',
+        leave_type: "education",
+        start_date: "2026-02-15",
+        end_date: "2026-03-01",
         duration_days: 15,
-        study_institution: 'HOSPITAL',
-        study_program: 'B',
-        study_major: 'B',
+        study_institution: "HOSPITAL",
+        study_program: "B",
+        study_major: "B",
         require_return_report: 1,
-        return_report_status: 'DONE',
+        return_report_status: "DONE",
         return_report_events: [
           {
-            report_date: '2026-03-02',
+            report_date: "2026-03-02",
           },
         ],
       },
@@ -402,14 +406,16 @@ test('education leave 902 does not stay pending after final return report follow
     returnReportRows: [],
   });
 
-  expect(result.checks?.some((c) => c.code === 'PENDING_RETURN_REPORT')).toBe(false);
+  expect(result.checks?.some((c) => c.code === "PENDING_RETURN_REPORT")).toBe(
+    false,
+  );
 });
 
-test('exit status cuts payroll eligibility even if there is re-entry in the same month', async () => {
+test("exit status cuts payroll eligibility even if there is re-entry in the same month", async () => {
   const result = await calculateMonthlyWithData(2024, 12, {
     eligibilityRows: [
       {
-        effective_date: '2024-01-01',
+        effective_date: "2024-01-01",
         expiry_date: null,
         rate: 6200,
         rate_id: 90,
@@ -417,27 +423,27 @@ test('exit status cuts payroll eligibility even if there is re-entry in the same
     ],
     movementRows: [
       {
-        effective_date: '2020-01-01',
-        movement_type: 'ENTRY',
+        effective_date: "2020-01-01",
+        movement_type: "ENTRY",
       },
       {
-        effective_date: '2024-12-10',
-        movement_type: 'RESIGN',
+        effective_date: "2024-12-10",
+        movement_type: "RESIGN",
       },
       {
-        effective_date: '2024-12-20',
-        movement_type: 'REINSTATE',
+        effective_date: "2024-12-20",
+        movement_type: "REINSTATE",
       },
     ],
     employeeRow: {
-      position_name: 'เจ้าหน้าที่',
-      start_work_date: '2020-01-01',
+      position_name: "เจ้าหน้าที่",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [
       {
-        valid_from: '2024-01-01',
-        valid_until: '2025-12-31',
-        status: 'ACTIVE',
+        valid_from: "2024-01-01",
+        valid_until: "2025-12-31",
+        status: "ACTIVE",
       },
     ],
     leaveRows: [],
@@ -451,11 +457,11 @@ test('exit status cuts payroll eligibility even if there is re-entry in the same
   expect(result.eligibleDays).toBe(9);
 });
 
-test('historical exit before this month does not cut current payroll rights by itself', async () => {
+test("historical exit before this month does not cut current payroll rights by itself", async () => {
   const result = await calculateMonthlyWithData(2024, 12, {
     eligibilityRows: [
       {
-        effective_date: '2024-01-01',
+        effective_date: "2024-01-01",
         expiry_date: null,
         rate: 6200,
         rate_id: 90,
@@ -463,27 +469,27 @@ test('historical exit before this month does not cut current payroll rights by i
     ],
     movementRows: [
       {
-        effective_date: '2020-01-01',
-        movement_type: 'ENTRY',
+        effective_date: "2020-01-01",
+        movement_type: "ENTRY",
       },
       {
-        effective_date: '2023-08-01',
-        movement_type: 'RESIGN',
+        effective_date: "2023-08-01",
+        movement_type: "RESIGN",
       },
       {
-        effective_date: '2024-01-15',
-        movement_type: 'REINSTATE',
+        effective_date: "2024-01-15",
+        movement_type: "REINSTATE",
       },
     ],
     employeeRow: {
-      position_name: 'เจ้าหน้าที่',
-      start_work_date: '2020-01-01',
+      position_name: "เจ้าหน้าที่",
+      start_work_date: "2020-01-01",
     },
     licenseRows: [
       {
-        valid_from: '2024-01-01',
-        valid_until: '2025-12-31',
-        status: 'ACTIVE',
+        valid_from: "2024-01-01",
+        valid_until: "2025-12-31",
+        status: "ACTIVE",
       },
     ],
     leaveRows: [],
@@ -495,4 +501,3 @@ test('historical exit before this month does not cut current payroll rights by i
 
   expect(result.eligibleDays).toBe(31);
 });
-

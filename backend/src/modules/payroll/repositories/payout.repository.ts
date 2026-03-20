@@ -168,7 +168,9 @@ export class PayrollPayoutRepository {
     return rows;
   }
 
-  static async findPayoutChecksByPayoutId(payoutId: number): Promise<RowDataPacket[]> {
+  static async findPayoutChecksByPayoutId(
+    payoutId: number,
+  ): Promise<RowDataPacket[]> {
     const [rows] = await db.query<RowDataPacket[]>(
       `
       SELECT *
@@ -185,7 +187,9 @@ export class PayrollPayoutRepository {
     return rows;
   }
 
-  static async findPaymentRatesByIds(rateIds: number[]): Promise<RowDataPacket[]> {
+  static async findPaymentRatesByIds(
+    rateIds: number[],
+  ): Promise<RowDataPacket[]> {
     if (!rateIds.length) return [];
     const placeholders = rateIds.map(() => "?").join(",");
     const [rows] = await db.query<RowDataPacket[]>(
@@ -199,7 +203,9 @@ export class PayrollPayoutRepository {
     return rows;
   }
 
-  static async findPayoutItemsByPayoutId(payoutId: number): Promise<RowDataPacket[]> {
+  static async findPayoutItemsByPayoutId(
+    payoutId: number,
+  ): Promise<RowDataPacket[]> {
     const [rows] = await db.query<RowDataPacket[]>(
       `
       SELECT *
@@ -212,7 +218,9 @@ export class PayrollPayoutRepository {
     return rows;
   }
 
-  static async findPayoutDetailById(payoutId: number): Promise<RowDataPacket | null> {
+  static async findPayoutDetailById(
+    payoutId: number,
+  ): Promise<RowDataPacket | null> {
     const [rows] = await db.query<RowDataPacket[]>(
       `
       SELECT

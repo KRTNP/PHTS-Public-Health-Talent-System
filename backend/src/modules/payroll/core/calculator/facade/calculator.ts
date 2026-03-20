@@ -6,10 +6,13 @@ import {
   NoSalaryPeriodRow,
   QuotaRow,
   ReturnReportRow,
-} from '@/modules/payroll/core/deductions/deductions.js';
-import { formatLocalDate, makeLocalDate } from '@/modules/payroll/core/utils/date.utils.js';
-import { LEAVE_RULES } from '@/modules/payroll/payroll.constants.js';
-import { calculateLeaveQuotaStatus } from '@/modules/leave-management/services/leave-domain.service.js';
+} from "@/modules/payroll/core/deductions/deductions.js";
+import {
+  formatLocalDate,
+  makeLocalDate,
+} from "@/modules/payroll/core/utils/date.utils.js";
+import { LEAVE_RULES } from "@/modules/payroll/payroll.constants.js";
+import { calculateLeaveQuotaStatus } from "@/modules/leave-management/services/leave-domain.service.js";
 import { loadEmployeeBatchData } from "@/modules/payroll/core/calculator/facade/calculator.data.js";
 import { savePayout } from "@/modules/payroll/core/calculator/facade/calculator.persistence.js";
 import {
@@ -168,7 +171,6 @@ export type PayrollCheck = {
   evidence: PayrollCheckEvidence[];
 };
 
-
 // Batch interface
 export interface EmployeeBatchData {
   eligibilityRows: RowDataPacket[];
@@ -196,13 +198,9 @@ export async function calculateMonthlyWithData(
   const endOfMonth = makeLocalDate(year, month, 0);
   const daysInMonth = endOfMonth.getDate();
   const fiscalYearStart =
-    month >= 10
-      ? makeLocalDate(year, 9, 1)
-      : makeLocalDate(year - 1, 9, 1);
+    month >= 10 ? makeLocalDate(year, 9, 1) : makeLocalDate(year - 1, 9, 1);
   const fiscalYearEnd =
-    month >= 10
-      ? makeLocalDate(year + 1, 9, 0)
-      : makeLocalDate(year, 9, 0);
+    month >= 10 ? makeLocalDate(year + 1, 9, 0) : makeLocalDate(year, 9, 0);
 
   const eligibilities = buildEligibilities(
     data.eligibilityRows as EligibilityRow[],
@@ -219,8 +217,14 @@ export async function calculateMonthlyWithData(
 
   // สร้างใบลา education จาก movement_type = STUDY
   // แล้วรวมกับ leave จริงจากฐานข้อมูล
-  const studyLeaveRows = buildStudyLeaveRowsFromMovements(movements, endOfMonth);
-  const mergedLeaves = assignSyntheticIdsToLeaves([...leaves, ...studyLeaveRows]);
+  const studyLeaveRows = buildStudyLeaveRowsFromMovements(
+    movements,
+    endOfMonth,
+  );
+  const mergedLeaves = assignSyntheticIdsToLeaves([
+    ...leaves,
+    ...studyLeaveRows,
+  ]);
 
   const { periods, remark } = resolveWorkPeriods(
     movements,
@@ -280,7 +284,8 @@ export async function calculateMonthlyWithData(
     lastItemNo: null,
   };
 
-  const { orderedPeriods, workDaySet, firstWorkDay, lastWorkDay } = buildWorkDayWindow(periods);
+  const { orderedPeriods, workDaySet, firstWorkDay, lastWorkDay } =
+    buildWorkDayWindow(periods);
   const { checkAggs, ensureAgg, updateAggRange } = createCheckAccumulator();
   const leaveById = buildLeaveByIdMap(mergedLeaves);
   markMissingStartWorkDateCheck({
@@ -293,7 +298,12 @@ export async function calculateMonthlyWithData(
     endOfMonth,
     ensureAgg,
   });
-  addPendingReturnReportChecks(mergedLeaves, endOfMonth, ensureAgg, updateAggRange);
+  addPendingReturnReportChecks(
+    mergedLeaves,
+    endOfMonth,
+    ensureAgg,
+    updateAggRange,
+  );
 
   const dailyCheckContext: DailyCheckImpactContext = {
     daysInMonth,
@@ -352,7 +362,12 @@ export async function calculateMonthly(
   month: number,
   connection?: PoolConnection,
 ): Promise<CalculationResult> {
-  const batchData = await loadEmployeeBatchData(citizenId, year, month, connection);
+  const batchData = await loadEmployeeBatchData(
+    citizenId,
+    year,
+    month,
+    connection,
+  );
   return calculateMonthlyWithData(year, month, batchData);
 }
 

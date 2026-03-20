@@ -24,7 +24,9 @@ const levenshtein = (a: string, b: string): number => {
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
 
-  const dp = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  const dp = Array.from({ length: a.length + 1 }, () =>
+    new Array<number>(b.length + 1).fill(0),
+  );
   for (let i = 0; i <= a.length; i += 1) dp[i][0] = i;
   for (let j = 0; j <= b.length; j += 1) dp[0][j] = j;
 
@@ -42,7 +44,10 @@ const levenshtein = (a: string, b: string): number => {
   return dp[a.length][b.length];
 };
 
-const buildScore = (source: NameParts, candidate: NameParts): {
+const buildScore = (
+  source: NameParts,
+  candidate: NameParts,
+): {
   score: number;
   firstDistance: number;
   lastDistance: number;
@@ -67,9 +72,12 @@ const buildScore = (source: NameParts, candidate: NameParts): {
   else if (fullDistance <= 2) score += 2;
   else if (fullDistance <= 3) score += 1;
 
-  if (source.lastName && candidate.lastName && (
-    source.lastName.includes(candidate.lastName) || candidate.lastName.includes(source.lastName)
-  )) {
+  if (
+    source.lastName &&
+    candidate.lastName &&
+    (source.lastName.includes(candidate.lastName) ||
+      candidate.lastName.includes(source.lastName))
+  ) {
     score += 2;
   }
 

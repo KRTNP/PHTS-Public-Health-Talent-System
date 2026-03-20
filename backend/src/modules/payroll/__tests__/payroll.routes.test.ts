@@ -31,9 +31,12 @@ jest.mock("@shared/validate.middleware.js", () => ({
 }));
 
 jest.mock("@/modules/payroll/payroll.controller.js", () => ({
-  getPeriodDetail: (_req: any, res: any) => res.json({ success: true, data: { period: {} } }),
-  getPeriodPayouts: (_req: any, res: any) => res.json({ success: true, data: [] }),
-  getPayoutDetail: (_req: any, res: any) => res.json({ success: true, data: {} }),
+  getPeriodDetail: (_req: any, res: any) =>
+    res.json({ success: true, data: { period: {} } }),
+  getPeriodPayouts: (_req: any, res: any) =>
+    res.json({ success: true, data: [] }),
+  getPayoutDetail: (_req: any, res: any) =>
+    res.json({ success: true, data: {} }),
   getPeriodStatus: jest.fn(),
   getPeriodLeaves: jest.fn(),
   getPeriodLeaveProfessionSummary: jest.fn(),

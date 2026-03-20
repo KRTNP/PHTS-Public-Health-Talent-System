@@ -45,12 +45,15 @@ const buildRateBreakdown = (params: {
     .map((row) => ({
       eligibilityId: Number((row as any).eligibility_id ?? 0) || null,
       masterRateId:
-        Number((row as any).master_rate_id ?? (row as any).rate_id ?? 0) || null,
+        Number((row as any).master_rate_id ?? (row as any).rate_id ?? 0) ||
+        null,
       groupNo: Number((row as any).group_no ?? 0) || null,
       itemNo: Number((row as any).item_no ?? 0) || null,
       subItemNo: Number((row as any).sub_item_no ?? 0) || null,
       start: toDateOnly((row as any).effective_date),
-      end: (row as any).expiry_date ? toDateOnly((row as any).expiry_date) : monthEnd,
+      end: (row as any).expiry_date
+        ? toDateOnly((row as any).expiry_date)
+        : monthEnd,
       rate: Number((row as any).rate ?? 0),
     }))
     .filter((row) => row.start && row.end && row.rate > 0)
@@ -241,7 +244,11 @@ export class PayrollPayoutService {
           educationLeaveCountInPeriod: 0,
         };
         current.leaveCountInPeriod += 1;
-        if (String(leave?.leave_type ?? "").trim().toLowerCase() === "education") {
+        if (
+          String(leave?.leave_type ?? "")
+            .trim()
+            .toLowerCase() === "education"
+        ) {
           current.educationLeaveCountInPeriod += 1;
         }
         leaveCountsByCitizenId.set(citizenId, current);
@@ -253,7 +260,8 @@ export class PayrollPayoutService {
         return {
           ...row,
           leave_count_in_period: leaveInfo?.leaveCountInPeriod ?? 0,
-          education_leave_count_in_period: leaveInfo?.educationLeaveCountInPeriod ?? 0,
+          education_leave_count_in_period:
+            leaveInfo?.educationLeaveCountInPeriod ?? 0,
         };
       });
     } finally {
@@ -261,10 +269,7 @@ export class PayrollPayoutService {
     }
   }
 
-  static async getPayoutDetail(
-    payoutId: number,
-    role?: string | null,
-  ) {
+  static async getPayoutDetail(payoutId: number, role?: string | null) {
     const payout = await PayrollRepository.findPayoutDetailById(payoutId);
     if (!payout) throw new Error("Payout not found");
     if (
@@ -296,12 +301,18 @@ export class PayrollPayoutService {
         const ev = evidence as any;
         if (String(ev.type ?? "") !== "eligibility") continue;
         const rateId = Number(ev.rate_id ?? 0);
-        if (Number.isFinite(rateId) && rateId > 0) referencedRateIds.add(rateId);
+        if (Number.isFinite(rateId) && rateId > 0)
+          referencedRateIds.add(rateId);
       }
     }
-    const rateMetaById = new Map<number, { group_no: unknown; item_no: unknown; sub_item_no: unknown }>();
+    const rateMetaById = new Map<
+      number,
+      { group_no: unknown; item_no: unknown; sub_item_no: unknown }
+    >();
     if (referencedRateIds.size > 0) {
-      const rows = await PayrollRepository.findPaymentRatesByIds(Array.from(referencedRateIds));
+      const rows = await PayrollRepository.findPaymentRatesByIds(
+        Array.from(referencedRateIds),
+      );
       for (const row of rows as any[]) {
         const rateId = Number(row?.rate_id ?? 0);
         if (!Number.isFinite(rateId) || rateId <= 0) continue;
@@ -537,10 +548,14 @@ function resolvePayoutValues(
     throw new Error("deducted_days ต้องเป็นตัวเลขและต้องมากกว่าหรือเท่ากับ 0");
   }
   if (eligibleDays > daysInMonth) {
-    throw new Error(`eligible_days ต้องไม่เกินจำนวนวันในเดือน (${daysInMonth})`);
+    throw new Error(
+      `eligible_days ต้องไม่เกินจำนวนวันในเดือน (${daysInMonth})`,
+    );
   }
   if (deductedDays > daysInMonth) {
-    throw new Error(`deducted_days ต้องไม่เกินจำนวนวันในเดือน (${daysInMonth})`);
+    throw new Error(
+      `deducted_days ต้องไม่เกินจำนวนวันในเดือน (${daysInMonth})`,
+    );
   }
   if (eligibleDays + deductedDays > daysInMonth) {
     throw new Error(
@@ -569,7 +584,8 @@ async function syncPayoutItems(
     retroactiveAmount: number;
   },
 ): Promise<void> {
-  const { payoutId, month, rawYear, calculatedAmount, retroactiveAmount } = params;
+  const { payoutId, month, rawYear, calculatedAmount, retroactiveAmount } =
+    params;
   const manualDesc = "ตกเบิก (แก้ไขด้วยมือ)";
 
   const [currentRows] = await conn.query<any[]>(

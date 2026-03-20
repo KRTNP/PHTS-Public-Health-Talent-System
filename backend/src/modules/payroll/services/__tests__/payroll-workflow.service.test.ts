@@ -40,12 +40,15 @@ jest.mock("@/modules/snapshot/services/snapshot.service.js", () => ({
   },
 }));
 
-jest.mock("@/modules/payroll/services/workflow/payroll-review.service.js", () => ({
-  PayrollReviewService: {
-    getRequiredProfessionCodes: jest.fn(),
-    getReviewedProfessionCodes: jest.fn(),
-  },
-}));
+jest.mock(
+  "@/modules/payroll/services/workflow/payroll-review.service.js",
+  () => ({
+    PayrollReviewService: {
+      getRequiredProfessionCodes: jest.fn(),
+      getReviewedProfessionCodes: jest.fn(),
+    },
+  }),
+);
 
 import { PayrollRepository } from "@/modules/payroll/repositories/payroll.repository.js";
 import { PayrollReviewService } from "@/modules/payroll/services/workflow/payroll-review.service.js";
@@ -71,13 +74,30 @@ describe("PayrollWorkflowService.updatePeriodStatus", () => {
       period_year: 2026,
       status: PeriodStatus.OPEN,
     });
-    (PayrollReviewService.getRequiredProfessionCodes as jest.Mock).mockResolvedValue(["NURSE"]);
-    (PayrollReviewService.getReviewedProfessionCodes as jest.Mock).mockResolvedValue(["NURSE"]);
+    (
+      PayrollReviewService.getRequiredProfessionCodes as jest.Mock
+    ).mockResolvedValue(["NURSE"]);
+    (
+      PayrollReviewService.getReviewedProfessionCodes as jest.Mock
+    ).mockResolvedValue(["NURSE"]);
 
-    const result = await PayrollWorkflowService.updatePeriodStatus(38, "SUBMIT", 77);
+    const result = await PayrollWorkflowService.updatePeriodStatus(
+      38,
+      "SUBMIT",
+      77,
+    );
 
-    expect(PayrollRepository.updatePeriodLock).toHaveBeenCalledWith(38, true, conn);
-    expect(PayrollRepository.updatePeriodFreeze).toHaveBeenCalledWith(38, true, 77, conn);
+    expect(PayrollRepository.updatePeriodLock).toHaveBeenCalledWith(
+      38,
+      true,
+      conn,
+    );
+    expect(PayrollRepository.updatePeriodFreeze).toHaveBeenCalledWith(
+      38,
+      true,
+      77,
+      conn,
+    );
     expect(PayrollRepository.updatePeriodStatus).toHaveBeenCalledWith(
       38,
       PeriodStatus.WAITING_HR,

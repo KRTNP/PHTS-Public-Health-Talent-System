@@ -148,10 +148,7 @@ export class PayrollService {
     return PayrollPayoutService.getPeriodPayouts(periodId);
   }
 
-  static async getPayoutDetail(
-    payoutId: number,
-    role?: string | null,
-  ) {
+  static async getPayoutDetail(payoutId: number, role?: string | null) {
     return PayrollPayoutService.getPayoutDetail(payoutId, role);
   }
 
@@ -196,7 +193,10 @@ export class PayrollService {
       "leave_type" | "pending_report" | "search"
     >,
   ) {
-    return PayrollPeriodLeaveService.summarizePeriodLeavesByProfession(periodId, params);
+    return PayrollPeriodLeaveService.summarizePeriodLeavesByProfession(
+      periodId,
+      params,
+    );
   }
 
   static async calculateOnDemand(

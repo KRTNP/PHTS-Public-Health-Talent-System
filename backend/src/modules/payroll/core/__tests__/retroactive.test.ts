@@ -28,7 +28,13 @@ describe("payroll core retroactive", () => {
       return [];
     });
 
-    const result = await calculateRetroactive("1111111111111", 2026, 2, 2, conn as any);
+    const result = await calculateRetroactive(
+      "1111111111111",
+      2026,
+      2,
+      2,
+      conn as any,
+    );
 
     expect(result.totalRetro).toBe(0);
     expect(result.retroDetails).toEqual([]);
@@ -43,7 +49,13 @@ describe("payroll core retroactive", () => {
       return [];
     });
 
-    const result = await calculateRetroactive("1111111111111", 2026, 2, 1, conn as any);
+    const result = await calculateRetroactive(
+      "1111111111111",
+      2026,
+      2,
+      1,
+      conn as any,
+    );
 
     expect(result.totalRetro).toBe(0);
     expect(result.retroDetails).toHaveLength(0);
@@ -68,7 +80,13 @@ describe("payroll core retroactive", () => {
       return [];
     });
 
-    const result = await calculateRetroactive("1111111111111", 2026, 2, 1, conn as any);
+    const result = await calculateRetroactive(
+      "1111111111111",
+      2026,
+      2,
+      1,
+      conn as any,
+    );
 
     expect(result.totalRetro).toBe(500);
     expect(result.retroDetails).toEqual([
@@ -79,7 +97,9 @@ describe("payroll core retroactive", () => {
         remark: expect.stringContaining("ตกเบิกยอดเดือน 1/2026"),
       }),
     ]);
-    expect(result.retroDetails[0]?.remark).toContain("คำนวณใหม่ 5,500.00 เทียบเคยจ่าย 5,000.00 บาท");
+    expect(result.retroDetails[0]?.remark).toContain(
+      "คำนวณใหม่ 5,500.00 เทียบเคยจ่าย 5,000.00 บาท",
+    );
     expect(mockedCalculateMonthly).toHaveBeenCalledWith(
       "1111111111111",
       2026,
@@ -110,15 +130,27 @@ describe("payroll core retroactive", () => {
       return [];
     });
 
-    const result = await calculateRetroactive("1600100184751", 2026, 3, 1, conn as any);
+    const result = await calculateRetroactive(
+      "1600100184751",
+      2026,
+      3,
+      1,
+      conn as any,
+    );
 
     expect(result.totalRetro).toBe(10000);
-    expect(result.retroDetails[0]?.remark).toContain("ไม่พบข้อมูลจ่ายเดิมของงวดนี้");
-    expect(result.retroDetails[0]?.remark).toContain("วันมีสิทธิ ไม่มีข้อมูลเดิม → 28 วัน");
+    expect(result.retroDetails[0]?.remark).toContain(
+      "ไม่พบข้อมูลจ่ายเดิมของงวดนี้",
+    );
+    expect(result.retroDetails[0]?.remark).toContain(
+      "วันมีสิทธิ ไม่มีข้อมูลเดิม → 28 วัน",
+    );
     expect(result.retroDetails[0]?.remark).toContain(
       "อัตราเงิน ไม่มีข้อมูลเดิม → 10,000 บาท",
     );
-    expect(result.retroDetails[0]?.remark).not.toContain("เทียบเคยจ่าย 0.00 บาท");
+    expect(result.retroDetails[0]?.remark).not.toContain(
+      "เทียบเคยจ่าย 0.00 บาท",
+    );
   });
 
   test("applies historical retro adjustment before computing diff", async () => {
@@ -142,7 +174,13 @@ describe("payroll core retroactive", () => {
       return [];
     });
 
-    const result = await calculateRetroactive("1111111111111", 2026, 2, 1, conn as any);
+    const result = await calculateRetroactive(
+      "1111111111111",
+      2026,
+      2,
+      1,
+      conn as any,
+    );
 
     // paid amount = 5000 + 50 - 10 = 5040, diff = 5200 - 5040 = 160
     expect(result.totalRetro).toBe(160);
@@ -167,7 +205,13 @@ describe("payroll core retroactive", () => {
       return [];
     });
 
-    const result = await calculateRetroactive("1111111111111", 2026, 2, 1, conn as any);
+    const result = await calculateRetroactive(
+      "1111111111111",
+      2026,
+      2,
+      1,
+      conn as any,
+    );
 
     expect(result.totalRetro).toBe(0);
     expect(result.retroDetails).toHaveLength(0);
@@ -199,7 +243,13 @@ describe("payroll core retroactive", () => {
       return [];
     });
 
-    const result = await calculateRetroactive("1111111111111", 2026, 2, 2, conn as any);
+    const result = await calculateRetroactive(
+      "1111111111111",
+      2026,
+      2,
+      2,
+      conn as any,
+    );
 
     expect(result.retroDetails).toHaveLength(2);
     expect(result.retroDetails[0]?.month).toBe(1);
@@ -230,7 +280,13 @@ describe("payroll core retroactive", () => {
       return [];
     });
 
-    const result = await calculateRetroactive("1111111111111", 2026, 9, 1, conn as any);
+    const result = await calculateRetroactive(
+      "1111111111111",
+      2026,
+      9,
+      1,
+      conn as any,
+    );
 
     expect(result.retroDetails).toEqual([
       expect.objectContaining({

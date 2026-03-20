@@ -4,10 +4,16 @@ import type {
   QuotaDecision,
   ReturnReportRow,
 } from "@/modules/payroll/core/deductions/deductions.js";
-import { formatLocalDate, makeLocalDate } from "@/modules/payroll/core/utils/date.utils.js";
+import {
+  formatLocalDate,
+  makeLocalDate,
+} from "@/modules/payroll/core/utils/date.utils.js";
 import { calculateLeaveQuotaStatus } from "@/modules/leave-management/services/leave-domain.service.js";
 import type { WorkPeriod } from "@/modules/payroll/core/calculator/facade/calculator.work-period.js";
-import type { EligibilityRow, LicenseRow } from "@/modules/payroll/core/calculator/facade/calculator.js";
+import type {
+  EligibilityRow,
+  LicenseRow,
+} from "@/modules/payroll/core/calculator/facade/calculator.js";
 
 export type EligibilityInfo = Readonly<{
   effectiveTs: number;
@@ -41,7 +47,12 @@ export type PaymentTotals = {
 
 export type QuotaInfoByLeaveId = Map<
   number,
-  { limit: number | null; duration: number; exceedDate: string | null; leaveType: string }
+  {
+    limit: number | null;
+    duration: number;
+    exceedDate: string | null;
+    leaveType: string;
+  }
 >;
 
 export const buildEligibilities = (rows: EligibilityRow[]): EligibilityInfo[] =>
@@ -108,7 +119,8 @@ export const applyDailyTotals = (
   eligibleWeight -= deductionWeight;
   if (eligibleWeight < 0) eligibleWeight = 0;
 
-  if (isPayEligible && deductionWeight > 0) totals.totalDeductionDays += deductionWeight;
+  if (isPayEligible && deductionWeight > 0)
+    totals.totalDeductionDays += deductionWeight;
   if (eligibleWeight > 0) totals.daysCounted += eligibleWeight;
 
   const dailyRate = new Decimal(currentRate || 0).div(daysInMonth);
@@ -147,7 +159,9 @@ export function createLicenseChecker(
     ranges.some((range) => dateStr >= range.start && dateStr <= range.end);
 }
 
-export const buildReturnReportsMap = (rows: ReturnReportRow[]): Map<number, Date> => {
+export const buildReturnReportsMap = (
+  rows: ReturnReportRow[],
+): Map<number, Date> => {
   const returnReports = new Map<number, Date>();
   for (const row of rows) {
     const existing = returnReports.get(row.leave_record_id);
@@ -159,7 +173,9 @@ export const buildReturnReportsMap = (rows: ReturnReportRow[]): Map<number, Date
   return returnReports;
 };
 
-export const buildQuotaMaps = (quotaStatus: ReturnType<typeof calculateLeaveQuotaStatus>): {
+export const buildQuotaMaps = (
+  quotaStatus: ReturnType<typeof calculateLeaveQuotaStatus>,
+): {
   quotaDecisions: Map<number, QuotaDecision>;
   quotaInfoByLeaveId: QuotaInfoByLeaveId;
 } => {
@@ -173,7 +189,10 @@ export const buildQuotaMaps = (quotaStatus: ReturnType<typeof calculateLeaveQuot
       exceedDate: info.exceedDate ? new Date(info.exceedDate) : null,
     });
     quotaInfoByLeaveId.set(id, {
-      limit: info.limit === null || info.limit === undefined ? null : Number(info.limit),
+      limit:
+        info.limit === null || info.limit === undefined
+          ? null
+          : Number(info.limit),
       duration: Number(info.duration ?? 0),
       exceedDate: info.exceedDate ?? null,
       leaveType: String(info.leaveType ?? ""),
@@ -182,7 +201,9 @@ export const buildQuotaMaps = (quotaStatus: ReturnType<typeof calculateLeaveQuot
   return { quotaDecisions, quotaInfoByLeaveId };
 };
 
-export const buildWorkDayWindow = (periods: WorkPeriod[]): {
+export const buildWorkDayWindow = (
+  periods: WorkPeriod[],
+): {
   orderedPeriods: WorkPeriod[];
   workDaySet: Set<string>;
   firstWorkDay: string | null;
@@ -211,7 +232,9 @@ export const buildWorkDayWindow = (periods: WorkPeriod[]): {
   return { orderedPeriods, workDaySet, firstWorkDay, lastWorkDay };
 };
 
-export const sumDeductionDaysInMonth = (deductionResult: DeductionResult): number => {
+export const sumDeductionDaysInMonth = (
+  deductionResult: DeductionResult,
+): number => {
   return Array.from(deductionResult.deductionMap.values()).reduce(
     (sum, value) => sum + value,
     0,

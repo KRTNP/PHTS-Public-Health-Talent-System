@@ -23,16 +23,21 @@ jest.mock("@/modules/payroll/repositories/query.repository.js", () => ({
   },
 }));
 
-jest.mock("@/modules/payroll/services/workflow/payroll-workflow.service.js", () => ({
-  PayrollWorkflowService: {
-    canRoleViewPeriod: jest.fn(),
-  },
-}));
+jest.mock(
+  "@/modules/payroll/services/workflow/payroll-workflow.service.js",
+  () => ({
+    PayrollWorkflowService: {
+      canRoleViewPeriod: jest.fn(),
+    },
+  }),
+);
 
 describe("PayrollPayoutService.getPayoutDetail", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (PayrollWorkflowService.canRoleViewPeriod as jest.Mock).mockReturnValue(true);
+    (PayrollWorkflowService.canRoleViewPeriod as jest.Mock).mockReturnValue(
+      true,
+    );
   });
 
   test("includes leave impact summary for the payout month", async () => {
@@ -43,11 +48,19 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
       period_year: 2026,
       pts_rate_snapshot: 2800,
     });
-    (PayrollRepository.findPayoutItemsByPayoutId as jest.Mock).mockResolvedValue([]);
-    (PayrollRepository.findPayoutChecksByPayoutId as jest.Mock).mockResolvedValue([]);
-    (PayrollRepository.findHolidayDatesInRange as jest.Mock).mockResolvedValue([]);
+    (
+      PayrollRepository.findPayoutItemsByPayoutId as jest.Mock
+    ).mockResolvedValue([]);
+    (
+      PayrollRepository.findPayoutChecksByPayoutId as jest.Mock
+    ).mockResolvedValue([]);
+    (PayrollRepository.findHolidayDatesInRange as jest.Mock).mockResolvedValue(
+      [],
+    );
     const release = jest.fn();
-    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue({ release });
+    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue({
+      release,
+    });
     (PayrollQueryRepository.fetchBatchData as jest.Mock).mockResolvedValue({
       eligibilityRows: [
         {
@@ -90,7 +103,10 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
       returnReportRows: [],
     });
 
-    const result = await PayrollPayoutService.getPayoutDetail(88, "PTS_OFFICER");
+    const result = await PayrollPayoutService.getPayoutDetail(
+      88,
+      "PTS_OFFICER",
+    );
 
     expect(result.leaveImpactSummary).toEqual(
       expect.objectContaining({
@@ -143,7 +159,9 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
       period_month: 2,
       period_year: 2026,
     });
-    (PayrollWorkflowService.canRoleViewPeriod as jest.Mock).mockReturnValue(false);
+    (PayrollWorkflowService.canRoleViewPeriod as jest.Mock).mockReturnValue(
+      false,
+    );
 
     await expect(
       PayrollPayoutService.getPayoutDetail(88, "HEAD_HR"),
@@ -161,7 +179,9 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
       period_year: 2026,
     });
     const release = jest.fn();
-    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue({ release });
+    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue({
+      release,
+    });
     (PayrollQueryRepository.fetchBatchData as jest.Mock).mockResolvedValue({
       leaveRows: [
         {
@@ -224,8 +244,12 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
       pts_rate_snapshot: 15000,
       period_status: "OPEN",
     });
-    (PayrollRepository.findPayoutItemsByPayoutId as jest.Mock).mockResolvedValue([]);
-    (PayrollRepository.findPayoutChecksByPayoutId as jest.Mock).mockResolvedValue([
+    (
+      PayrollRepository.findPayoutItemsByPayoutId as jest.Mock
+    ).mockResolvedValue([]);
+    (
+      PayrollRepository.findPayoutChecksByPayoutId as jest.Mock
+    ).mockResolvedValue([
       {
         check_id: 1,
         code: "ELIGIBILITY_GAP",
@@ -245,9 +269,13 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
     (PayrollRepository.findPaymentRatesByIds as jest.Mock).mockResolvedValue([
       { rate_id: 17, group_no: 2, item_no: "2.1", sub_item_no: null },
     ]);
-    (PayrollRepository.findHolidayDatesInRange as jest.Mock).mockResolvedValue([]);
+    (PayrollRepository.findHolidayDatesInRange as jest.Mock).mockResolvedValue(
+      [],
+    );
     const release = jest.fn();
-    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue({ release });
+    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue({
+      release,
+    });
     (PayrollQueryRepository.fetchBatchData as jest.Mock).mockResolvedValue({
       eligibilityRows: [],
       leaveRows: [],
@@ -257,7 +285,10 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
       movementRows: [],
     });
 
-    const result = await PayrollPayoutService.getPayoutDetail(99, "PTS_OFFICER");
+    const result = await PayrollPayoutService.getPayoutDetail(
+      99,
+      "PTS_OFFICER",
+    );
 
     expect(result.checks[0].evidence).toEqual([
       expect.objectContaining({
@@ -279,8 +310,12 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
       pts_rate_snapshot: 15000,
       period_status: "OPEN",
     });
-    (PayrollRepository.findPayoutItemsByPayoutId as jest.Mock).mockResolvedValue([]);
-    (PayrollRepository.findPayoutChecksByPayoutId as jest.Mock).mockResolvedValue([
+    (
+      PayrollRepository.findPayoutItemsByPayoutId as jest.Mock
+    ).mockResolvedValue([]);
+    (
+      PayrollRepository.findPayoutChecksByPayoutId as jest.Mock
+    ).mockResolvedValue([
       {
         check_id: 1,
         code: "ELIGIBILITY_GAP",
@@ -303,9 +338,13 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
     (PayrollRepository.findPaymentRatesByIds as jest.Mock).mockResolvedValue([
       { rate_id: 17, group_no: 1, item_no: "1.1", sub_item_no: null },
     ]);
-    (PayrollRepository.findHolidayDatesInRange as jest.Mock).mockResolvedValue([]);
+    (PayrollRepository.findHolidayDatesInRange as jest.Mock).mockResolvedValue(
+      [],
+    );
     const release = jest.fn();
-    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue({ release });
+    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue({
+      release,
+    });
     (PayrollQueryRepository.fetchBatchData as jest.Mock).mockResolvedValue({
       eligibilityRows: [],
       leaveRows: [],
@@ -315,7 +354,10 @@ describe("PayrollPayoutService.getPayoutDetail", () => {
       movementRows: [],
     });
 
-    const result = await PayrollPayoutService.getPayoutDetail(100, "PTS_OFFICER");
+    const result = await PayrollPayoutService.getPayoutDetail(
+      100,
+      "PTS_OFFICER",
+    );
 
     expect(result.checks[0].evidence).toEqual([
       expect.objectContaining({

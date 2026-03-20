@@ -151,9 +151,7 @@ export class PayrollPeriodRepository {
     return rows as PayPeriod[];
   }
 
-  static async findPeriodItems(
-    periodId: number,
-  ): Promise<RowDataPacket[]> {
+  static async findPeriodItems(periodId: number): Promise<RowDataPacket[]> {
     const [rows] = await db.query<RowDataPacket[]>(
       `
       SELECT
@@ -467,6 +465,8 @@ export class PayrollPeriodRepository {
     periodId: number,
     conn: PoolConnection,
   ): Promise<void> {
-    await conn.execute("DELETE FROM pay_periods WHERE period_id = ?", [periodId]);
+    await conn.execute("DELETE FROM pay_periods WHERE period_id = ?", [
+      periodId,
+    ]);
   }
 }

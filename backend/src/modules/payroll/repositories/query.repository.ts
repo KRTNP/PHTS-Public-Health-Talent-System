@@ -9,7 +9,10 @@ export interface BatchEmployeeData {
   leaveRows: RowDataPacket[];
   quotaRows: RowDataPacket[];
   noSalaryRows: RowDataPacket[];
-  returnReportRows: Array<{ leave_record_id: number; return_date: string | Date }>;
+  returnReportRows: Array<{
+    leave_record_id: number;
+    return_date: string | Date;
+  }>;
 }
 
 type ReturnReportEventRow = RowDataPacket & {
@@ -28,13 +31,16 @@ const attachReturnReportEvents = (
   if (!leaveRows.length || !eventRows.length) {
     return leaveRows.map((row) => ({ ...row, return_report_events: [] }));
   }
-  const eventMap = new Map<number, Array<{
-    report_date: string;
-    resume_date: string | null;
-    resume_study_institution: string | null;
-    resume_study_program: string | null;
-    resume_study_major: string | null;
-  }>>();
+  const eventMap = new Map<
+    number,
+    Array<{
+      report_date: string;
+      resume_date: string | null;
+      resume_study_institution: string | null;
+      resume_study_program: string | null;
+      resume_study_major: string | null;
+    }>
+  >();
   for (const event of eventRows) {
     const leaveId = Number(event.leave_record_id);
     if (!Number.isFinite(leaveId)) continue;
@@ -50,15 +56,18 @@ const attachReturnReportEvents = (
           ? null
           : String(event.resume_date),
       resume_study_institution:
-        event.resume_study_institution === null || event.resume_study_institution === undefined
+        event.resume_study_institution === null ||
+        event.resume_study_institution === undefined
           ? null
           : String(event.resume_study_institution),
       resume_study_program:
-        event.resume_study_program === null || event.resume_study_program === undefined
+        event.resume_study_program === null ||
+        event.resume_study_program === undefined
           ? null
           : String(event.resume_study_program),
       resume_study_major:
-        event.resume_study_major === null || event.resume_study_major === undefined
+        event.resume_study_major === null ||
+        event.resume_study_major === undefined
           ? null
           : String(event.resume_study_major),
     });
@@ -173,7 +182,10 @@ export class PayrollQueryRepository {
     );
     const returnReportEventRows =
       await PayrollQueryRepository.findReturnReportEvents(citizenIds, ph, conn);
-    const leaveRows = attachReturnReportEvents(rawLeaveRows, returnReportEventRows);
+    const leaveRows = attachReturnReportEvents(
+      rawLeaveRows,
+      returnReportEventRows,
+    );
 
     const [noSalaryRows] = await conn.query<RowDataPacket[]>(
       `
@@ -208,7 +220,10 @@ export class PayrollQueryRepository {
       `,
       citizenIds,
     );
-    const returnReportRows: Array<{ leave_record_id: number; return_date: string | Date }> =
+    const returnReportRows: Array<{
+      leave_record_id: number;
+      return_date: string | Date;
+    }> =
       returnReportEventRows.length > 0
         ? returnReportEventRows.map((row) => ({
             leave_record_id: Number(row.leave_record_id),
@@ -285,7 +300,10 @@ export class PayrollQueryRepository {
     }
   }
 
-  static getFiscalYearRange(fiscalYear: number): { start: string; end: string } {
+  static getFiscalYearRange(fiscalYear: number): {
+    start: string;
+    end: string;
+  } {
     const startYear = fiscalYear - 544;
     const endYear = fiscalYear - 543;
     return {

@@ -2,11 +2,11 @@ import {
   calculateDeductions,
   LeaveRow,
   QuotaDecision,
-} from '@/modules/payroll/core/deductions/deductions.js';
+} from "@/modules/payroll/core/deductions/deductions.js";
 
-describe('payroll core deductions (return report and overlap)', () => {
-  const monthStart = new Date('2026-02-01');
-  const monthEnd = new Date('2026-02-28');
+describe("payroll core deductions (return report and overlap)", () => {
+  const monthStart = new Date("2026-02-01");
+  const monthEnd = new Date("2026-02-28");
   test("education leave is shortened by return report date", () => {
     const leaves: LeaveRow[] = [
       {

@@ -2,11 +2,11 @@ import {
   calculateDeductions,
   LeaveRow,
   QuotaDecision,
-} from '@/modules/payroll/core/deductions/deductions.js';
+} from "@/modules/payroll/core/deductions/deductions.js";
 
-describe('payroll core deductions (core rules)', () => {
-  const monthStart = new Date('2026-02-01');
-  const monthEnd = new Date('2026-02-28');
+describe("payroll core deductions (core rules)", () => {
+  const monthStart = new Date("2026-02-01");
+  const monthEnd = new Date("2026-02-28");
   test("returns empty map when no leaves", () => {
     const { deductionMap: map } = calculateDeductions(
       [],
@@ -86,9 +86,7 @@ describe('payroll core deductions (core rules)', () => {
       [],
       monthStart,
       monthEnd,
-      new Map([
-        [98, { overQuota: true, exceedDate: new Date("2026-02-03") }],
-      ]),
+      new Map([[98, { overQuota: true, exceedDate: new Date("2026-02-03") }]]),
       [],
       new Map(),
     );
@@ -196,7 +194,7 @@ describe('payroll core deductions (core rules)', () => {
       [],
       monthStart,
       monthEnd,
-      new Map([[ -2, { overQuota: true, exceedDate: new Date("2026-02-01") } ]]),
+      new Map([[-2, { overQuota: true, exceedDate: new Date("2026-02-01") }]]),
       [],
       new Map(),
     );
@@ -340,5 +338,4 @@ describe('payroll core deductions (core rules)', () => {
     expect(map.get("2026-02-10")).toBe(1); // Tue
     expect(map.size).toBe(2);
   });
-
 });

@@ -4,7 +4,10 @@ import {
   DeductionReasonCode,
   LeaveRow,
 } from "@/modules/payroll/core/deductions/deductions.js";
-import { formatLocalDate, makeLocalDate } from "@/modules/payroll/core/utils/date.utils.js";
+import {
+  formatLocalDate,
+  makeLocalDate,
+} from "@/modules/payroll/core/utils/date.utils.js";
 import { LEAVE_RULES } from "@/modules/payroll/payroll.constants.js";
 import type {
   PayrollCheckCode,
@@ -55,7 +58,9 @@ export type EligibilityCoverage = {
   lastEligibilityDay: string | null;
 };
 
-export const normalizeReasonCode = (code: DeductionReasonCode): PayrollCheckCode => {
+export const normalizeReasonCode = (
+  code: DeductionReasonCode,
+): PayrollCheckCode => {
   switch (code) {
     case "NO_PAY":
       return "NO_PAY";
@@ -64,7 +69,9 @@ export const normalizeReasonCode = (code: DeductionReasonCode): PayrollCheckCode
   }
 };
 
-export const reasonSeverity = (code: PayrollCheckCode): PayrollCheckSeverity => {
+export const reasonSeverity = (
+  code: PayrollCheckCode,
+): PayrollCheckSeverity => {
   switch (code) {
     case "NO_PAY":
       return "BLOCKER";
@@ -162,8 +169,12 @@ const applyReasonImpact = (
   const leaveId = Number(reason.leave_record_id);
   const leave = leaveById.get(leaveId);
   const quotaInfo = quotaInfoByLeaveId.get(leaveId);
-  const leaveStartRaw = leave ? ((leave as any).document_start_date ?? leave.start_date) : null;
-  const leaveEndRaw = leave ? ((leave as any).document_end_date ?? leave.end_date) : null;
+  const leaveStartRaw = leave
+    ? ((leave as any).document_start_date ?? leave.start_date)
+    : null;
+  const leaveEndRaw = leave
+    ? ((leave as any).document_end_date ?? leave.end_date)
+    : null;
   const start = leaveStartRaw ? formatLocalDate(leaveStartRaw) : dateStr;
   const end = leaveEndRaw ? formatLocalDate(leaveEndRaw) : dateStr;
   const leaveType = resolveReasonLeaveType(reason, leave, quotaInfo);
@@ -178,7 +189,7 @@ const applyReasonImpact = (
     over_quota: code === "OVER_QUOTA",
     exceed_date: reason.exceed_date
       ? formatLocalDate(reason.exceed_date)
-      : quotaInfo?.exceedDate ?? null,
+      : (quotaInfo?.exceedDate ?? null),
     quota_limit: quotaInfo?.limit ?? null,
     leave_duration: Number.isFinite(quotaInfo?.duration ?? NaN)
       ? Number(quotaInfo?.duration ?? 0)
@@ -194,7 +205,9 @@ export const applyDailyCheckImpact = (
   const { currentRate, hasLicense, reasons, deductionWeight, dateStr } = input;
   const { ensureAgg, updateAggRange, daysInMonth } = context;
   if (currentRate <= 0) return;
-  const dailyRate = Number(new Decimal(currentRate).div(daysInMonth).toFixed(10));
+  const dailyRate = Number(
+    new Decimal(currentRate).div(daysInMonth).toFixed(10),
+  );
 
   if (!hasLicense) {
     const agg = ensureAgg("NO_LICENSE");
@@ -213,7 +226,8 @@ export const applyDailyCheckImpact = (
     return;
   }
 
-  for (const reason of reasons) applyReasonImpact(reason, dateStr, dailyRate, context);
+  for (const reason of reasons)
+    applyReasonImpact(reason, dateStr, dailyRate, context);
 };
 
 const buildMissingEligibilityRanges = (
@@ -264,7 +278,9 @@ export const addEligibilityGapRangeEvidence = (
   lastWorkDay: string | null,
 ): void => {
   if (missingRanges.length === 0) return;
-  agg.rangeLabel = missingRanges.map((r) => `${r.start} ถึง ${r.end}`).join(", ");
+  agg.rangeLabel = missingRanges
+    .map((r) => `${r.start} ถึง ${r.end}`)
+    .join(", ");
   pushEvidence(agg, `elig_gap:${monthStartStr}:${monthEndStr}`, {
     type: "eligibility_gap" as any,
     work_start_date: firstWorkDay ?? monthStartStr,

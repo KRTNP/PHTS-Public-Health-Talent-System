@@ -21,7 +21,9 @@ const resolvePeriodRange = async (periodId: number) => {
   return { period, startDate, endDate };
 };
 
-const resolvePayrollCitizenIds = async (periodId: number): Promise<string[]> => {
+const resolvePayrollCitizenIds = async (
+  periodId: number,
+): Promise<string[]> => {
   const payoutRows = await PayrollRepository.findPayoutsByPeriod(periodId);
   const payoutCitizenIds = payoutRows
     .map((row: any) => String(row?.citizen_id ?? "").trim())
@@ -32,7 +34,8 @@ const resolvePayrollCitizenIds = async (periodId: number): Promise<string[]> => 
 
   const conn = await PayrollRepository.getConnection();
   try {
-    const periodItemCitizenIds = await PayrollRepository.findPeriodItemCitizenIds(periodId, conn);
+    const periodItemCitizenIds =
+      await PayrollRepository.findPeriodItemCitizenIds(periodId, conn);
     return periodItemCitizenIds
       .map((value) => String(value ?? "").trim())
       .filter((value) => value.length > 0);

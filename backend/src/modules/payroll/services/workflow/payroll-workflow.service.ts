@@ -16,7 +16,10 @@ import {
 } from "@/modules/snapshot/services/snapshot.service.js";
 import { isPeriodLocked } from "@/modules/payroll/services/shared/payroll.utils.js";
 import { PayrollReviewService } from "@/modules/payroll/services/workflow/payroll-review.service.js";
-import { formatLocalDate, makeLocalDate } from "@/modules/payroll/core/utils/date.utils.js";
+import {
+  formatLocalDate,
+  makeLocalDate,
+} from "@/modules/payroll/core/utils/date.utils.js";
 
 export type PeriodWorkflowAction =
   | "SUBMIT"
@@ -141,7 +144,12 @@ export class PayrollWorkflowService {
       await PayrollRepository.updatePeriodStatus(periodId, nextStatus, conn);
       if (action === "SUBMIT") {
         await PayrollRepository.updatePeriodLock(periodId, true, conn);
-        await PayrollRepository.updatePeriodFreeze(periodId, true, actorId, conn);
+        await PayrollRepository.updatePeriodFreeze(
+          periodId,
+          true,
+          actorId,
+          conn,
+        );
       }
       if (action === "REJECT") {
         await PayrollRepository.updatePeriodLock(periodId, false, conn);
@@ -293,7 +301,11 @@ export class PayrollWorkflowService {
       role,
     );
     const items = await PayrollRepository.findPeriodItems(periodId);
-    const monthStart = makeLocalDate(period.period_year, period.period_month - 1, 1);
+    const monthStart = makeLocalDate(
+      period.period_year,
+      period.period_month - 1,
+      1,
+    );
     const monthEnd = makeLocalDate(period.period_year, period.period_month, 0);
     const toDate = (d: Date) => formatLocalDate(d);
 

@@ -1,6 +1,9 @@
 import { PoolConnection, RowDataPacket } from "mysql2/promise";
-import pool from '@config/database.js';
-import { calculateMonthly, RetroDetail } from '@/modules/payroll/core/calculator/facade/calculator.js';
+import pool from "@config/database.js";
+import {
+  calculateMonthly,
+  RetroDetail,
+} from "@/modules/payroll/core/calculator/facade/calculator.js";
 
 const shiftMonth = (year: number, month: number, offset: number) => {
   let targetMonth = month - offset;
@@ -37,7 +40,9 @@ const calculateRetroForPeriod = async (
   );
   const historicalPayout = payoutRows.length ? (payoutRows[0] as any) : null;
   const hasHistoricalPayout = Boolean(historicalPayout);
-  const originalPaid = historicalPayout ? Number(historicalPayout.calculated_amount) : 0;
+  const originalPaid = historicalPayout
+    ? Number(historicalPayout.calculated_amount)
+    : 0;
 
   const [adjustmentRows] = await dbConn.query<RowDataPacket[]>(
     `
@@ -122,10 +127,16 @@ const calculateRetroForPeriod = async (
       );
     }
   }
-  if (factorParts.length === 0 && Array.isArray(recalculated.checks) && recalculated.checks.length > 0) {
+  if (
+    factorParts.length === 0 &&
+    Array.isArray(recalculated.checks) &&
+    recalculated.checks.length > 0
+  ) {
     const topTitles = [...recalculated.checks]
       .sort(
-        (a, b) => Math.abs(Number(b.impactAmount ?? 0)) - Math.abs(Number(a.impactAmount ?? 0)),
+        (a, b) =>
+          Math.abs(Number(b.impactAmount ?? 0)) -
+          Math.abs(Number(a.impactAmount ?? 0)),
       )
       .slice(0, 2)
       .map((check) => String(check.title).trim())
@@ -147,7 +158,8 @@ const calculateRetroForPeriod = async (
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })} บาท • ไม่พบข้อมูลจ่ายเดิมของงวดนี้`;
-  const factorText = factorParts.length > 0 ? ` • ปัจจัย: ${factorParts.join(" / ")}` : "";
+  const factorText =
+    factorParts.length > 0 ? ` • ปัจจัย: ${factorParts.join(" / ")}` : "";
 
   return {
     diff,

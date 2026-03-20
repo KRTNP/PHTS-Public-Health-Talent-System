@@ -33,7 +33,9 @@ const insertCurrentPayoutItem = async (
   );
 };
 
-const resolveRetroItemType = (value: number): "RETROACTIVE_ADD" | "RETROACTIVE_DEDUCT" => {
+const resolveRetroItemType = (
+  value: number,
+): "RETROACTIVE_ADD" | "RETROACTIVE_DEDUCT" => {
   return value > 0 ? "RETROACTIVE_ADD" : "RETROACTIVE_DEDUCT";
 };
 
@@ -62,7 +64,8 @@ const insertRetroPayoutItems = async (
     return;
   }
 
-  if (!result.retroactiveTotal || Math.abs(result.retroactiveTotal) <= 0.01) return;
+  if (!result.retroactiveTotal || Math.abs(result.retroactiveTotal) <= 0.01)
+    return;
   await conn.query(
     `
       INSERT INTO pay_result_items (payout_id, reference_month, reference_year, item_type, amount, description)
@@ -144,7 +147,13 @@ export async function savePayout({
   );
 
   const payoutId = res.insertId;
-  await insertCurrentPayoutItem(conn, payoutId, referenceMonth, referenceYear, result.netPayment);
+  await insertCurrentPayoutItem(
+    conn,
+    payoutId,
+    referenceMonth,
+    referenceYear,
+    result.netPayment,
+  );
   await insertRetroPayoutItems(conn, payoutId, result);
   await insertPayoutChecks(conn, payoutId, result.checks);
 

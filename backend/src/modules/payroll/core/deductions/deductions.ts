@@ -2,11 +2,11 @@ import { RowDataPacket } from "mysql2/promise";
 import {
   LEAVE_RULES,
   RETURN_REPORT_REQUIRED_LEAVE_TYPES,
-} from '@/modules/payroll/payroll.constants.js';
+} from "@/modules/payroll/payroll.constants.js";
 import {
   formatLocalDate,
   isHoliday,
-} from '@/modules/payroll/core/utils/date.utils.js';
+} from "@/modules/payroll/core/utils/date.utils.js";
 
 export interface LeaveRow extends RowDataPacket {
   id?: number;
@@ -60,8 +60,10 @@ export type DeductionResult = {
 };
 
 const isWeekend = (date: Date) => date.getDay() === 0 || date.getDay() === 6;
-const resolveEffectiveDate = (primary: Date | string | null | undefined, fallback: Date | string) =>
-  primary ? new Date(primary) : new Date(fallback);
+const resolveEffectiveDate = (
+  primary: Date | string | null | undefined,
+  fallback: Date | string,
+) => (primary ? new Date(primary) : new Date(fallback));
 
 // ใช้กับวันลาแบบไม่รับเงิน (NO_PAY)
 // ฟังก์ชันนี้ถูกเรียกจาก applyLeaveDeduction() และ applyNoSalaryPeriods()
@@ -102,11 +104,13 @@ const resolveHalfDayLeaveWeight = (
 ): { isHalfDay: boolean } => {
   // คำนวณจำนวนวันลา โดยอ้างกฎจาก LEAVE_RULES (ไฟล์ payroll.constants.ts)
   // และใช้วันหยุดจาก core/utils.ts (isHoliday/countBusinessDays/countCalendarDays)
-  const durationOverride = leave.document_duration_days ?? leave.duration_days ?? null;
-  const isHalfDay = durationOverride !== null && durationOverride > 0 && durationOverride < 1;
+  const durationOverride =
+    leave.document_duration_days ?? leave.duration_days ?? null;
+  const isHalfDay =
+    durationOverride !== null && durationOverride > 0 && durationOverride < 1;
   if (isHalfDay) {
-      const dateStr = formatLocalDate(start);
-      if (!isHoliday(dateStr, holidays) && !isWeekend(start)) {
+    const dateStr = formatLocalDate(start);
+    if (!isHoliday(dateStr, holidays) && !isWeekend(start)) {
       return { isHalfDay: true };
     }
     return { isHalfDay: true };
@@ -200,7 +204,10 @@ export function calculateDeductions(
 
   for (const leave of sortedLeaves) {
     // ถ้ามีการแก้วันลาในเอกสาร ให้ใช้วันที่จากเอกสารเป็นหลัก
-    const start = resolveEffectiveDate(leave.document_start_date, leave.start_date);
+    const start = resolveEffectiveDate(
+      leave.document_start_date,
+      leave.start_date,
+    );
     const end = resolveEffectiveDate(leave.document_end_date, leave.end_date);
     applyLeaveDeduction(leave, {
       deductionMap,
@@ -216,7 +223,13 @@ export function calculateDeductions(
   }
 
   // เติมช่วง noSalaryPeriods อีกรอบ เพื่อกันข้อมูลตกหล่นจากตารางส่วนขยาย
-  applyNoSalaryPeriods(deductionMap, reasonsByDate, noSalaryPeriods, monthStart, monthEnd);
+  applyNoSalaryPeriods(
+    deductionMap,
+    reasonsByDate,
+    noSalaryPeriods,
+    monthStart,
+    monthEnd,
+  );
 
   return { deductionMap, reasonsByDate };
 }
@@ -322,11 +335,19 @@ function applyNoSalaryPeriods(
   for (const period of periods) {
     const start = new Date(period.start_date);
     const end = new Date(period.end_date);
-    applyNoPayLeave(deductionMap, reasonsByDate, start, end, monthStart, monthEnd, {
-      code: "NO_PAY",
-      leave_record_id: period.leave_record_id ?? null,
-      leave_type: period.leave_type ?? null,
-    });
+    applyNoPayLeave(
+      deductionMap,
+      reasonsByDate,
+      start,
+      end,
+      monthStart,
+      monthEnd,
+      {
+        code: "NO_PAY",
+        leave_record_id: period.leave_record_id ?? null,
+        leave_type: period.leave_type ?? null,
+      },
+    );
   }
 }
 
