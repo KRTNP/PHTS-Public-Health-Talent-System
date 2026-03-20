@@ -4,28 +4,34 @@
  * Approval workflow operations: approve, reject, return, batch approve
  */
 import { PoolConnection } from "mysql2/promise";
-import { getConnection } from '@config/database.js';
+import { getConnection } from "@config/database.js";
 import {
   RequestStatus,
   ActionType,
   PTSRequest,
   STEP_ROLE_MAP,
   ROLE_STEP_MAP,
-} from '@/modules/request/contracts/request.types.js';
-import { BatchApproveParams, BatchApproveResult } from '@/modules/request/dto/index.js';
-import { NotificationService } from '@/modules/notification/services/notification.service.js';
+} from "@/modules/request/contracts/request.types.js";
+import {
+  BatchApproveParams,
+  BatchApproveResult,
+} from "@/modules/request/dto/index.js";
+import { NotificationService } from "@/modules/notification/services/notification.service.js";
 import {
   mapRequestRow,
   normalizeDateToYMD,
   getRequestLinkForRole,
-} from '@/modules/request/services/helpers.js';
+} from "@/modules/request/services/helpers.js";
 import {
   canApproverAccessRequest,
   isRequestOwner,
   getActiveHeadScopeRoles,
-} from '@/modules/request/scope/application/scope.service.js';
-import { emitAuditEvent, AuditEventType } from '@/modules/audit/services/audit.service.js';
-import { requestRepository } from '@/modules/request/data/repositories/request.repository.js';
+} from "@/modules/request/scope/application/scope.service.js";
+import {
+  emitAuditEvent,
+  AuditEventType,
+} from "@/modules/audit/services/audit.service.js";
+import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
 
 // ============================================================================
 // Finalization
@@ -56,19 +62,19 @@ const finalizeRequest = async (
 
   // 2. Fallback: match by amount + profession
   if (!rateId) {
-      let profession = request.personnel_type;
-      const positionName = (request as any).position_name;
-      if (positionName && typeof positionName === "string") {
-        if (positionName.includes("ทันต")) profession = "DENTIST";
-        else if (positionName.includes("แพทย์")) profession = "DOCTOR";
-        else if (positionName.includes("เภสัช")) profession = "PHARMACIST";
-      }
+    let profession = request.personnel_type;
+    const positionName = (request as any).position_name;
+    if (positionName && typeof positionName === "string") {
+      if (positionName.includes("ทันต")) profession = "DENTIST";
+      else if (positionName.includes("แพทย์")) profession = "DOCTOR";
+      else if (positionName.includes("เภสัช")) profession = "PHARMACIST";
+    }
 
-      rateId = await requestRepository.findMatchingRateId(
-        amount,
-        profession,
-        connection,
-      );
+    rateId = await requestRepository.findMatchingRateId(
+      amount,
+      profession,
+      connection,
+    );
   }
 
   if (!rateId) {
@@ -120,7 +126,10 @@ export class RequestApprovalService {
       (await requestRepository.findCitizenIdByUserId(actorId)) ??
       (await requestRepository.findUserCitizenId(actorId));
     const signatureSnapshot = actorCitizenId
-      ? await requestRepository.findSignatureSnapshot(actorCitizenId, connection)
+      ? await requestRepository.findSignatureSnapshot(
+          actorCitizenId,
+          connection,
+        )
       : null;
     if (!signatureSnapshot) {
       throw new Error(
@@ -151,7 +160,10 @@ export class RequestApprovalService {
       signatureSnapshot,
       result,
     } = params;
-    const requestEntity = await requestRepository.findById(requestId, connection);
+    const requestEntity = await requestRepository.findById(
+      requestId,
+      connection,
+    );
     if (!requestEntity) {
       await connection.rollback();
       result.failed.push({ id: requestId, reason: "Request not found" });
@@ -249,9 +261,7 @@ export class RequestApprovalService {
     );
 
     const nextRole =
-      nextStep === 1 || nextStep === 2
-        ? "HEAD_SCOPE"
-        : STEP_ROLE_MAP[nextStep];
+      nextStep === 1 || nextStep === 2 ? "HEAD_SCOPE" : STEP_ROLE_MAP[nextStep];
     if (nextRole === "PTS_OFFICER") {
       try {
         const officerCount = await requestRepository.countActiveOfficers();
@@ -319,14 +329,19 @@ export class RequestApprovalService {
       let effectiveActorRole = actorRole;
       if (actorRole === "HEAD_SCOPE") {
         const activeRoles = await getActiveHeadScopeRoles(actorId, actorRole);
-        if (!activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")) {
+        if (
+          !activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")
+        ) {
           throw new Error(
             `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
           );
         }
         effectiveActorRole = expectedRole;
       }
-      if (actorRole !== "HEAD_SCOPE" && (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")) {
+      if (
+        actorRole !== "HEAD_SCOPE" &&
+        (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")
+      ) {
         throw new Error(
           `Invalid approver role. Expected HEAD_SCOPE, got ${actorRole}`,
         );
@@ -339,7 +354,10 @@ export class RequestApprovalService {
 
       const isSelfApproval = await isRequestOwner(actorId, request.user_id);
 
-      if (effectiveActorRole === "WARD_SCOPE" || effectiveActorRole === "DEPT_SCOPE") {
+      if (
+        effectiveActorRole === "WARD_SCOPE" ||
+        effectiveActorRole === "DEPT_SCOPE"
+      ) {
         const hasScope = await canApproverAccessRequest(
           actorId,
           effectiveActorRole,
@@ -348,9 +366,7 @@ export class RequestApprovalService {
         );
 
         if (!hasScope && !isSelfApproval) {
-          throw new Error(
-            "คุณไม่มีสิทธิ์อนุมัติคำขอนี้ในขอบเขตการดูแล",
-          );
+          throw new Error("คุณไม่มีสิทธิ์อนุมัติคำขอนี้ในขอบเขตการดูแล");
         }
 
         if (isSelfApproval) {
@@ -445,23 +461,26 @@ export class RequestApprovalService {
       const empSubDepartment = (requestEntity as any).emp_sub_department;
 
       if (request.status !== RequestStatus.PENDING) {
-        throw new Error(
-          `Cannot reject request with status: ${request.status}`,
-        );
+        throw new Error(`Cannot reject request with status: ${request.status}`);
       }
 
       const expectedRole = STEP_ROLE_MAP[request.current_step];
       let effectiveActorRole = actorRole;
       if (actorRole === "HEAD_SCOPE") {
         const activeRoles = await getActiveHeadScopeRoles(actorId, actorRole);
-        if (!activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")) {
+        if (
+          !activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")
+        ) {
           throw new Error(
             `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
           );
         }
         effectiveActorRole = expectedRole;
       }
-      if (actorRole !== "HEAD_SCOPE" && (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")) {
+      if (
+        actorRole !== "HEAD_SCOPE" &&
+        (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")
+      ) {
         throw new Error(
           `Invalid approver role. Expected HEAD_SCOPE, got ${actorRole}`,
         );
@@ -472,7 +491,10 @@ export class RequestApprovalService {
         );
       }
 
-      if (effectiveActorRole === "WARD_SCOPE" || effectiveActorRole === "DEPT_SCOPE") {
+      if (
+        effectiveActorRole === "WARD_SCOPE" ||
+        effectiveActorRole === "DEPT_SCOPE"
+      ) {
         const hasScope = await canApproverAccessRequest(
           actorId,
           effectiveActorRole,
@@ -480,9 +502,7 @@ export class RequestApprovalService {
           empSubDepartment,
         );
         if (!hasScope) {
-          throw new Error(
-            "คุณไม่มีสิทธิ์ปฏิเสธคำขอนี้ในขอบเขตการดูแล",
-          );
+          throw new Error("คุณไม่มีสิทธิ์ปฏิเสธคำขอนี้ในขอบเขตการดูแล");
         }
       }
 
@@ -580,23 +600,26 @@ export class RequestApprovalService {
       const empSubDepartment = (requestEntity as any).emp_sub_department;
 
       if (request.status !== RequestStatus.PENDING) {
-        throw new Error(
-          `Cannot return request with status: ${request.status}`,
-        );
+        throw new Error(`Cannot return request with status: ${request.status}`);
       }
 
       const expectedRole = STEP_ROLE_MAP[request.current_step];
       let effectiveActorRole = actorRole;
       if (actorRole === "HEAD_SCOPE") {
         const activeRoles = await getActiveHeadScopeRoles(actorId, actorRole);
-        if (!activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")) {
+        if (
+          !activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")
+        ) {
           throw new Error(
             `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
           );
         }
         effectiveActorRole = expectedRole;
       }
-      if (actorRole !== "HEAD_SCOPE" && (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")) {
+      if (
+        actorRole !== "HEAD_SCOPE" &&
+        (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")
+      ) {
         throw new Error(
           `Invalid approver role. Expected HEAD_SCOPE, got ${actorRole}`,
         );
@@ -607,7 +630,10 @@ export class RequestApprovalService {
         );
       }
 
-      if (effectiveActorRole === "WARD_SCOPE" || effectiveActorRole === "DEPT_SCOPE") {
+      if (
+        effectiveActorRole === "WARD_SCOPE" ||
+        effectiveActorRole === "DEPT_SCOPE"
+      ) {
         const hasScope = await canApproverAccessRequest(
           actorId,
           effectiveActorRole,
@@ -615,9 +641,7 @@ export class RequestApprovalService {
           empSubDepartment,
         );
         if (!hasScope) {
-          throw new Error(
-            "คุณไม่มีสิทธิ์ส่งคำขอนี้กลับแก้ไขในขอบเขตการดูแล",
-          );
+          throw new Error("คุณไม่มีสิทธิ์ส่งคำขอนี้กลับแก้ไขในขอบเขตการดูแล");
         }
       }
 
@@ -716,18 +740,15 @@ export class RequestApprovalService {
       for (const requestId of requestIds) {
         try {
           await connection.beginTransaction();
-          await this.processBatchRequest(
-            connection,
-            {
-              requestId,
-              actorId,
-              actorRole,
-              allowedSteps,
-              comment,
-              signatureSnapshot,
-              result,
-            },
-          );
+          await this.processBatchRequest(connection, {
+            requestId,
+            actorId,
+            actorRole,
+            allowedSteps,
+            comment,
+            signatureSnapshot,
+            result,
+          });
         } catch (err) {
           await connection.rollback();
           console.error("Error processing request in batch", {
@@ -775,7 +796,12 @@ export class RequestApprovalService {
     );
 
     if (nextStep > 6) {
-      await this.finalizeApprovedRequest(connection, request, requestId, actorId);
+      await this.finalizeApprovedRequest(
+        connection,
+        request,
+        requestId,
+        actorId,
+      );
       return;
     }
     await this.moveToNextApprovalStep(

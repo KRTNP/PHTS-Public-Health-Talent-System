@@ -99,7 +99,6 @@ export interface RequestVerificationSnapshotEntity {
   created_at: Date;
 }
 
-
 // ─── cfg_payment_rates (read-only) ───────────────────────────────────────────
 
 export interface PaymentRateEntity {

@@ -5,15 +5,18 @@
  * Uses special_position from emp_profiles to determine approver scopes.
  */
 
-import { delCache, setJsonCache } from '@shared/utils/cache.js';
-import { toDbHeadScopeRole, type HeadScopeCategory } from '@/shared/utils/head-scope-category.js';
-import { requestRepository } from '@/modules/request/data/repositories/request.repository.js';
-import { buildScopesFromSpecialPosition } from '@/modules/request/scope/domain/scope-parser.js';
+import { delCache, setJsonCache } from "@shared/utils/cache.js";
+import {
+  toDbHeadScopeRole,
+  type HeadScopeCategory,
+} from "@/shared/utils/head-scope-category.js";
+import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
+import { buildScopesFromSpecialPosition } from "@/modules/request/scope/domain/scope-parser.js";
 import {
   ApproverScopes,
   resolveApproverRole,
   inferScopeType,
-} from '@/modules/request/scope/domain/scope.utils.js';
+} from "@/modules/request/scope/domain/scope.utils.js";
 
 const SCOPE_CACHE_TTL_SECONDS = 6 * 60 * 60;
 export type InternalHeadRole = HeadScopeCategory;
@@ -71,10 +74,7 @@ export async function getApproverScopes(
     return emptyScopes;
   }
 
-  let mappings = await requestRepository.getScopeMappings(
-    userId,
-    userRole,
-  );
+  let mappings = await requestRepository.getScopeMappings(userId, userRole);
   if (mappings.length === 0) {
     mappings = await requestRepository.getScopeMappingsByCitizenId(
       citizenId,
@@ -93,7 +93,8 @@ export async function getApproverScopes(
     return scopes;
   }
 
-  const specialPosition = await requestRepository.findSpecialPosition(citizenId);
+  const specialPosition =
+    await requestRepository.findSpecialPosition(citizenId);
   const scopes = buildScopesFromSpecialPosition(specialPosition);
   await setJsonCache(redisKey, scopes, SCOPE_CACHE_TTL_SECONDS);
   return scopes;
@@ -113,7 +114,14 @@ export async function canApproverAccessRequest(
   if (userRole === "HEAD_SCOPE") {
     const roles = await getActiveHeadScopeRoles(userId, userRole);
     for (const role of roles) {
-      if (await canApproverAccessRequest(userId, role, requestDepartment, requestSubDepartment)) {
+      if (
+        await canApproverAccessRequest(
+          userId,
+          role,
+          requestDepartment,
+          requestSubDepartment,
+        )
+      ) {
         return true;
       }
     }
@@ -133,15 +141,15 @@ export async function canApproverAccessRequest(
     scopes.deptScopes.length > 0
   ) {
     const deptMatch = scopes.deptScopes.some(
-      (scope) => scope.toLowerCase() === (requestDepartment ?? "").toLowerCase(),
+      (scope) =>
+        scope.toLowerCase() === (requestDepartment ?? "").toLowerCase(),
     );
     if (deptMatch) {
       return true;
     }
   }
 
-  const wardScopesForCheck =
-    userRole === "DEPT_SCOPE" ? [] : scopes.wardScopes;
+  const wardScopesForCheck = userRole === "DEPT_SCOPE" ? [] : scopes.wardScopes;
   const resolvedRole = resolveApproverRole(
     wardScopesForCheck,
     scopes.deptScopes,
@@ -268,7 +276,9 @@ export async function getUserScopesForDisplay(
     appendDisplayScopes(result, scopes.deptScopes);
   }
   return Array.from(
-    new Map(result.map((scope) => [`${scope.type}:${scope.value}`, scope])).values(),
+    new Map(
+      result.map((scope) => [`${scope.type}:${scope.value}`, scope]),
+    ).values(),
   );
 }
 
@@ -281,28 +291,45 @@ export async function getUserScopesWithMembers(
 
   const scopesWithMembers = await Promise.all(
     scopes.map(async (scope) => {
-      const inScopeRows = await requestRepository.findEmployeesInScope(scope.type, scope.value);
-      const explicitScopeMappings = await requestRepository.findActiveScopeMappingsByScope(
+      const inScopeRows = await requestRepository.findEmployeesInScope(
         scope.type,
         scope.value,
       );
+      const explicitScopeMappings =
+        await requestRepository.findActiveScopeMappingsByScope(
+          scope.type,
+          scope.value,
+        );
       const explicitCitizens = Array.from(
-        new Set(explicitScopeMappings.map((row) => row.citizen_id).filter(Boolean)),
+        new Set(
+          explicitScopeMappings.map((row) => row.citizen_id).filter(Boolean),
+        ),
       );
-      const existingCitizens = new Set(inScopeRows.map((row) => row.citizen_id));
-      const missingMappedCitizens = explicitCitizens.filter((citizenId) => !existingCitizens.has(citizenId));
+      const existingCitizens = new Set(
+        inScopeRows.map((row) => row.citizen_id),
+      );
+      const missingMappedCitizens = explicitCitizens.filter(
+        (citizenId) => !existingCitizens.has(citizenId),
+      );
       const mappedRows =
         missingMappedCitizens.length > 0
-          ? await requestRepository.findEmployeesByCitizenIds(missingMappedCitizens)
+          ? await requestRepository.findEmployeesByCitizenIds(
+              missingMappedCitizens,
+            )
           : [];
 
       const rows = [...inScopeRows, ...mappedRows];
-      const mappingRows = await requestRepository.findActiveScopeMappingsForCitizens(
-        rows.map((row) => row.citizen_id).filter(Boolean),
-      );
+      const mappingRows =
+        await requestRepository.findActiveScopeMappingsForCitizens(
+          rows.map((row) => row.citizen_id).filter(Boolean),
+        );
       const scopeMappingsByCitizen = new Map<
         string,
-        Array<{ role: "WARD_SCOPE" | "DEPT_SCOPE"; scope_type: "UNIT" | "DEPT"; scope_name: string }>
+        Array<{
+          role: "WARD_SCOPE" | "DEPT_SCOPE";
+          scope_type: "UNIT" | "DEPT";
+          scope_name: string;
+        }>
       >();
       for (const row of mappingRows) {
         const bucket = scopeMappingsByCitizen.get(row.citizen_id) ?? [];
@@ -354,7 +381,11 @@ export function resolveMemberRoleForScope(
   scope: DisplayScope,
   memberDepartment: string | null,
   memberSubDepartment: string | null,
-  mappings: Array<{ role: "WARD_SCOPE" | "DEPT_SCOPE"; scope_type: "UNIT" | "DEPT"; scope_name: string }>,
+  mappings: Array<{
+    role: "WARD_SCOPE" | "DEPT_SCOPE";
+    scope_type: "UNIT" | "DEPT";
+    scope_name: string;
+  }>,
 ): "WARD_SCOPE" | "DEPT_SCOPE" | "USER" {
   const normalizedScopeValue = normalizeScopeValue(scope.value);
   const normalizedDept = normalizeScopeValue(memberDepartment);

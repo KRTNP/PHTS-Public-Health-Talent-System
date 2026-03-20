@@ -59,7 +59,16 @@ export const requestEligibilityQuerySchema = z.object({
     department: z.string().trim().max(255).optional(),
     sub_department: z.string().trim().max(255).optional(),
     license_status: z.enum(["all", "active", "expiring", "expired"]).optional(),
-    alert_filter: z.enum(["all", "any", "error", "no-license", "duplicate", "upcoming-change"]).optional(),
+    alert_filter: z
+      .enum([
+        "all",
+        "any",
+        "error",
+        "no-license",
+        "duplicate",
+        "upcoming-change",
+      ])
+      .optional(),
   }),
 });
 
@@ -74,7 +83,9 @@ export const requestOcrHistoryQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(100).optional(),
-    status: z.enum(["queued", "processing", "completed", "failed", "skipped"]).optional(),
+    status: z
+      .enum(["queued", "processing", "completed", "failed", "skipped"])
+      .optional(),
     search: z.string().trim().max(200).optional(),
   }),
 });
@@ -84,11 +95,13 @@ export const requestRateMappingSchema = z.object({
   body: z.object({
     group_no: z.coerce.number().int().positive(),
     item_no: z.preprocess(
-      (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+      (value) =>
+        typeof value === "string" && value.trim() === "" ? null : value,
       z.string().min(1).optional().nullable(),
     ),
     sub_item_no: z.preprocess(
-      (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+      (value) =>
+        typeof value === "string" && value.trim() === "" ? null : value,
       z.string().min(1).optional().nullable(),
     ),
   }),
@@ -97,43 +110,48 @@ export const requestRateMappingSchema = z.object({
 export const requestManualOcrSchema = z.object({
   params: idParam,
   body: z.object({
-    service_url: z.string().trim().url().optional(),
     worker: z.string().trim().min(1).max(100).optional(),
     count: z.coerce.number().int().min(0).optional(),
     success_count: z.coerce.number().int().min(0).optional(),
     failed_count: z.coerce.number().int().min(0).optional(),
     error: z.string().trim().max(5000).optional().nullable(),
-    results: z.array(
-      z.object({
-        name: z.string().trim().max(255).optional(),
-        ok: z.boolean().optional(),
-        markdown: z.string().optional(),
-        error: z.string().optional(),
-      }),
-    ).optional(),
+    results: z
+      .array(
+        z.object({
+          name: z.string().trim().max(255).optional(),
+          ok: z.boolean().optional(),
+          markdown: z.string().optional(),
+          error: z.string().optional(),
+        }),
+      )
+      .optional(),
   }),
 });
 
 export const requestEligibilityAttachmentOcrSchema = z.object({
   params: eligibilityIdParam,
   body: z.object({
-    attachments: z.array(
-      z.object({
-        attachment_id: z.coerce.number().int().positive(),
-        source: z.enum(["eligibility", "request"]),
-      }),
-    ).min(1),
+    attachments: z
+      .array(
+        z.object({
+          attachment_id: z.coerce.number().int().positive(),
+          source: z.enum(["eligibility", "request"]),
+        }),
+      )
+      .min(1),
   }),
 });
 
 export const requestAttachmentOcrSchema = z.object({
   params: idParam,
   body: z.object({
-    attachments: z.array(
-      z.object({
-        attachment_id: z.coerce.number().int().positive(),
-      }),
-    ).min(1),
+    attachments: z
+      .array(
+        z.object({
+          attachment_id: z.coerce.number().int().positive(),
+        }),
+      )
+      .min(1),
   }),
 });
 

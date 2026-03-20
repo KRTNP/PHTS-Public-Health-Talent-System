@@ -7,13 +7,16 @@
  */
 
 import { Router } from "express";
-import { protect, restrictTo } from '@middlewares/authMiddleware.js';
-import { idempotency } from '@middlewares/idempotency.js';
-import { requestUpload } from '@config/upload.js';
-import { requestController } from '@/modules/request/controllers/request.controller.js'; // Import instance
-import { validate } from '@shared/validate.middleware.js';
-import { actionSchema, verificationSchema } from '@/modules/request/dto/update-status.dto.js'; // Use correct DTO file
-import { verificationSnapshotSchema } from '@/modules/request/dto/verification-snapshot.dto.js';
+import { protect, restrictTo } from "@middlewares/authMiddleware.js";
+import { idempotency } from "@middlewares/idempotency.js";
+import { requestUpload } from "@config/upload.js";
+import { requestController } from "@/modules/request/controllers/request.controller.js"; // Import instance
+import { validate } from "@shared/validate.middleware.js";
+import {
+  actionSchema,
+  verificationSchema,
+} from "@/modules/request/dto/update-status.dto.js"; // Use correct DTO file
+import { verificationSnapshotSchema } from "@/modules/request/dto/verification-snapshot.dto.js";
 import {
   requestAttachmentParamSchema,
   requestEligibilityAttachmentParamSchema,
@@ -32,8 +35,8 @@ import {
   requestRateMappingSchema,
   requestReassignSchema,
   requestEligibilityManageSchema,
-} from '@/modules/request/dto/request-params.dto.js';
-import { UserRole } from '@/types/auth.js';
+} from "@/modules/request/dto/request-params.dto.js";
+import { UserRole } from "@/types/auth.js";
 // Note: createRequestSchema is used inside controller manually for file upload handling, or added here if middleware used.
 // Current controller implementation handles validation manually after file upload.
 
@@ -68,7 +71,6 @@ router.get(
   restrictTo(UserRole.PTS_OFFICER),
   requestController.searchPersonnelOptions,
 );
-
 
 router.post(
   "/:id/rate-mapping",
@@ -236,7 +238,6 @@ router.post(
   requestController.reactivateEligibility,
 );
 
-
 // Get approval history for current approver
 router.get(
   "/history",
@@ -266,7 +267,11 @@ router.get(
 );
 
 // Get request details by ID or request_no
-router.get("/:id", validate(requestIdOrNoParamSchema), requestController.getRequestById);
+router.get(
+  "/:id",
+  validate(requestIdOrNoParamSchema),
+  requestController.getRequestById,
+);
 
 // Update a request (Owner only, DRAFT or RETURNED status)
 router.put(
@@ -395,6 +400,10 @@ router.post(
 );
 
 // Get reassignment history for a request
-router.get("/:id/reassign-history", validate(requestIdParamSchema), requestController.getReassignHistory);
+router.get(
+  "/:id/reassign-history",
+  validate(requestIdParamSchema),
+  requestController.getReassignHistory,
+);
 
 export default router;

@@ -64,7 +64,7 @@ export {
   STEP_ROLE_MAP,
   ROLE_STEP_MAP,
   TOTAL_APPROVAL_STEPS,
-} from '@shared/policy/request.policy.js';
+} from "@shared/policy/request.policy.js";
 
 /**
  * Work attributes interface for P.T.S. form
@@ -169,9 +169,8 @@ export interface RequestWithDetails extends PTSRequest {
   } | null;
   ocr_precheck?: {
     request_id: number;
-    status: 'queued' | 'processing' | 'completed' | 'failed' | 'skipped';
+    status: "queued" | "processing" | "completed" | "failed" | "skipped";
     source?: string | null;
-    service_url?: string | null;
     worker?: string | null;
     queued_at?: DateLike;
     started_at?: DateLike;
@@ -229,9 +228,8 @@ export interface OcrPrecheckHistoryResult {
     request_type?: string | null;
     requester_name?: string | null;
     department?: string | null;
-    status: 'queued' | 'processing' | 'completed' | 'failed' | 'skipped';
+    status: "queued" | "processing" | "completed" | "failed" | "skipped";
     source?: string | null;
-    service_url?: string | null;
     worker?: string | null;
     queued_at?: DateLike;
     started_at?: DateLike;
@@ -240,12 +238,9 @@ export interface OcrPrecheckHistoryResult {
     success_count?: number | null;
     failed_count?: number | null;
     error?: string | null;
-    engine_used?: string | null;
-    fallback_used?: boolean | null;
     document_kind?: string | null;
     fields?: Record<string, unknown> | null;
     missing_fields?: string[] | null;
-    fallback_reason?: string | null;
     quality?: {
       required_fields?: number;
       captured_fields?: number;

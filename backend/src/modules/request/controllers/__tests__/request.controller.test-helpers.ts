@@ -9,7 +9,7 @@ export const makeStatusJsonRes = () => ({
 
 export const makeUser = (overrides: Record<string, unknown> = {}) => ({
   userId: 46941,
-  role: 'PTS_OFFICER',
+  role: "PTS_OFFICER",
   ...overrides,
 });
 

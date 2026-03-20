@@ -22,11 +22,11 @@ describe('assignment order normalizer', () => {
     expect(lines).toEqual(['๑.6 นางสาวจริยา'])
   })
 
-  test('normalizes paddle technique typo', () => {
+  test('does not normalize non-tesseract engine variants', () => {
     const normalized = normalizeAssignmentOrderMarkdown({
       markdown: '๒. ใช้หลัก Aseptc Techกique',
-      engineUsed: 'paddle',
+      engineUsed: 'external',
     })
-    expect(normalized).toContain('Aseptic Technique')
+    expect(normalized).toContain('Aseptc Techกique')
   })
 })

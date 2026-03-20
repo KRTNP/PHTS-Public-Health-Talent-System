@@ -192,7 +192,7 @@ describe('parseAssignmentOrderSummary', () => {
     expect(summary?.sectionTitle).toBe('งานเตรียมหรือผลิตยาเคมีบำบัดและการบริบาลเภสัชกรรมผู้ป่วยที่ได้รับยาเคมีบำบัด')
   })
 
-  test('normalizes tesseract and paddle variants into same assignment structure', () => {
+  test('normalizes tesseract OCR variant into stable assignment structure', () => {
     const tesseractSummary = parseAssignmentOrderSummary(
       {
         fileName: 'page-5-6.pdf',
@@ -212,41 +212,13 @@ describe('parseAssignmentOrderSummary', () => {
       'นางสาว จริยา ใจใหญ่',
     )
 
-    const paddleSummary = parseAssignmentOrderSummary(
-      {
-        fileName: 'page-5-6.pdf',
-        engineUsed: 'paddle',
-        markdown: [
-          'คำสั่งกลุ่มงานเภสัชกรรม',
-          'เรื่อง ยกเลิกและมอบหมายเจ้าหน้าที่รับผิดชอบในการปฏิบัติงาน',
-          '๑. งานเตรียมหรือผลิตยาเคมีบำบัดและการบริบาลเภสัชกรรมผู้ป่วยที่ได้รับยาเคมีบำบัด',
-          'ใจใหญ่',
-          '๑.6 นางสาวจริยา',
-          'โดยมีหน้าที่ ดังนี้',
-          '๑. ตรวจสอบวิเคราะห์คำสั่งการใช้ยาเคมีบำบัด',
-          '๒. คำนวณขนาดยา ปริมาณยา และเตรียมยาให้พร้อมใช้',
-          '๓. ให้การบริบาลเภสัชกรรมผู้ป่วยที่ได้รับยาเคมีบำบัด',
-        ].join('\n'),
-      },
-      'นางสาว จริยา ใจใหญ่',
-    )
-
     expect(tesseractSummary?.personMatched).toBe(true)
-    expect(paddleSummary?.personMatched).toBe(true)
     expect(tesseractSummary?.sectionTitle).toBe(
       'งานเตรียมหรือผลิตยาเคมีบำบัดและการบริบาลเภสัชกรรมผู้ป่วยที่ได้รับยาเคมีบำบัด',
-    )
-    expect(paddleSummary?.sectionTitle).toBe(
-      '๑. งานเตรียมหรือผลิตยาเคมีบำบัดและการบริบาลเภสัชกรรมผู้ป่วยที่ได้รับยาเคมีบำบัด',
     )
     expect(tesseractSummary?.dutyHighlights).toEqual([
       '๑. ตรวจสอบวิเคราะห์คำสั่งการใช้ยาเคมีบำบัด',
       '๒. คำนวณขนาดยา ปริมาณยา และเตรียมยาให้พร้อมใช้โดยใช้หลัก Aseptic Technique',
-      '๓. ให้การบริบาลเภสัชกรรมผู้ป่วยที่ได้รับยาเคมีบำบัด',
-    ])
-    expect(paddleSummary?.dutyHighlights).toEqual([
-      '๑. ตรวจสอบวิเคราะห์คำสั่งการใช้ยาเคมีบำบัด',
-      '๒. คำนวณขนาดยา ปริมาณยา และเตรียมยาให้พร้อมใช้',
       '๓. ให้การบริบาลเภสัชกรรมผู้ป่วยที่ได้รับยาเคมีบำบัด',
     ])
   })

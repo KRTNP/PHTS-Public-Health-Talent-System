@@ -422,19 +422,14 @@ type OcrPrecheckPayload = {
   queued_at?: string;
   started_at?: string;
   finished_at?: string;
-  service_url?: string;
-  serviceUrl?: string;
   results?: Array<{
     name?: string;
     ok?: boolean;
     markdown?: string;
     error?: string;
-    engine_used?: string;
-    fallback_used?: boolean;
     document_kind?: string;
     fields?: Record<string, unknown>;
     missing_fields?: string[];
-    fallback_reason?: string;
     quality?: {
       required_fields?: number;
       captured_fields?: number;
@@ -481,7 +476,6 @@ export default function RequestDetailPage({
       ok?: boolean;
       markdown?: string;
       error?: string;
-      suppressed?: boolean;
       document_kind?: string;
     }>
   >([]);
@@ -983,12 +977,13 @@ export default function RequestDetailPage({
         requestId: id,
         payload: { file_name: fileName },
       });
-      setLatestOcrResults((prev) => [
-        ...prev.filter(
-          (item) => String(item.name ?? "").trim().toLowerCase() !== fileName.trim().toLowerCase(),
+      setLatestOcrResults((prev) =>
+        prev.filter(
+          (item) =>
+            String(item.name ?? "").trim().toLowerCase() !==
+            fileName.trim().toLowerCase(),
         ),
-        { name: fileName, suppressed: true },
-      ]);
+      );
       toast.success("ล้างผล OCR เรียบร้อย");
     } catch (error) {
       const message =

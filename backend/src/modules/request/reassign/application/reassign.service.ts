@@ -1,20 +1,20 @@
-import { getConnection } from '@config/database.js';
+import { getConnection } from "@config/database.js";
 import {
   ActionType,
   RequestStatus,
   ROLE_STEP_MAP,
-} from '@/modules/request/contracts/request.types.js';
-import { requestRepository } from '@/modules/request/data/repositories/request.repository.js';
-import { getRequestLinkForRole } from '@/modules/request/services/helpers.js';
-import { NotificationService } from '@/modules/notification/services/notification.service.js';
-import { AppError, NotFoundError } from '@shared/utils/errors.js';
+} from "@/modules/request/contracts/request.types.js";
+import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
+import { getRequestLinkForRole } from "@/modules/request/services/helpers.js";
+import { NotificationService } from "@/modules/notification/services/notification.service.js";
+import { AppError, NotFoundError } from "@shared/utils/errors.js";
 import type {
   AvailableOfficer,
   PendingOfficerRequest,
   ReassignRequestDTO,
   ReassignResult,
   ReassignmentHistoryItem,
-} from '@/modules/request/reassign/domain/reassign.types.js';
+} from "@/modules/request/reassign/domain/reassign.types.js";
 
 const PTS_OFFICER_STEP = ROLE_STEP_MAP.PTS_OFFICER;
 
@@ -42,17 +42,20 @@ export async function reassignRequest(
   try {
     await connection.beginTransaction();
 
-    const requestEntity = await requestRepository.findById(requestId, connection);
+    const requestEntity = await requestRepository.findById(
+      requestId,
+      connection,
+    );
     if (!requestEntity) {
-      throw new NotFoundError('Request', requestId);
+      throw new NotFoundError("Request", requestId);
     }
 
     const officerCount = await requestRepository.countActiveOfficers();
     if (officerCount < 2) {
       throw new AppError(
-        'Reassign requires at least 2 active PTS_OFFICER',
+        "Reassign requires at least 2 active PTS_OFFICER",
         409,
-        'REASSIGN_INSUFFICIENT_OFFICERS',
+        "REASSIGN_INSUFFICIENT_OFFICERS",
       );
     }
 
@@ -60,7 +63,7 @@ export async function reassignRequest(
       throw new AppError(
         `Cannot reassign request with status: ${requestEntity.status}`,
         409,
-        'REASSIGN_INVALID_STATUS',
+        "REASSIGN_INVALID_STATUS",
         { requestId, status: requestEntity.status },
       );
     }
@@ -69,16 +72,16 @@ export async function reassignRequest(
       throw new AppError(
         `Request is not at PTS Officer stage. Current step: ${requestEntity.current_step}`,
         409,
-        'REASSIGN_INVALID_STEP',
+        "REASSIGN_INVALID_STEP",
         { requestId, currentStep: requestEntity.current_step },
       );
     }
 
     if (actorId === targetOfficerId) {
       throw new AppError(
-        'Cannot reassign to yourself',
+        "Cannot reassign to yourself",
         422,
-        'REASSIGN_SELF_NOT_ALLOWED',
+        "REASSIGN_SELF_NOT_ALLOWED",
       );
     }
 
@@ -88,23 +91,27 @@ export async function reassignRequest(
     );
     if (!isTargetOfficer) {
       throw new AppError(
-        'Target officer must be an active PTS_OFFICER',
+        "Target officer must be an active PTS_OFFICER",
         422,
-        'REASSIGN_TARGET_OFFICER_INVALID',
+        "REASSIGN_TARGET_OFFICER_INVALID",
         { targetOfficerId },
       );
     }
 
     if (requestEntity.assigned_officer_id === targetOfficerId) {
       throw new AppError(
-        'Request is already assigned to target officer',
+        "Request is already assigned to target officer",
         409,
-        'REASSIGN_DUPLICATE_TARGET',
+        "REASSIGN_DUPLICATE_TARGET",
         { requestId, targetOfficerId },
       );
     }
 
-    await requestRepository.updateAssignedOfficer(requestId, targetOfficerId, connection);
+    await requestRepository.updateAssignedOfficer(
+      requestId,
+      targetOfficerId,
+      connection,
+    );
 
     await requestRepository.insertApproval(
       {
@@ -122,12 +129,12 @@ export async function reassignRequest(
 
     await NotificationService.notifyUser(
       targetOfficerId,
-      'งานได้รับมอบหมายใหม่',
+      "งานได้รับมอบหมายใหม่",
       `คำขอเลขที่ ${requestEntity.request_no} ถูกโอนมาให้คุณดูแล`,
-      getRequestLinkForRole('PTS_OFFICER', requestId),
-      'INFO',
+      getRequestLinkForRole("PTS_OFFICER", requestId),
+      "INFO",
     ).catch((error) => {
-      console.error('[Notification] enqueue failed after reassign:', error);
+      console.error("[Notification] enqueue failed after reassign:", error);
     });
 
     return {
@@ -155,7 +162,7 @@ export async function getReassignmentHistory(
       actionId: action.action_id,
       actorId: action.actor_id,
       actorName: `${action.actor_first_name} ${action.actor_last_name}`.trim(),
-      reason: action.comment?.split(': ')[1] || action.comment || null,
+      reason: action.comment?.split(": ")[1] || action.comment || null,
       reassignedAt: action.created_at,
     }));
 }
@@ -163,5 +170,8 @@ export async function getReassignmentHistory(
 export async function getPendingForOfficer(
   officerId: number,
 ): Promise<PendingOfficerRequest[]> {
-  return requestRepository.findPendingByStepForOfficer(PTS_OFFICER_STEP, officerId);
+  return requestRepository.findPendingByStepForOfficer(
+    PTS_OFFICER_STEP,
+    officerId,
+  );
 }

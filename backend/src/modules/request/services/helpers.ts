@@ -4,9 +4,9 @@ import {
   PersonnelType,
   PTSRequest,
   RequestWithDetails,
-} from '@/modules/request/contracts/request.types.js';
-import { randomBytes } from 'node:crypto';
-import { formatDateOnly } from '@/shared/utils/date-only.js';
+} from "@/modules/request/contracts/request.types.js";
+import { randomBytes } from "node:crypto";
+import { formatDateOnly } from "@/shared/utils/date-only.js";
 
 export const REQUESTER_FIELDS = `
   u.citizen_id as requester_citizen_id,
@@ -99,12 +99,12 @@ export const getRequestLinkForRole = (
   return `/dashboard/approver/requests/${requestId}`;
 };
 
-const REQUEST_NO_TOKEN_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const REQUEST_NO_TOKEN_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const REQUEST_NO_TOKEN_LENGTH = 8;
 
 const generateRequestNoToken = (): string => {
   const bytes = randomBytes(REQUEST_NO_TOKEN_LENGTH);
-  let token = '';
+  let token = "";
   for (let i = 0; i < bytes.length; i += 1) {
     token += REQUEST_NO_TOKEN_CHARS[bytes[i] % REQUEST_NO_TOKEN_CHARS.length];
   }
@@ -115,11 +115,12 @@ export const generateRequestNoFromId = (
   _requestId: number,
   createdAt: Date | string = new Date(),
 ): string => {
-  const createdDate = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  const createdDate =
+    createdAt instanceof Date ? createdAt : new Date(createdAt);
   const adYear = Number.isNaN(createdDate.getTime())
     ? new Date().getFullYear()
     : createdDate.getFullYear();
-  const beYearShort = String((adYear + 543) % 100).padStart(2, '0');
+  const beYearShort = String((adYear + 543) % 100).padStart(2, "0");
   return `REQ-${beYearShort}-${generateRequestNoToken()}`;
 };
 

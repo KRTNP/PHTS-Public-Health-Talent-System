@@ -1,5 +1,8 @@
 import { getConnection } from "@config/database.js";
-import { RequestStatus, RequestType } from "@/modules/request/contracts/request.types.js";
+import {
+  RequestStatus,
+  RequestType,
+} from "@/modules/request/contracts/request.types.js";
 import { AuditEventType } from "@/modules/audit/entities/audit.entity.js";
 import { OcrRequestRepository } from "@/modules/ocr/repositories/ocr-request.repository.js";
 import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
@@ -48,7 +51,9 @@ describe("RequestCommandService officer on behalf flow", () => {
 
   it("creates request for selected personnel when PTS_OFFICER submits on behalf", async () => {
     mockOfficerTargetCitizenLookup();
-    jest.spyOn(requestRepository, "findSignatureIdByUserId").mockResolvedValue(null);
+    jest
+      .spyOn(requestRepository, "findSignatureIdByUserId")
+      .mockResolvedValue(null);
     jest.spyOn(requestRepository, "findEmployeeProfile").mockResolvedValue({
       citizen_id: "1100702579863",
       title: "นางสาว",
@@ -114,7 +119,9 @@ describe("RequestCommandService officer on behalf flow", () => {
 
   it("queues OCR immediately after creating draft with attachments", async () => {
     mockOfficerTargetCitizenLookup();
-    jest.spyOn(requestRepository, "findSignatureIdByUserId").mockResolvedValue(null);
+    jest
+      .spyOn(requestRepository, "findSignatureIdByUserId")
+      .mockResolvedValue(null);
     jest.spyOn(requestRepository, "findEmployeeProfile").mockResolvedValue({
       citizen_id: "1100702579863",
     } as any);
@@ -124,9 +131,13 @@ describe("RequestCommandService officer on behalf flow", () => {
     jest.spyOn(requestQueryService, "getRequestDetails").mockResolvedValue({
       request_id: 777,
     } as any);
-    jest.spyOn(OcrRequestRepository, "upsertRequestPrecheck").mockResolvedValue();
+    jest
+      .spyOn(OcrRequestRepository, "upsertRequestPrecheck")
+      .mockResolvedValue();
 
-    const { enqueueRequestOcrPrecheck } = jest.requireMock("@/modules/ocr/services/ocr-precheck.service.js");
+    const { enqueueRequestOcrPrecheck } = jest.requireMock(
+      "@/modules/ocr/services/ocr-precheck.service.js",
+    );
 
     await service.createRequest(
       9001,
@@ -203,17 +214,25 @@ describe("RequestCommandService officer on behalf flow", () => {
           created_by_officer_role: "PTS_OFFICER",
         },
       } as any);
-    jest.spyOn(requestRepository, "findSignatureSnapshot").mockResolvedValue(null);
+    jest
+      .spyOn(requestRepository, "findSignatureSnapshot")
+      .mockResolvedValue(null);
     jest.spyOn(requestRepository, "update").mockResolvedValue();
     jest.spyOn(requestRepository, "insertApproval").mockResolvedValue(1 as any);
-    jest.spyOn(requestRepository, "insertVerificationSnapshot").mockResolvedValue(88);
+    jest
+      .spyOn(requestRepository, "insertVerificationSnapshot")
+      .mockResolvedValue(88);
     jest.spyOn(requestRepository, "deactivateEligibility").mockResolvedValue();
     jest.spyOn(requestRepository, "insertEligibility").mockResolvedValue();
-    jest.spyOn(requestRepository, "findVerificationSnapshotById").mockResolvedValue({
-      snapshot_id: 88,
-    } as any);
+    jest
+      .spyOn(requestRepository, "findVerificationSnapshotById")
+      .mockResolvedValue({
+        snapshot_id: 88,
+      } as any);
     jest.spyOn(requestRepository, "findMatchingRateId").mockResolvedValue(101);
-    jest.spyOn(OcrRequestRepository, "upsertRequestPrecheck").mockResolvedValue();
+    jest
+      .spyOn(OcrRequestRepository, "upsertRequestPrecheck")
+      .mockResolvedValue();
 
     const result = await service.submitRequest(501, 9001, "PTS_OFFICER");
 
@@ -258,8 +277,12 @@ describe("RequestCommandService officer on behalf flow", () => {
       }),
       connection as any,
     );
-    const { emitAuditEvent } = jest.requireMock("@/modules/audit/services/audit.service.js");
-    const { enqueueRequestOcrPrecheck } = jest.requireMock("@/modules/ocr/services/ocr-precheck.service.js");
+    const { emitAuditEvent } = jest.requireMock(
+      "@/modules/audit/services/audit.service.js",
+    );
+    const { enqueueRequestOcrPrecheck } = jest.requireMock(
+      "@/modules/ocr/services/ocr-precheck.service.js",
+    );
     expect(emitAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: AuditEventType.REQUEST_SUBMIT,
@@ -310,28 +333,40 @@ describe("RequestCommandService officer on behalf flow", () => {
         effective_date: new Date("2026-03-03"),
         submission_data: {},
       } as any);
-    jest.spyOn(requestRepository, "findRequestCreateAuditMeta").mockResolvedValue({
-      actor_id: 9001,
-      actor_role: "PTS_OFFICER",
-      action_detail: {
-        owner_user_id: 2001,
-      },
-    } as any);
-    jest.spyOn(requestRepository, "findSignatureSnapshot").mockResolvedValue(null);
+    jest
+      .spyOn(requestRepository, "findRequestCreateAuditMeta")
+      .mockResolvedValue({
+        actor_id: 9001,
+        actor_role: "PTS_OFFICER",
+        action_detail: {
+          owner_user_id: 2001,
+        },
+      } as any);
+    jest
+      .spyOn(requestRepository, "findSignatureSnapshot")
+      .mockResolvedValue(null);
     jest.spyOn(requestRepository, "update").mockResolvedValue();
     jest.spyOn(requestRepository, "insertApproval").mockResolvedValue(1 as any);
-    jest.spyOn(requestRepository, "insertVerificationSnapshot").mockResolvedValue(89);
+    jest
+      .spyOn(requestRepository, "insertVerificationSnapshot")
+      .mockResolvedValue(89);
     jest.spyOn(requestRepository, "deactivateEligibility").mockResolvedValue();
     jest.spyOn(requestRepository, "insertEligibility").mockResolvedValue();
-    jest.spyOn(requestRepository, "findVerificationSnapshotById").mockResolvedValue({
-      snapshot_id: 89,
-    } as any);
+    jest
+      .spyOn(requestRepository, "findVerificationSnapshotById")
+      .mockResolvedValue({
+        snapshot_id: 89,
+      } as any);
     jest.spyOn(requestRepository, "findMatchingRateId").mockResolvedValue(101);
-    jest.spyOn(OcrRequestRepository, "upsertRequestPrecheck").mockResolvedValue();
+    jest
+      .spyOn(OcrRequestRepository, "upsertRequestPrecheck")
+      .mockResolvedValue();
 
     const result = await service.submitRequest(67906, 9001, "PTS_OFFICER");
 
-    expect(requestRepository.findRequestCreateAuditMeta).toHaveBeenCalledWith(67906);
+    expect(requestRepository.findRequestCreateAuditMeta).toHaveBeenCalledWith(
+      67906,
+    );
     expect(requestRepository.insertVerificationSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
         request_id: 67906,
@@ -417,8 +452,12 @@ describe("RequestCommandService officer on behalf flow", () => {
     jest.spyOn(requestQueryService, "getRequestDetails").mockResolvedValue({
       request_id: 888,
     } as any);
-    jest.spyOn(OcrRequestRepository, "upsertRequestPrecheck").mockResolvedValue();
-    const { enqueueRequestOcrPrecheck } = jest.requireMock("@/modules/ocr/services/ocr-precheck.service.js");
+    jest
+      .spyOn(OcrRequestRepository, "upsertRequestPrecheck")
+      .mockResolvedValue();
+    const { enqueueRequestOcrPrecheck } = jest.requireMock(
+      "@/modules/ocr/services/ocr-precheck.service.js",
+    );
 
     await service.updateRequest(
       888,
@@ -462,13 +501,15 @@ describe("RequestCommandService officer on behalf flow", () => {
         first_name: "กันยกร",
       },
     } as any);
-    jest.spyOn(requestRepository, "findRequestCreateAuditMeta").mockResolvedValue({
-      actor_id: 9001,
-      actor_role: "PTS_OFFICER",
-      action_detail: {
-        owner_user_id: 46409,
-      },
-    } as any);
+    jest
+      .spyOn(requestRepository, "findRequestCreateAuditMeta")
+      .mockResolvedValue({
+        actor_id: 9001,
+        actor_role: "PTS_OFFICER",
+        action_detail: {
+          owner_user_id: 46409,
+        },
+      } as any);
     jest.spyOn(requestRepository, "findRateByDetails").mockResolvedValue({
       rate_id: 104,
       amount: 1500,
@@ -484,7 +525,9 @@ describe("RequestCommandService officer on behalf flow", () => {
       sub_item_no: null,
     });
 
-    expect(requestRepository.findRequestCreateAuditMeta).toHaveBeenCalledWith(67906);
+    expect(requestRepository.findRequestCreateAuditMeta).toHaveBeenCalledWith(
+      67906,
+    );
     expect(result).toEqual(
       expect.objectContaining({
         request_id: 67906,

@@ -1,8 +1,8 @@
 /**
  * src/modules/request/read/services/query.service.ts
  */
-import path from 'node:path';
-import { stat } from 'node:fs/promises';
+import path from "node:path";
+import { stat } from "node:fs/promises";
 import {
   RequestStatus,
   RequestAttachment,
@@ -10,19 +10,22 @@ import {
   ROLE_STEP_MAP,
   RequestActionWithActor,
   OcrPrecheckHistoryResult,
-} from '@/modules/request/contracts/request.types.js';
-import { mapRequestRow, hydrateRequests } from '@/modules/request/services/helpers.js';
-import { parseJsonField } from '@/modules/request/services/helpers.js';
+} from "@/modules/request/contracts/request.types.js";
+import {
+  mapRequestRow,
+  hydrateRequests,
+} from "@/modules/request/services/helpers.js";
+import { parseJsonField } from "@/modules/request/services/helpers.js";
 import {
   getScopeFilterForApprover,
   getScopeFilterForSelectedScope,
   canApproverAccessRequest,
   getApproverScopes,
   getActiveHeadScopeRoles,
-} from '@/modules/request/scope/application/scope.service.js';
-import { requestRepository } from '@/modules/request/data/repositories/request.repository.js'; // [NEW]
-import { OcrRequestRepository } from '@/modules/ocr/repositories/ocr-request.repository.js';
-import { AuthorizationError, NotFoundError } from '@/shared/utils/errors.js';
+} from "@/modules/request/scope/application/scope.service.js";
+import { requestRepository } from "@/modules/request/data/repositories/request.repository.js"; // [NEW]
+import { OcrRequestRepository } from "@/modules/ocr/repositories/ocr-request.repository.js";
+import { AuthorizationError, NotFoundError } from "@/shared/utils/errors.js";
 
 // ============================================================================
 // User's Requests
@@ -38,7 +41,7 @@ export class RequestQueryService {
       return fallbackNumber;
     }
 
-    const normalizedPath = String(filePath ?? '').trim();
+    const normalizedPath = String(filePath ?? "").trim();
     if (!normalizedPath) {
       return null;
     }
@@ -55,17 +58,14 @@ export class RequestQueryService {
     }
   }
 
-  private resolveRequesterLicenseStatus(reqAny: any):
-    | "ACTIVE"
-    | "EXPIRED"
-    | "INACTIVE"
-    | "UNKNOWN"
-    | null {
+  private resolveRequesterLicenseStatus(
+    reqAny: any,
+  ): "ACTIVE" | "EXPIRED" | "INACTIVE" | "UNKNOWN" | null {
     const hasLicenseData = Boolean(
       reqAny.license_no ||
-        reqAny.license_name ||
-        reqAny.license_valid_from ||
-        reqAny.license_valid_until,
+      reqAny.license_name ||
+      reqAny.license_valid_from ||
+      reqAny.license_valid_until,
     );
     if (!hasLicenseData) {
       return null;
@@ -89,7 +89,11 @@ export class RequestQueryService {
     ) {
       return "EXPIRED";
     }
-    if (licenseValidUntil || licenseStatusRaw === "ACTIVE" || licenseStatusRaw === null) {
+    if (
+      licenseValidUntil ||
+      licenseStatusRaw === "ACTIVE" ||
+      licenseStatusRaw === null
+    ) {
       return "ACTIVE";
     }
     return "UNKNOWN";
@@ -103,20 +107,28 @@ export class RequestQueryService {
   ): Promise<void> {
     const isOwner = request.user_id === userId;
     const submissionData =
-      parseJsonField<Record<string, unknown>>(request.submission_data, 'submission_data') || {};
-    const createdByOfficerId = Number(submissionData.created_by_officer_id ?? 0) || null;
-    const isCreatorOfficer = createdByOfficerId !== null && createdByOfficerId === userId;
+      parseJsonField<Record<string, unknown>>(
+        request.submission_data,
+        "submission_data",
+      ) || {};
+    const createdByOfficerId =
+      Number(submissionData.created_by_officer_id ?? 0) || null;
+    const isCreatorOfficer =
+      createdByOfficerId !== null && createdByOfficerId === userId;
     const isAdmin = userRole === "ADMIN";
     let isApprover =
       ROLE_STEP_MAP[userRole as keyof typeof ROLE_STEP_MAP] !== undefined &&
       request.status === RequestStatus.PENDING &&
-      request.current_step === ROLE_STEP_MAP[userRole as keyof typeof ROLE_STEP_MAP];
+      request.current_step ===
+        ROLE_STEP_MAP[userRole as keyof typeof ROLE_STEP_MAP];
 
     if (userRole === "HEAD_SCOPE") {
       const activeRoles = await getActiveHeadScopeRoles(userId, userRole);
       isApprover =
         request.status === RequestStatus.PENDING &&
-        activeRoles.some((role) => request.current_step === ROLE_STEP_MAP[role]);
+        activeRoles.some(
+          (role) => request.current_step === ROLE_STEP_MAP[role],
+        );
     }
 
     let hasScopeAccess = false;
@@ -141,7 +153,9 @@ export class RequestQueryService {
     const approvals = await requestRepository.findApprovalsWithActor(requestId);
     const isActor = approvals.some((approval) => approval.actor_id === userId);
     if (!isActor) {
-      throw new AuthorizationError("You do not have permission to view this request");
+      throw new AuthorizationError(
+        "You do not have permission to view this request",
+      );
     }
   }
 
@@ -151,19 +165,23 @@ export class RequestQueryService {
     return requestRepository.findEligibilityList(activeOnly);
   }
 
-  async getEligibilitySummary(
-    params: {
-      activeOnly: boolean;
-      professionCode?: string | null;
-      search?: string | null;
-      rateGroup?: string | null;
-      department?: string | null;
-      subDepartment?: string | null;
-      licenseStatus?: "active" | "expiring" | "expired" | null;
-      alertFilter?: "any" | "error" | "no-license" | "duplicate" | "upcoming-change" | null;
-      expiringDays?: number;
-    },
-  ): Promise<{
+  async getEligibilitySummary(params: {
+    activeOnly: boolean;
+    professionCode?: string | null;
+    search?: string | null;
+    rateGroup?: string | null;
+    department?: string | null;
+    subDepartment?: string | null;
+    licenseStatus?: "active" | "expiring" | "expired" | null;
+    alertFilter?:
+      | "any"
+      | "error"
+      | "no-license"
+      | "duplicate"
+      | "upcoming-change"
+      | null;
+    expiringDays?: number;
+  }): Promise<{
     updated_at: string | null;
     total_people: number;
     total_rate_amount: number;
@@ -201,15 +219,22 @@ export class RequestQueryService {
       const iso = new Date(r.updated_at).toISOString();
       return !acc || iso > acc ? iso : acc;
     }, null);
-    const total_people = by_profession.reduce((sum, p) => sum + p.people_count, 0);
-    const total_rate_amount = by_profession.reduce((sum, p) => sum + p.total_rate_amount, 0);
+    const total_people = by_profession.reduce(
+      (sum, p) => sum + p.people_count,
+      0,
+    );
+    const total_rate_amount = by_profession.reduce(
+      (sum, p) => sum + p.total_rate_amount,
+      0,
+    );
     const alert_summary = by_profession.reduce(
       (acc, row) => ({
         people_with_alerts: acc.people_with_alerts + row.people_with_alerts,
         critical_people: acc.critical_people + row.critical_people,
         no_license_people: acc.no_license_people + row.no_license_people,
         duplicate_people: acc.duplicate_people + row.duplicate_people,
-        upcoming_change_people: acc.upcoming_change_people + row.upcoming_change_people,
+        upcoming_change_people:
+          acc.upcoming_change_people + row.upcoming_change_people,
       }),
       {
         people_with_alerts: 0,
@@ -220,7 +245,13 @@ export class RequestQueryService {
       },
     );
 
-    return { updated_at, total_people, total_rate_amount, alert_summary, by_profession };
+    return {
+      updated_at,
+      total_people,
+      total_rate_amount,
+      alert_summary,
+      by_profession,
+    };
   }
 
   async getEligibilityListPaged(params: {
@@ -232,7 +263,13 @@ export class RequestQueryService {
     department?: string | null;
     subDepartment?: string | null;
     licenseStatus?: "active" | "expiring" | "expired" | null;
-    alertFilter?: "any" | "error" | "no-license" | "duplicate" | "upcoming-change" | null;
+    alertFilter?:
+      | "any"
+      | "error"
+      | "no-license"
+      | "duplicate"
+      | "upcoming-change"
+      | null;
     expiringDays?: number;
     page: number;
     limit: number;
@@ -273,13 +310,24 @@ export class RequestQueryService {
       throw new Error("Eligibility not found");
     }
 
-    const requestId = (row as any).request_id ? Number((row as any).request_id) : null;
+    const requestId = (row as any).request_id
+      ? Number((row as any).request_id)
+      : null;
     const citizenId = String((row as any).citizen_id ?? "");
 
-    const [attachments, eligibilityAttachments, license, eligibilityOcrPrecheck] = await Promise.all([
-      requestId ? requestRepository.findAttachmentsWithMetadata(requestId) : Promise.resolve([]),
+    const [
+      attachments,
+      eligibilityAttachments,
+      license,
+      eligibilityOcrPrecheck,
+    ] = await Promise.all([
+      requestId
+        ? requestRepository.findAttachmentsWithMetadata(requestId)
+        : Promise.resolve([]),
       requestRepository.findEligibilityAttachments(eligibilityId),
-      citizenId ? requestRepository.findLatestLicenseByCitizenId(citizenId) : Promise.resolve(null),
+      citizenId
+        ? requestRepository.findLatestLicenseByCitizenId(citizenId)
+        : Promise.resolve(null),
       requestRepository.findEligibilityOcrPrecheck(eligibilityId),
     ]);
 
@@ -290,7 +338,10 @@ export class RequestQueryService {
         file_type: att.file_type,
         file_path: att.file_path,
         file_name: att.file_name,
-        file_size: await this.resolveAttachmentFileSize(att.file_path, att.file_size),
+        file_size: await this.resolveAttachmentFileSize(
+          att.file_path,
+          att.file_size,
+        ),
         uploaded_at: att.uploaded_at,
       })),
     );
@@ -302,7 +353,10 @@ export class RequestQueryService {
         file_type: att.file_type,
         file_path: att.file_path,
         file_name: att.file_name,
-        file_size: await this.resolveAttachmentFileSize(att.file_path, (att as any).file_size),
+        file_size: await this.resolveAttachmentFileSize(
+          att.file_path,
+          (att as any).file_size,
+        ),
         uploaded_by: att.uploaded_by,
         uploaded_at: att.uploaded_at,
       })),
@@ -326,20 +380,25 @@ export class RequestQueryService {
         : null,
       eligibility_ocr_precheck: eligibilityOcrPrecheck
         ? {
-            eligibility_id: Number((eligibilityOcrPrecheck as any).eligibility_id),
+            eligibility_id: Number(
+              (eligibilityOcrPrecheck as any).eligibility_id,
+            ),
             status: String((eligibilityOcrPrecheck as any).status),
             source: (eligibilityOcrPrecheck as any).source ?? null,
-            service_url: (eligibilityOcrPrecheck as any).service_url ?? null,
             worker: (eligibilityOcrPrecheck as any).worker ?? null,
             started_at: (eligibilityOcrPrecheck as any).started_at ?? null,
             finished_at: (eligibilityOcrPrecheck as any).finished_at ?? null,
             count: Number((eligibilityOcrPrecheck as any).count ?? 0),
-            success_count: Number((eligibilityOcrPrecheck as any).success_count ?? 0),
-            failed_count: Number((eligibilityOcrPrecheck as any).failed_count ?? 0),
+            success_count: Number(
+              (eligibilityOcrPrecheck as any).success_count ?? 0,
+            ),
+            failed_count: Number(
+              (eligibilityOcrPrecheck as any).failed_count ?? 0,
+            ),
             error: (eligibilityOcrPrecheck as any).error ?? null,
             results:
-              typeof (eligibilityOcrPrecheck as any).results_json === "string" &&
-              (eligibilityOcrPrecheck as any).results_json.trim()
+              typeof (eligibilityOcrPrecheck as any).results_json ===
+                "string" && (eligibilityOcrPrecheck as any).results_json.trim()
                 ? JSON.parse((eligibilityOcrPrecheck as any).results_json)
                 : [],
             created_at: (eligibilityOcrPrecheck as any).created_at ?? null,
@@ -379,12 +438,18 @@ export class RequestQueryService {
         const scopeFilter = selectedScope
           ? await getScopeFilterForSelectedScope(userId, role, selectedScope)
           : await getScopeFilterForApprover(userId, role);
-        const extraWhere =
-          scopeFilter
-            ? ` AND (${scopeFilter.whereClause.replace(/^ AND /, "")} OR r.user_id = ?)`
-            : " AND r.user_id = ?";
-        const extraParams = scopeFilter ? [...scopeFilter.params, userId] : [userId];
-        const rows = await requestRepository.findPendingByStep(stepNo, userId, extraWhere, extraParams);
+        const extraWhere = scopeFilter
+          ? ` AND (${scopeFilter.whereClause.replace(/^ AND /, "")} OR r.user_id = ?)`
+          : " AND r.user_id = ?";
+        const extraParams = scopeFilter
+          ? [...scopeFilter.params, userId]
+          : [userId];
+        const rows = await requestRepository.findPendingByStep(
+          stepNo,
+          userId,
+          extraWhere,
+          extraParams,
+        );
         for (const row of rows) {
           const requestId = Number((row as any).request_id);
           if (requestIds.has(requestId)) continue;
@@ -392,7 +457,10 @@ export class RequestQueryService {
           combinedRows.push(row);
         }
       }
-      combinedRows.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      combinedRows.sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      );
       return await hydrateRequests(combinedRows as any[]);
     }
 
@@ -406,8 +474,10 @@ export class RequestQueryService {
       if (userId === undefined || userId === null) {
         throw new Error("User ID is required for PTS_OFFICER");
       }
-      const requestRows =
-        await requestRepository.findPendingByStepForOfficer(stepNo, userId);
+      const requestRows = await requestRepository.findPendingByStepForOfficer(
+        stepNo,
+        userId,
+      );
       return await hydrateRequests(requestRows as any[]);
     }
 
@@ -439,7 +509,10 @@ export class RequestQueryService {
       : ["APPROVE", "REJECT", "RETURN"];
 
     if (view === "mine") {
-      const mineIds = await requestRepository.findApprovalHistoryIds(actorId, actions);
+      const mineIds = await requestRepository.findApprovalHistoryIds(
+        actorId,
+        actions,
+      );
       if (mineIds.length === 0) return [];
       const requestIds = mineIds.map((row) => row.request_id);
       return await this.getHydratedHistoryRequests(requestIds);
@@ -467,7 +540,10 @@ export class RequestQueryService {
         peerIds.forEach((peerId) => actorIds.add(peerId));
       }
       const historyIds =
-        await requestRepository.findApprovalHistoryIdsForActors(Array.from(actorIds), actions);
+        await requestRepository.findApprovalHistoryIdsForActors(
+          Array.from(actorIds),
+          actions,
+        );
       if (historyIds.length === 0) return [];
       const requestIds = historyIds.map((row) => row.request_id);
       return await this.getHydratedHistoryRequests(requestIds);
@@ -482,14 +558,20 @@ export class RequestQueryService {
       const peerIds = await requestRepository.findUserIdsByRole(actorRole);
       const actorIds = Array.from(new Set([actorId, ...peerIds]));
       const historyIds =
-        await requestRepository.findApprovalHistoryIdsForActors(actorIds, actions);
+        await requestRepository.findApprovalHistoryIdsForActors(
+          actorIds,
+          actions,
+        );
 
       if (historyIds.length === 0) return [];
       const requestIds = historyIds.map((row) => row.request_id);
       return await this.getHydratedHistoryRequests(requestIds);
     }
 
-    const historyIds = await requestRepository.findApprovalHistoryIds(actorId, actions);
+    const historyIds = await requestRepository.findApprovalHistoryIds(
+      actorId,
+      actions,
+    );
 
     if (historyIds.length === 0) return [];
 
@@ -563,7 +645,12 @@ export class RequestQueryService {
       throw new NotFoundError("คำขอ", requestId);
     }
 
-    await this.ensureRequestReadAccess(request as any, requestId, userId, userRole);
+    await this.ensureRequestReadAccess(
+      request as any,
+      requestId,
+      userId,
+      userRole,
+    );
 
     const details = await this.getRequestDetails(requestId);
 
@@ -597,7 +684,13 @@ export class RequestQueryService {
       throw new NotFoundError("คำขอ", requestId);
     }
 
-    const [attachments, actions, latestVerificationSnapshot, latestOcrPrecheck, linkedEligibility] = await Promise.all([
+    const [
+      attachments,
+      actions,
+      latestVerificationSnapshot,
+      latestOcrPrecheck,
+      linkedEligibility,
+    ] = await Promise.all([
       requestRepository.findAttachmentsWithMetadata(requestId),
       requestRepository.findApprovalsWithActor(requestId),
       requestRepository.findLatestVerificationSnapshotByRequestId(requestId),
@@ -636,7 +729,10 @@ export class RequestQueryService {
         file_path: att.file_path,
         file_name: att.file_name,
         original_filename: att.file_name,
-        file_size: await this.resolveAttachmentFileSize(att.file_path, att.file_size),
+        file_size: await this.resolveAttachmentFileSize(
+          att.file_path,
+          att.file_size,
+        ),
         mime_type: att.mime_type,
         uploaded_at: att.uploaded_at,
       })),
@@ -654,14 +750,19 @@ export class RequestQueryService {
       ocr_precheck: latestOcrPrecheck,
       latest_verification_snapshot: latestVerificationSnapshot
         ? {
-            snapshot_id: Number((latestVerificationSnapshot as any).snapshot_id),
+            snapshot_id: Number(
+              (latestVerificationSnapshot as any).snapshot_id,
+            ),
             created_at: (latestVerificationSnapshot as any).created_at ?? null,
             created_by: (latestVerificationSnapshot as any).created_by ?? null,
             snapshot_data:
-              typeof (latestVerificationSnapshot as any).snapshot_data === "string"
+              typeof (latestVerificationSnapshot as any).snapshot_data ===
+              "string"
                 ? (() => {
                     try {
-                      return JSON.parse((latestVerificationSnapshot as any).snapshot_data);
+                      return JSON.parse(
+                        (latestVerificationSnapshot as any).snapshot_data,
+                      );
                     } catch {
                       return (latestVerificationSnapshot as any).snapshot_data;
                     }
@@ -680,8 +781,12 @@ export class RequestQueryService {
     status?: string | null;
     search?: string | null;
   }): Promise<OcrPrecheckHistoryResult> {
-    const page = Number.isFinite(params.page) && params.page > 0 ? params.page : 1;
-    const limit = Number.isFinite(params.limit) && params.limit > 0 ? Math.min(params.limit, 100) : 20;
+    const page =
+      Number.isFinite(params.page) && params.page > 0 ? params.page : 1;
+    const limit =
+      Number.isFinite(params.limit) && params.limit > 0
+        ? Math.min(params.limit, 100)
+        : 20;
     const result = await OcrRequestRepository.findRequestPrecheckHistory({
       page,
       limit,

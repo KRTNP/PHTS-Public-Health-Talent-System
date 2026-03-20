@@ -1,4 +1,8 @@
-export type EligibilityLicenseStatusFilter = "active" | "expiring" | "expired" | null;
+export type EligibilityLicenseStatusFilter =
+  | "active"
+  | "expiring"
+  | "expired"
+  | null;
 
 export function buildLatestLicenseJoinSql(): string {
   return `

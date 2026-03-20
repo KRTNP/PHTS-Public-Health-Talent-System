@@ -9,30 +9,16 @@ export const normalizeAssignmentOrderMarkdown = (input: {
 }): string => {
   const base = String(input.markdown ?? '');
   const normalizedEngine = String(input.engineUsed ?? '').trim().toLowerCase();
+  const isTesseract = !normalizedEngine || normalizedEngine.includes('tesseract');
+  if (!isTesseract) return base;
 
-  if (!normalizedEngine) {
-    return base;
-  }
-
-  if (normalizedEngine.includes('tesseract')) {
-    return base
-      .replace(/Aseptc\s*Tech[กg]?ique/gi, 'Aseptic Technique')
-      .replace(/โดยมีหน้าที่\s*[ัั]*งนี้/g, 'โดยมีหน้าที่ ดังนี้')
-      .replace(/โดยมีหน้าที่\s*ดั+งนี้/g, 'โดยมีหน้าที่ ดังนี้')
-      .replace(/สั่งณ\s*วันที่/g, 'สั่ง ณ วันที่')
-      .replace(/([๐-๙])2\.\s*งาน/g, '$1. งาน')
-      .replace(/([๐-๙])\.([0-9])/g, '$1.$2');
-  }
-
-  if (normalizedEngine.includes('paddle')) {
-    return base
-      .replace(/Aseptc\s*Tech[กg]?ique/gi, 'Aseptic Technique')
-      .replace(/สั่งณ\s*วันที่/g, 'สั่ง ณ วันที่')
-      .replace(/โดยมีหน้าที่\s*[ัั]*งนี้/g, 'โดยมีหน้าที่ ดังนี้')
-      .replace(/โดยมีหน้าที่\s*ดั+งนี้/g, 'โดยมีหน้าที่ ดังนี้');
-  }
-
-  return base;
+  return base
+    .replace(/Aseptc\s*Tech[กg]?ique/gi, 'Aseptic Technique')
+    .replace(/โดยมีหน้าที่\s*[ัั]*งนี้/g, 'โดยมีหน้าที่ ดังนี้')
+    .replace(/โดยมีหน้าที่\s*ดั+งนี้/g, 'โดยมีหน้าที่ ดังนี้')
+    .replace(/สั่งณ\s*วันที่/g, 'สั่ง ณ วันที่')
+    .replace(/([๐-๙])2\.\s*งาน/g, '$1. งาน')
+    .replace(/([๐-๙])\.([0-9])/g, '$1.$2');
 };
 
 export const splitAssignmentOrderLines = (markdown: string): string[] =>

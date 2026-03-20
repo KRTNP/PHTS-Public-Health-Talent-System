@@ -1,7 +1,4 @@
-import {
-  getTestConnection,
-  resetRequestSchema,
-} from '@/test/test-db.js';
+import { getTestConnection, resetRequestSchema } from "@/test/test-db.js";
 
 jest.setTimeout(30000);
 
@@ -74,7 +71,14 @@ describe("RequestRepository (integration)", () => {
         `INSERT INTO emp_licenses
          (citizen_id, license_name, license_no, valid_from, valid_until, status)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        ["701", "พยาบาลวิชาชีพ", "LIC-701", "2025-01-01", "2027-12-31", "ACTIVE"],
+        [
+          "701",
+          "พยาบาลวิชาชีพ",
+          "LIC-701",
+          "2025-01-01",
+          "2027-12-31",
+          "ACTIVE",
+        ],
       );
 
       const [res] = await conn.execute<any>(

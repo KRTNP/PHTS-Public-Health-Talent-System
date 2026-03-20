@@ -18,8 +18,12 @@ describe("eligibility license query helpers", () => {
 
     expect(result.params).toEqual([]);
     expect(result.clause).toContain("lic.citizen_id IS NULL");
-    expect(result.clause).toContain("UPPER(lic.latest_license_status) <> 'ACTIVE'");
-    expect(result.clause).toContain("lic.latest_license_valid_until < DATE(NOW())");
+    expect(result.clause).toContain(
+      "UPPER(lic.latest_license_status) <> 'ACTIVE'",
+    );
+    expect(result.clause).toContain(
+      "lic.latest_license_valid_until < DATE(NOW())",
+    );
   });
 
   test("active filter requires real active latest license beyond expiring window", () => {
@@ -27,7 +31,11 @@ describe("eligibility license query helpers", () => {
 
     expect(result.params).toEqual([90]);
     expect(result.clause).toContain("lic.citizen_id IS NOT NULL");
-    expect(result.clause).toContain("UPPER(lic.latest_license_status) = 'ACTIVE'");
-    expect(result.clause).toContain("lic.latest_license_valid_until > DATE_ADD(DATE(NOW()), INTERVAL ? DAY)");
+    expect(result.clause).toContain(
+      "UPPER(lic.latest_license_status) = 'ACTIVE'",
+    );
+    expect(result.clause).toContain(
+      "lic.latest_license_valid_until > DATE_ADD(DATE(NOW()), INTERVAL ? DAY)",
+    );
   });
 });

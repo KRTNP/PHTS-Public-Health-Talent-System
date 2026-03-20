@@ -17,7 +17,9 @@ describe("RequestCommandService eligibility attachments", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
-    jest.spyOn(requestRepository, "findAttachmentsWithMetadata").mockResolvedValue([]);
+    jest
+      .spyOn(requestRepository, "findAttachmentsWithMetadata")
+      .mockResolvedValue([]);
   });
 
   it("stores uploaded files even when eligibility has no source request", async () => {
@@ -36,7 +38,8 @@ describe("RequestCommandService eligibility attachments", () => {
     const insertAttachment = jest
       .spyOn(requestRepository, "insertEligibilityAttachment")
       .mockResolvedValue();
-    jest.spyOn(requestRepository, "findEligibilityAttachments")
+    jest
+      .spyOn(requestRepository, "findEligibilityAttachments")
       .mockResolvedValueOnce([])
       .mockResolvedValue([
         {
@@ -83,7 +86,8 @@ describe("RequestCommandService eligibility attachments", () => {
     const insertAttachment = jest
       .spyOn(requestRepository, "insertEligibilityAttachment")
       .mockResolvedValue();
-    jest.spyOn(requestRepository, "findEligibilityAttachments")
+    jest
+      .spyOn(requestRepository, "findEligibilityAttachments")
       .mockResolvedValueOnce([])
       .mockResolvedValue([
         {
@@ -131,7 +135,9 @@ describe("RequestCommandService eligibility attachments", () => {
     const insertAttachment = jest
       .spyOn(requestRepository, "insertEligibilityAttachment")
       .mockResolvedValue();
-    jest.spyOn(requestRepository, "findEligibilityAttachments").mockResolvedValue([]);
+    jest
+      .spyOn(requestRepository, "findEligibilityAttachments")
+      .mockResolvedValue([]);
 
     await service.addEligibilityAttachments(2971, 10, [
       {
@@ -144,7 +150,8 @@ describe("RequestCommandService eligibility attachments", () => {
 
     expect(insertAttachment).toHaveBeenCalledWith(
       expect.objectContaining({
-        file_name: "46941_1772545682775_____________________________________________________________________fce73844.pdf",
+        file_name:
+          "46941_1772545682775_____________________________________________________________________fce73844.pdf",
       }),
       connection as any,
     );
@@ -163,19 +170,23 @@ describe("RequestCommandService eligibility attachments", () => {
       eligibility_id: 2971,
       request_id: 501,
     } as any);
-    jest.spyOn(requestRepository, "findAttachmentsWithMetadata").mockResolvedValue([
-      {
-        attachment_id: 328,
-        request_id: 501,
-        file_name: "สรุปการดำเนินการปรับปรุงและแก้ไขระบบCMES.pdf",
-        file_path:
-          "uploads/documents/demo/46941_1772545682775_________________________________________________________________________________________a5ffd1a4.pdf",
-      } as any,
-    ]);
+    jest
+      .spyOn(requestRepository, "findAttachmentsWithMetadata")
+      .mockResolvedValue([
+        {
+          attachment_id: 328,
+          request_id: 501,
+          file_name: "สรุปการดำเนินการปรับปรุงและแก้ไขระบบCMES.pdf",
+          file_path:
+            "uploads/documents/demo/46941_1772545682775_________________________________________________________________________________________a5ffd1a4.pdf",
+        } as any,
+      ]);
     const insertAttachment = jest
       .spyOn(requestRepository, "insertEligibilityAttachment")
       .mockResolvedValue();
-    jest.spyOn(requestRepository, "findEligibilityAttachments").mockResolvedValue([]);
+    jest
+      .spyOn(requestRepository, "findEligibilityAttachments")
+      .mockResolvedValue([]);
 
     await service.addEligibilityAttachments(2971, 10, [
       {
@@ -207,13 +218,15 @@ describe("RequestCommandService eligibility attachments", () => {
       eligibility_id: 2971,
       request_id: 501,
     } as any);
-    jest.spyOn(requestRepository, "findEligibilityAttachments").mockResolvedValue([
-      {
-        attachment_id: 88,
-        eligibility_id: 2971,
-        file_name: "เอกสารเพิ่มเติม.pdf",
-      } as any,
-    ]);
+    jest
+      .spyOn(requestRepository, "findEligibilityAttachments")
+      .mockResolvedValue([
+        {
+          attachment_id: 88,
+          eligibility_id: 2971,
+          file_name: "เอกสารเพิ่มเติม.pdf",
+        } as any,
+      ]);
 
     await expect(
       service.addEligibilityAttachments(2971, 10, [
@@ -231,10 +244,12 @@ describe("RequestCommandService eligibility attachments", () => {
       eligibility_id: 2971,
       request_id: 501,
     } as any);
-    jest.spyOn(requestRepository, "findEligibilityAttachmentById").mockResolvedValue({
-      attachment_id: 88,
-      eligibility_id: 999,
-    } as any);
+    jest
+      .spyOn(requestRepository, "findEligibilityAttachmentById")
+      .mockResolvedValue({
+        attachment_id: 88,
+        eligibility_id: 999,
+      } as any);
 
     await expect(
       service.removeEligibilityAttachment(2971, 88, 10),
@@ -254,19 +269,25 @@ describe("RequestCommandService eligibility attachments", () => {
       eligibility_id: 2971,
       request_id: null,
     } as any);
-    jest.spyOn(requestRepository, "findEligibilityAttachmentById").mockResolvedValue({
-      attachment_id: 88,
-      eligibility_id: 2971,
-      file_name: "page-5-6.pdf",
-      file_path: "uploads/documents/demo/page-5-6.pdf",
-    } as any);
-    jest.spyOn(requestRepository, "deleteEligibilityAttachmentById").mockResolvedValue();
-    jest.spyOn(requestRepository, "findEligibilityOcrPrecheck").mockResolvedValue({
-      results_json: JSON.stringify([
-        { name: "page-5-6.pdf", ok: true, markdown: "ocr text" },
-        { name: "memo.pdf", ok: true, markdown: "memo text" },
-      ]),
-    } as any);
+    jest
+      .spyOn(requestRepository, "findEligibilityAttachmentById")
+      .mockResolvedValue({
+        attachment_id: 88,
+        eligibility_id: 2971,
+        file_name: "page-5-6.pdf",
+        file_path: "uploads/documents/demo/page-5-6.pdf",
+      } as any);
+    jest
+      .spyOn(requestRepository, "deleteEligibilityAttachmentById")
+      .mockResolvedValue();
+    jest
+      .spyOn(requestRepository, "findEligibilityOcrPrecheck")
+      .mockResolvedValue({
+        results_json: JSON.stringify([
+          { name: "page-5-6.pdf", ok: true, markdown: "ocr text" },
+          { name: "memo.pdf", ok: true, markdown: "memo text" },
+        ]),
+      } as any);
     const upsertSpy = jest
       .spyOn(requestRepository, "upsertEligibilityOcrPrecheck")
       .mockResolvedValue();
@@ -297,20 +318,26 @@ describe("RequestCommandService eligibility attachments", () => {
       eligibility_id: 2971,
       request_id: 501,
     } as any);
-    jest.spyOn(requestRepository, "findEligibilityAttachmentById").mockResolvedValue({
-      attachment_id: 88,
-      eligibility_id: 2971,
-      file_name: "สรุปการดำเนินการปรับปรุงและแก้ไขระบบCMES.pdf",
-      file_path: "uploads/documents/demo/page.pdf",
-    } as any);
-    jest.spyOn(requestRepository, "deleteEligibilityAttachmentById").mockResolvedValue();
-    jest.spyOn(requestRepository, "findAttachmentsWithMetadata").mockResolvedValue([
-      {
-        attachment_id: 328,
-        request_id: 501,
+    jest
+      .spyOn(requestRepository, "findEligibilityAttachmentById")
+      .mockResolvedValue({
+        attachment_id: 88,
+        eligibility_id: 2971,
         file_name: "สรุปการดำเนินการปรับปรุงและแก้ไขระบบCMES.pdf",
-      } as any,
-    ]);
+        file_path: "uploads/documents/demo/page.pdf",
+      } as any);
+    jest
+      .spyOn(requestRepository, "deleteEligibilityAttachmentById")
+      .mockResolvedValue();
+    jest
+      .spyOn(requestRepository, "findAttachmentsWithMetadata")
+      .mockResolvedValue([
+        {
+          attachment_id: 328,
+          request_id: 501,
+          file_name: "สรุปการดำเนินการปรับปรุงและแก้ไขระบบCMES.pdf",
+        } as any,
+      ]);
     const upsertSpy = jest
       .spyOn(requestRepository, "upsertEligibilityOcrPrecheck")
       .mockResolvedValue();

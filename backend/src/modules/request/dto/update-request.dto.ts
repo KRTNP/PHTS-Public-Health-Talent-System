@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { PersonnelType, RequestType, WorkAttributes } from '@/modules/request/contracts/request.types.js';
+import {
+  PersonnelType,
+  RequestType,
+  WorkAttributes,
+} from "@/modules/request/contracts/request.types.js";
 
 /**
  * DTO for updating an existing request
@@ -46,7 +50,10 @@ export const updateRequestSchema = z.object({
       position_number: z.string().optional(),
       department_group: z.string().optional(),
       main_duty: z.string().optional(),
-      requested_amount: z.preprocess(numberPreprocess, z.number().min(0).optional()),
+      requested_amount: z.preprocess(
+        numberPreprocess,
+        z.number().min(0).optional(),
+      ),
       effective_date: z.string().optional(),
       work_attributes: z.preprocess(
         jsonPreprocess,

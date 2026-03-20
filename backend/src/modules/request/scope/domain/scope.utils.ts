@@ -200,10 +200,7 @@ function countWardMatches(
       unit += 1;
     }
 
-    if (
-      scopeType === "DEPT" &&
-      scopeMatches(scope, requestDept)
-    ) {
+    if (scopeType === "DEPT" && scopeMatches(scope, requestDept)) {
       dept += 1;
     }
   }

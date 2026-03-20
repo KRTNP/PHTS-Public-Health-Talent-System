@@ -2,9 +2,9 @@
  * src/modules/request/services/command.service.ts
  */
 
-import { getConnection } from '@config/database.js';
-import { readFile, unlink } from 'node:fs/promises';
-import { PoolConnection } from 'mysql2/promise';
+import { getConnection } from "@config/database.js";
+import { readFile, unlink } from "node:fs/promises";
+import { PoolConnection } from "mysql2/promise";
 import {
   RequestStatus,
   ActionType,
@@ -13,178 +13,88 @@ import {
   STEP_ROLE_MAP,
   ROLE_STEP_MAP,
   RequestWithDetails,
-} from '@/modules/request/contracts/request.types.js';
-import { CreateRequestDTO, UpdateRequestDTO } from '@/modules/request/dto/index.js';
-import { NotificationService } from '@/modules/notification/services/notification.service.js';
+} from "@/modules/request/contracts/request.types.js";
+import {
+  CreateRequestDTO,
+  UpdateRequestDTO,
+} from "@/modules/request/dto/index.js";
+import { NotificationService } from "@/modules/notification/services/notification.service.js";
 import {
   generateRequestNoFromId,
   normalizeDateToYMD,
   mapRequestRow,
   getRequestLinkForRole,
   parseJsonField,
-} from '@/modules/request/services/helpers.js';
-import { requestQueryService } from '@/modules/request/read/services/query.service.js'; // Use the class instance
-import { enqueueRequestOcrPrecheck } from '@/modules/ocr/services/ocr-precheck.service.js';
-import { OcrRequestRepository } from '@/modules/ocr/repositories/ocr-request.repository.js';
-import { OcrHttpProvider } from '@/modules/ocr/providers/ocr-http.provider.js';
-import type { OcrBatchResultItem } from '@/modules/ocr/entities/ocr-precheck.entity.js';
-import {
-  mergeOcrResultsByFileName,
-  runStoredFileOcrBatch,
-} from '@/modules/ocr/services/ocr-batch-runner.service.js';
+} from "@/modules/request/services/helpers.js";
+import { requestQueryService } from "@/modules/request/read/services/query.service.js"; // Use the class instance
+import { enqueueRequestOcrPrecheck } from "@/modules/ocr/services/ocr-precheck.service.js";
+import { OcrRequestRepository } from "@/modules/ocr/repositories/ocr-request.repository.js";
+import type { OcrBatchResultItem } from "@/modules/ocr/entities/ocr-precheck.entity.js";
+import { runStoredFileOcrBatch } from "@/modules/ocr/services/ocr-batch-runner.service.js";
 import {
   getExistingOcrResults,
   saveOcrPrecheck,
-} from '@/modules/ocr/services/ocr-precheck-store.service.js';
-import { emitAuditEvent, AuditEventType } from '@/modules/audit/services/audit.service.js';
-import { requestRepository } from '@/modules/request/data/repositories/request.repository.js'; // [NEW]
-import { resolveProfessionCode } from '@shared/utils/profession.js';
+} from "@/modules/ocr/services/ocr-precheck-store.service.js";
+import {
+  emitAuditEvent,
+  AuditEventType,
+} from "@/modules/audit/services/audit.service.js";
+import { requestRepository } from "@/modules/request/data/repositories/request.repository.js"; // [NEW]
+import { resolveProfessionCode } from "@shared/utils/profession.js";
 import {
   AuthorizationError,
   ValidationError,
   NotFoundError,
   ConflictError,
-} from '@shared/utils/errors.js';
-import path from 'node:path';
-import { getActiveHeadScopeRoles } from '@/modules/request/scope/application/scope.service.js';
+} from "@shared/utils/errors.js";
+import path from "node:path";
+import { getActiveHeadScopeRoles } from "@/modules/request/scope/application/scope.service.js";
 
-const toArabicDigits = (value: string): string =>
-  value.replace(/[๐-๙]/g, (char) => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(char)));
-
-const isAssignmentOrderCandidate = (item: OcrBatchResultItem): boolean => {
-  const kind = String(item.document_kind ?? "").trim().toLowerCase();
-  if (kind === "assignment_order") return true;
-  const normalized = toArabicDigits(String(item.markdown ?? ""));
-  return (
-    /(?:คำสั่ง|คําสั่ง).*(?:มอบหมาย|รับผิดชอบ|ปฏิบัติงาน)/.test(normalized) ||
-    /(?:ที่|ที)\s*[0-9]{1,4}\s*\/\s*[0-9]{1,5}/.test(normalized)
-  );
-};
-
-const hasSuspiciousOrderNo = (markdown?: string): boolean => {
-  const normalized = toArabicDigits(String(markdown ?? ''));
-  return /(?:ที่|ที)\s*[0-9]{1,4}\s*\/\s*[0-9]{5,}/.test(normalized);
-};
-
-const hasSuspiciousAssignmentDates = (markdown?: string): boolean => {
-  const normalized = toArabicDigits(String(markdown ?? ""));
-  const signedYear = normalized.match(/(?:สั่ง\s*ณ\s*วันที่|สง\s*ณ\s*วันที่)[\s\S]{0,80}(25[0-9]{2})/);
-  const effectiveYear = normalized.match(/(?:ตั้งแต่วันที่|ต้งแต่วันที่)[\s\S]{0,80}(25[0-9]{2})/);
-  const signed = signedYear?.[1] ? Number(signedYear[1]) : null;
-  const effective = effectiveYear?.[1] ? Number(effectiveYear[1]) : null;
-  if (signed && signed < 2550) return true;
-  if (effective && effective < 2550) return true;
-  if (signed && effective && Math.abs(signed - effective) >= 3) return true;
-  return false;
-};
-
-const shouldEnhanceWithPaddle = (item: OcrBatchResultItem): boolean =>
-  isAssignmentOrderCandidate(item) &&
-  item.ok === true &&
-  item.suppressed !== true &&
-  (item.quality?.passed === false ||
-    ((item.engine_used ?? '').toLowerCase().includes('tesseract') &&
-      (/(พ\.ศ\.\s*(?:25[0-3]\d|๒๕[๐-๓][๐-๙]))/.test(String(item.markdown ?? '')) ||
-        hasSuspiciousOrderNo(item.markdown) ||
-        hasSuspiciousAssignmentDates(item.markdown))));
-
-const hasEnhanceCandidates = (results: OcrBatchResultItem[]): boolean =>
-  results.some((item) => shouldEnhanceWithPaddle(item));
-
-const enhanceSuspiciousResultsWithPaddle = async (
-  baseResults: OcrBatchResultItem[],
-  files: Array<{ file_name: string; file_path: string }>,
-  ocrBase: string,
-): Promise<OcrBatchResultItem[]> => {
-  const paddleBase = OcrHttpProvider.getPaddleServiceBase();
-  if (!paddleBase || paddleBase === ocrBase) return baseResults;
-
-  const filePathByName = new Map<string, string>();
-  for (const file of files) {
-    const key = String(file.file_name ?? '').trim().toLowerCase();
+const mergeOcrResultsByFileName = (
+  existing: OcrBatchResultItem[],
+  incoming: OcrBatchResultItem[],
+): OcrBatchResultItem[] => {
+  const merged = new Map<string, OcrBatchResultItem>();
+  for (const item of existing) {
+    const key = String(item.name ?? "")
+      .trim()
+      .toLowerCase();
     if (!key) continue;
-    filePathByName.set(key, file.file_path);
+    merged.set(key, item);
   }
-
-  const filesToEnhance = baseResults
-    .filter(shouldEnhanceWithPaddle)
-    .map((item) => {
-      const fileName = String(item.name ?? '').trim();
-      const filePath = filePathByName.get(fileName.toLowerCase());
-      if (!fileName || !filePath) return null;
-      return { file_name: fileName, file_path: filePath };
-    })
-    .filter((item): item is { file_name: string; file_path: string } => Boolean(item));
-
-  if (filesToEnhance.length === 0) return baseResults;
-
-  try {
-    const enhanced = await runStoredFileOcrBatch(filesToEnhance, paddleBase, {
-      disableFallbackChain: true,
-    });
-    return mergeOcrResultsByFileName(baseResults, enhanced.results);
-  } catch (error) {
-    console.error('[OCR Manual] paddle enhancement failed:', error);
-    return baseResults;
+  for (const item of incoming) {
+    const key = String(item.name ?? "")
+      .trim()
+      .toLowerCase();
+    if (!key) continue;
+    merged.set(key, item);
   }
+  return Array.from(merged.values());
 };
 
 export class RequestCommandService {
   private legacyOfficerCreatorCache = new Map<number, number | null>();
   private static readonly REQUEST_NO_MAX_RETRIES = 10;
 
-  private async enhanceOcrResultsInBackground(params: {
-    kind: 'request' | 'eligibility';
-    id: number;
-    ocrBase: string;
-    serviceUrl: string;
-    files: Array<{ file_name: string; file_path: string }>;
-    baseResults: OcrBatchResultItem[];
-  }): Promise<void> {
-    try {
-      if (!hasEnhanceCandidates(params.baseResults)) return;
-
-      const enhancedResults = await enhanceSuspiciousResultsWithPaddle(
-        params.baseResults,
-        params.files,
-        params.ocrBase,
-      );
-
-      const currentResults = await getExistingOcrResults({ kind: params.kind, id: params.id });
-      const mergedResults = mergeOcrResultsByFileName(currentResults, enhancedResults);
-      const successCount = mergedResults.filter((item) => item.ok).length;
-      const failedCount = mergedResults.length - successCount;
-
-      await saveOcrPrecheck({ kind: params.kind, id: params.id }, {
-        status: successCount > 0 ? "completed" : "failed",
-        source: "MANUAL_VERIFY",
-        service_url: params.serviceUrl,
-        worker: "server-manual-async",
-        started_at: new Date().toISOString(),
-        finished_at: new Date().toISOString(),
-        count: mergedResults.length,
-        success_count: successCount,
-        failed_count: failedCount,
-        error: null,
-        results: mergedResults,
-      });
-    } catch (error) {
-      console.error('[OCR Manual] async paddle enhancement failed:', error);
-    }
-  }
-
   private async generateUniqueRequestNo(
     requestId: number,
     connection: PoolConnection,
   ): Promise<string> {
-    for (let attempt = 0; attempt < RequestCommandService.REQUEST_NO_MAX_RETRIES; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < RequestCommandService.REQUEST_NO_MAX_RETRIES;
+      attempt += 1
+    ) {
       const candidate = generateRequestNoFromId(requestId);
-      const exists = await requestRepository.existsByRequestNo(candidate, connection);
+      const exists = await requestRepository.existsByRequestNo(
+        candidate,
+        connection,
+      );
       if (!exists) {
         return candidate;
       }
     }
-    throw new ConflictError('ไม่สามารถสร้างเลขคำขอใหม่ได้ กรุณาลองอีกครั้ง');
+    throw new ConflictError("ไม่สามารถสร้างเลขคำขอใหม่ได้ กรุณาลองอีกครั้ง");
   }
 
   private containsThai(text: string): boolean {
@@ -193,7 +103,7 @@ export class RequestCommandService {
 
   private normalizeFilename(name: string): string {
     if (!name) return name;
-    const decoded = Buffer.from(name, 'latin1').toString('utf8');
+    const decoded = Buffer.from(name, "latin1").toString("utf8");
     const originalHasThai = this.containsThai(name);
     const decodedHasThai = this.containsThai(decoded);
     const normalizedBase =
@@ -216,7 +126,10 @@ export class RequestCommandService {
 
   private findSourceRequestDisplayName(
     fileName: string,
-    requestAttachments: Array<{ file_name?: string | null; file_path?: string | null }>,
+    requestAttachments: Array<{
+      file_name?: string | null;
+      file_path?: string | null;
+    }>,
   ): string | null {
     const match = fileName.match(/_([a-f0-9]{8})(\.[^.]+)$/i);
     if (!match) return null;
@@ -224,7 +137,9 @@ export class RequestCommandService {
     const normalizedExt = ext.toLowerCase();
 
     const matchedAttachment = requestAttachments.find((attachment) => {
-      const filePath = attachment.file_path ? path.basename(attachment.file_path) : "";
+      const filePath = attachment.file_path
+        ? path.basename(attachment.file_path)
+        : "";
       const filePathMatch = filePath.match(/_([a-f0-9]{8})(\.[^.]+)$/i);
       if (!filePathMatch) return false;
       return (
@@ -238,16 +153,16 @@ export class RequestCommandService {
   }
 
   private inferAttachmentType(fieldName: string, fileName: string): FileType {
-    if (fieldName === 'license_file') return FileType.LICENSE;
-    if (fieldName === 'applicant_signature') return FileType.SIGNATURE;
+    if (fieldName === "license_file") return FileType.LICENSE;
+    if (fieldName === "applicant_signature") return FileType.SIGNATURE;
 
     const lower = fileName.toLowerCase();
     const looksLikeLicense =
-      lower.includes('license') ||
-      lower.includes('licence') ||
-      lower.includes('ใบอนุญาต') ||
-      lower.includes('ใบประกอบ') ||
-      lower.includes('ประกอบวิชาชีพ');
+      lower.includes("license") ||
+      lower.includes("licence") ||
+      lower.includes("ใบอนุญาต") ||
+      lower.includes("ใบประกอบ") ||
+      lower.includes("ประกอบวิชาชีพ");
     if (looksLikeLicense) return FileType.LICENSE;
 
     return FileType.OTHER;
@@ -255,11 +170,14 @@ export class RequestCommandService {
 
   private parseSubmissionData(value: unknown): Record<string, unknown> {
     if (!value) return {};
-    if (typeof value === 'object') return { ...(value as Record<string, unknown>) };
-    if (typeof value === 'string') {
+    if (typeof value === "object")
+      return { ...(value as Record<string, unknown>) };
+    if (typeof value === "string") {
       try {
         const parsed = JSON.parse(value);
-        return typeof parsed === 'object' && parsed ? (parsed as Record<string, unknown>) : {};
+        return typeof parsed === "object" && parsed
+          ? (parsed as Record<string, unknown>)
+          : {};
       } catch {
         return {};
       }
@@ -272,7 +190,6 @@ export class RequestCommandService {
     _userId: number,
     userRole: string,
     payload: {
-      service_url?: string;
       worker?: string;
       count?: number;
       success_count?: number;
@@ -295,24 +212,26 @@ export class RequestCommandService {
       throw new NotFoundError("Request not found");
     }
 
-    await saveOcrPrecheck({ kind: 'request', id: requestId }, {
-      status:
-        Number(payload.success_count ?? 0) > 0
-          ? "completed"
-          : Number(payload.failed_count ?? 0) > 0 || payload.error
-            ? "failed"
-            : "completed",
-      source: "MANUAL_VERIFY",
-      service_url: payload.service_url ?? null,
-      worker: payload.worker ?? "browser-manual",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      count: Number(payload.count ?? payload.results?.length ?? 0),
-      success_count: Number(payload.success_count ?? 0),
-      failed_count: Number(payload.failed_count ?? 0),
-      error: payload.error ?? null,
-      results: payload.results ?? [],
-    });
+    await saveOcrPrecheck(
+      { kind: "request", id: requestId },
+      {
+        status:
+          Number(payload.success_count ?? 0) > 0
+            ? "completed"
+            : Number(payload.failed_count ?? 0) > 0 || payload.error
+              ? "failed"
+              : "completed",
+        source: "MANUAL_VERIFY",
+        worker: payload.worker ?? "browser-manual",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        count: Number(payload.count ?? payload.results?.length ?? 0),
+        success_count: Number(payload.success_count ?? 0),
+        failed_count: Number(payload.failed_count ?? 0),
+        error: payload.error ?? null,
+        results: payload.results ?? [],
+      },
+    );
 
     return { saved: true };
   }
@@ -342,14 +261,12 @@ export class RequestCommandService {
       throw new NotFoundError("Request not found");
     }
 
-    const ocrBase = OcrHttpProvider.getServiceBase();
-    if (!ocrBase) {
-      throw new ValidationError("ยังไม่ได้ตั้งค่า OCR service");
-    }
-
-    const attachmentsToRun: Array<{ file_name: string; file_path: string }> = [];
+    const attachmentsToRun: Array<{ file_name: string; file_path: string }> =
+      [];
     for (const item of payload.attachments) {
-      const attachment = await requestRepository.findAttachmentById(item.attachment_id);
+      const attachment = await requestRepository.findAttachmentById(
+        item.attachment_id,
+      );
       if (!attachment || Number(attachment.request_id) !== requestId) {
         throw new ValidationError("ไฟล์แนบนี้ไม่ได้อยู่ในคำขอนี้");
       }
@@ -359,36 +276,33 @@ export class RequestCommandService {
       });
     }
 
-    const batchSummary = await runStoredFileOcrBatch(attachmentsToRun, ocrBase, {
-      disableFallbackChain: true,
+    const batchSummary = await runStoredFileOcrBatch(attachmentsToRun);
+    const existingResults = await getExistingOcrResults({
+      kind: "request",
+      id: requestId,
     });
-    const existingResults = await getExistingOcrResults({ kind: 'request', id: requestId });
-    const mergedResults = mergeOcrResultsByFileName(existingResults, batchSummary.results);
+    const mergedResults = mergeOcrResultsByFileName(
+      existingResults,
+      batchSummary.results,
+    );
     const successCount = mergedResults.filter((item) => item.ok).length;
     const failedCount = mergedResults.length - successCount;
 
-    await saveOcrPrecheck({ kind: 'request', id: requestId }, {
-      status: successCount > 0 ? "completed" : "failed",
-      source: "MANUAL_VERIFY",
-      service_url: batchSummary.service_url,
-      worker: "server-manual",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      count: mergedResults.length,
-      success_count: successCount,
-      failed_count: failedCount,
-      error: null,
-      results: mergedResults,
-    });
-
-    void this.enhanceOcrResultsInBackground({
-      kind: 'request',
-      id: requestId,
-      ocrBase,
-      serviceUrl: batchSummary.service_url,
-      files: attachmentsToRun,
-      baseResults: batchSummary.results,
-    });
+    await saveOcrPrecheck(
+      { kind: "request", id: requestId },
+      {
+        status: successCount > 0 ? "completed" : "failed",
+        source: "MANUAL_VERIFY",
+        worker: "server-manual",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        count: mergedResults.length,
+        success_count: successCount,
+        failed_count: failedCount,
+        error: null,
+        results: mergedResults,
+      },
+    );
 
     return {
       saved: true,
@@ -419,42 +333,49 @@ export class RequestCommandService {
       throw new NotFoundError("Request not found");
     }
 
-    const normalizedFileName = String(fileName ?? "").trim().toLowerCase();
+    const normalizedFileName = String(fileName ?? "")
+      .trim()
+      .toLowerCase();
     if (!normalizedFileName) {
       throw new ValidationError("ต้องระบุชื่อไฟล์");
     }
 
-    const existingResults = await getExistingOcrResults({ kind: 'request', id: requestId });
-    const filteredResults = existingResults.filter(
-      (item) => String(item?.name ?? "").trim().toLowerCase() !== normalizedFileName,
-    );
-    const nextResults = [
-      ...filteredResults,
-      {
-        name: fileName.trim(),
-        suppressed: true,
-      } as OcrBatchResultItem,
-    ];
-
-    const activeResults = nextResults.filter((item) => !(item as any)?.suppressed);
-    const successCount = activeResults.filter((item) => item.ok).length;
-    const failedCount = activeResults.length - successCount;
-
-    await saveOcrPrecheck({ kind: 'request', id: requestId }, {
-      status: activeResults.length === 0 ? "queued" : successCount > 0 ? "completed" : "failed",
-      source: "MANUAL_VERIFY",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      count: activeResults.length,
-      success_count: successCount,
-      failed_count: failedCount,
-      error: null,
-      results: nextResults,
+    const existingResults = await getExistingOcrResults({
+      kind: "request",
+      id: requestId,
     });
+    const filteredResults = existingResults.filter(
+      (item) =>
+        String(item?.name ?? "")
+          .trim()
+          .toLowerCase() !== normalizedFileName,
+    );
+    const successCount = filteredResults.filter((item) => item.ok).length;
+    const failedCount = filteredResults.length - successCount;
+
+    await saveOcrPrecheck(
+      { kind: "request", id: requestId },
+      {
+        status:
+          filteredResults.length === 0
+            ? "queued"
+            : successCount > 0
+              ? "completed"
+              : "failed",
+        source: "MANUAL_VERIFY",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        count: filteredResults.length,
+        success_count: successCount,
+        failed_count: failedCount,
+        error: null,
+        results: filteredResults,
+      },
+    );
 
     return {
       saved: true,
-      count: activeResults.length,
+      count: filteredResults.length,
       success_count: successCount,
       failed_count: failedCount,
     };
@@ -465,7 +386,6 @@ export class RequestCommandService {
     _userId: number,
     userRole: string,
     payload: {
-      service_url?: string;
       worker?: string;
       count?: number;
       success_count?: number;
@@ -483,29 +403,32 @@ export class RequestCommandService {
       throw new AuthorizationError("ไม่มีสิทธิ์บันทึกผล OCR");
     }
 
-    const eligibilityRow = await requestRepository.findEligibilityById(eligibilityId);
+    const eligibilityRow =
+      await requestRepository.findEligibilityById(eligibilityId);
     if (!eligibilityRow) {
       throw new NotFoundError("Eligibility not found");
     }
 
-    await saveOcrPrecheck({ kind: 'eligibility', id: eligibilityId }, {
-      status:
-        Number(payload.success_count ?? 0) > 0
-          ? "completed"
-          : Number(payload.failed_count ?? 0) > 0 || payload.error
-            ? "failed"
-            : "completed",
-      source: "MANUAL_VERIFY",
-      service_url: payload.service_url ?? null,
-      worker: payload.worker ?? "browser-manual",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      count: Number(payload.count ?? payload.results?.length ?? 0),
-      success_count: Number(payload.success_count ?? 0),
-      failed_count: Number(payload.failed_count ?? 0),
-      error: payload.error ?? null,
-      results: payload.results ?? [],
-    });
+    await saveOcrPrecheck(
+      { kind: "eligibility", id: eligibilityId },
+      {
+        status:
+          Number(payload.success_count ?? 0) > 0
+            ? "completed"
+            : Number(payload.failed_count ?? 0) > 0 || payload.error
+              ? "failed"
+              : "completed",
+        source: "MANUAL_VERIFY",
+        worker: payload.worker ?? "browser-manual",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        count: Number(payload.count ?? payload.results?.length ?? 0),
+        success_count: Number(payload.success_count ?? 0),
+        failed_count: Number(payload.failed_count ?? 0),
+        error: payload.error ?? null,
+        results: payload.results ?? [],
+      },
+    );
 
     return { saved: true };
   }
@@ -517,7 +440,7 @@ export class RequestCommandService {
     payload: {
       attachments: Array<{
         attachment_id: number;
-        source: 'eligibility' | 'request';
+        source: "eligibility" | "request";
       }>;
     },
   ): Promise<{
@@ -531,21 +454,24 @@ export class RequestCommandService {
       throw new AuthorizationError("ไม่มีสิทธิ์ตรวจ OCR");
     }
 
-    const eligibilityRow = await requestRepository.findEligibilityById(eligibilityId);
+    const eligibilityRow =
+      await requestRepository.findEligibilityById(eligibilityId);
     if (!eligibilityRow) {
       throw new NotFoundError("Eligibility not found");
     }
 
-    const ocrBase = OcrHttpProvider.getServiceBase();
-    if (!ocrBase) {
-      throw new ValidationError("ยังไม่ได้ตั้งค่า OCR service");
-    }
-
-    const attachmentsToRun: Array<{ file_name: string; file_path: string }> = [];
+    const attachmentsToRun: Array<{ file_name: string; file_path: string }> =
+      [];
     for (const item of payload.attachments) {
-      if (item.source === 'eligibility') {
-        const attachment = await requestRepository.findEligibilityAttachmentById(item.attachment_id);
-        if (!attachment || Number(attachment.eligibility_id) !== eligibilityId) {
+      if (item.source === "eligibility") {
+        const attachment =
+          await requestRepository.findEligibilityAttachmentById(
+            item.attachment_id,
+          );
+        if (
+          !attachment ||
+          Number(attachment.eligibility_id) !== eligibilityId
+        ) {
           throw new ValidationError("ไฟล์แนบนี้ไม่ได้อยู่ในรายการสิทธินี้");
         }
         attachmentsToRun.push({
@@ -555,13 +481,18 @@ export class RequestCommandService {
         continue;
       }
 
-      const linkedRequestId = Number((eligibilityRow as any).request_id ?? 0) || null;
+      const linkedRequestId =
+        Number((eligibilityRow as any).request_id ?? 0) || null;
       if (!linkedRequestId) {
         throw new ValidationError("รายการสิทธินี้ไม่มีคำขอต้นทาง");
       }
-      const attachment = await requestRepository.findAttachmentById(item.attachment_id);
+      const attachment = await requestRepository.findAttachmentById(
+        item.attachment_id,
+      );
       if (!attachment || Number(attachment.request_id) !== linkedRequestId) {
-        throw new ValidationError("ไฟล์แนบนี้ไม่ได้อยู่ในคำขอต้นทางของรายการสิทธินี้");
+        throw new ValidationError(
+          "ไฟล์แนบนี้ไม่ได้อยู่ในคำขอต้นทางของรายการสิทธินี้",
+        );
       }
       attachmentsToRun.push({
         file_name: attachment.file_name,
@@ -569,36 +500,33 @@ export class RequestCommandService {
       });
     }
 
-    const batchSummary = await runStoredFileOcrBatch(attachmentsToRun, ocrBase, {
-      disableFallbackChain: true,
+    const batchSummary = await runStoredFileOcrBatch(attachmentsToRun);
+    const existingResults = await getExistingOcrResults({
+      kind: "eligibility",
+      id: eligibilityId,
     });
-    const existingResults = await getExistingOcrResults({ kind: 'eligibility', id: eligibilityId });
-    const mergedResults = mergeOcrResultsByFileName(existingResults, batchSummary.results);
+    const mergedResults = mergeOcrResultsByFileName(
+      existingResults,
+      batchSummary.results,
+    );
     const successCount = mergedResults.filter((item) => item.ok).length;
     const failedCount = mergedResults.length - successCount;
 
-    await saveOcrPrecheck({ kind: 'eligibility', id: eligibilityId }, {
-      status: successCount > 0 ? "completed" : "failed",
-      source: "MANUAL_VERIFY",
-      service_url: batchSummary.service_url,
-      worker: "server-manual",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      count: mergedResults.length,
-      success_count: successCount,
-      failed_count: failedCount,
-      error: null,
-      results: mergedResults,
-    });
-
-    void this.enhanceOcrResultsInBackground({
-      kind: 'eligibility',
-      id: eligibilityId,
-      ocrBase,
-      serviceUrl: batchSummary.service_url,
-      files: attachmentsToRun,
-      baseResults: batchSummary.results,
-    });
+    await saveOcrPrecheck(
+      { kind: "eligibility", id: eligibilityId },
+      {
+        status: successCount > 0 ? "completed" : "failed",
+        source: "MANUAL_VERIFY",
+        worker: "server-manual",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        count: mergedResults.length,
+        success_count: successCount,
+        failed_count: failedCount,
+        error: null,
+        results: mergedResults,
+      },
+    );
 
     return {
       saved: true,
@@ -624,47 +552,55 @@ export class RequestCommandService {
       throw new AuthorizationError("ไม่มีสิทธิ์ล้างผล OCR");
     }
 
-    const eligibilityRow = await requestRepository.findEligibilityById(eligibilityId);
+    const eligibilityRow =
+      await requestRepository.findEligibilityById(eligibilityId);
     if (!eligibilityRow) {
       throw new NotFoundError("Eligibility not found");
     }
 
-    const normalizedFileName = String(fileName ?? "").trim().toLowerCase();
+    const normalizedFileName = String(fileName ?? "")
+      .trim()
+      .toLowerCase();
     if (!normalizedFileName) {
       throw new ValidationError("ต้องระบุชื่อไฟล์");
     }
 
-    const existingResults = await getExistingOcrResults({ kind: 'eligibility', id: eligibilityId });
-    const filteredResults = existingResults.filter(
-      (item) => String(item?.name ?? "").trim().toLowerCase() !== normalizedFileName,
-    );
-    const nextResults = [
-      ...filteredResults,
-      {
-        name: fileName.trim(),
-        suppressed: true,
-      } as OcrBatchResultItem,
-    ];
-
-    const activeResults = nextResults.filter((item) => !(item as any)?.suppressed);
-    const successCount = activeResults.filter((item) => item.ok).length;
-    const failedCount = activeResults.length - successCount;
-
-    await saveOcrPrecheck({ kind: 'eligibility', id: eligibilityId }, {
-      status: activeResults.length === 0 ? "queued" : successCount > 0 ? "completed" : "failed",
-      source: "MANUAL_VERIFY",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      count: activeResults.length,
-      success_count: successCount,
-      failed_count: failedCount,
-      error: null,
-      results: nextResults,
+    const existingResults = await getExistingOcrResults({
+      kind: "eligibility",
+      id: eligibilityId,
     });
+    const filteredResults = existingResults.filter(
+      (item) =>
+        String(item?.name ?? "")
+          .trim()
+          .toLowerCase() !== normalizedFileName,
+    );
+    const successCount = filteredResults.filter((item) => item.ok).length;
+    const failedCount = filteredResults.length - successCount;
+
+    await saveOcrPrecheck(
+      { kind: "eligibility", id: eligibilityId },
+      {
+        status:
+          filteredResults.length === 0
+            ? "queued"
+            : successCount > 0
+              ? "completed"
+              : "failed",
+        source: "MANUAL_VERIFY",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        count: filteredResults.length,
+        success_count: successCount,
+        failed_count: failedCount,
+        error: null,
+        results: filteredResults,
+      },
+    );
 
     return {
       saved: true,
-      count: activeResults.length,
+      count: filteredResults.length,
       success_count: successCount,
       failed_count: failedCount,
     };
@@ -674,66 +610,96 @@ export class RequestCommandService {
     eligibilityId: number,
     fileName: string,
   ): Promise<void> {
-    const normalizedFileName = String(fileName ?? "").trim().toLowerCase();
+    const normalizedFileName = String(fileName ?? "")
+      .trim()
+      .toLowerCase();
     if (!normalizedFileName) return;
 
-    const existingResults = await getExistingOcrResults({ kind: 'eligibility', id: eligibilityId });
+    const existingResults = await getExistingOcrResults({
+      kind: "eligibility",
+      id: eligibilityId,
+    });
     const nextResults = existingResults.filter(
-      (item) => String(item?.name ?? "").trim().toLowerCase() !== normalizedFileName,
+      (item) =>
+        String(item?.name ?? "")
+          .trim()
+          .toLowerCase() !== normalizedFileName,
     );
 
     if (nextResults.length === existingResults.length) {
       return;
     }
 
-    const activeResults = nextResults.filter((item) => !(item as any)?.suppressed);
-    const successCount = activeResults.filter((item) => item.ok).length;
-    const failedCount = activeResults.length - successCount;
+    const successCount = nextResults.filter((item) => item.ok).length;
+    const failedCount = nextResults.length - successCount;
 
-    await saveOcrPrecheck({ kind: 'eligibility', id: eligibilityId }, {
-      status: activeResults.length === 0 ? "queued" : successCount > 0 ? "completed" : "failed",
-      source: "MANUAL_VERIFY",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      count: activeResults.length,
-      success_count: successCount,
-      failed_count: failedCount,
-      error: null,
-      results: nextResults,
-    });
+    await saveOcrPrecheck(
+      { kind: "eligibility", id: eligibilityId },
+      {
+        status:
+          nextResults.length === 0
+            ? "queued"
+            : successCount > 0
+              ? "completed"
+              : "failed",
+        source: "MANUAL_VERIFY",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        count: nextResults.length,
+        success_count: successCount,
+        failed_count: failedCount,
+        error: null,
+        results: nextResults,
+      },
+    );
   }
 
   private async removeRequestAttachmentOcrResultByFileName(
     requestId: number,
     fileName: string,
   ): Promise<void> {
-    const normalizedFileName = String(fileName ?? "").trim().toLowerCase();
+    const normalizedFileName = String(fileName ?? "")
+      .trim()
+      .toLowerCase();
     if (!normalizedFileName) return;
 
-    const existingResults = await getExistingOcrResults({ kind: 'request', id: requestId });
+    const existingResults = await getExistingOcrResults({
+      kind: "request",
+      id: requestId,
+    });
     const nextResults = existingResults.filter(
-      (item) => String(item?.name ?? "").trim().toLowerCase() !== normalizedFileName,
+      (item) =>
+        String(item?.name ?? "")
+          .trim()
+          .toLowerCase() !== normalizedFileName,
     );
 
     if (nextResults.length === existingResults.length) {
       return;
     }
 
-    const activeResults = nextResults.filter((item) => !(item as any)?.suppressed);
-    const successCount = activeResults.filter((item) => item.ok).length;
-    const failedCount = activeResults.length - successCount;
+    const successCount = nextResults.filter((item) => item.ok).length;
+    const failedCount = nextResults.length - successCount;
 
-    await saveOcrPrecheck({ kind: 'request', id: requestId }, {
-      status: activeResults.length === 0 ? "queued" : successCount > 0 ? "completed" : "failed",
-      source: "MANUAL_VERIFY",
-      started_at: new Date().toISOString(),
-      finished_at: new Date().toISOString(),
-      count: activeResults.length,
-      success_count: successCount,
-      failed_count: failedCount,
-      error: null,
-      results: nextResults,
-    });
+    await saveOcrPrecheck(
+      { kind: "request", id: requestId },
+      {
+        status:
+          nextResults.length === 0
+            ? "queued"
+            : successCount > 0
+              ? "completed"
+              : "failed",
+        source: "MANUAL_VERIFY",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        count: nextResults.length,
+        success_count: successCount,
+        failed_count: failedCount,
+        error: null,
+        results: nextResults,
+      },
+    );
   }
 
   async removeRequestAttachment(
@@ -748,7 +714,7 @@ export class RequestCommandService {
     }
 
     const officerCreatorId =
-      userRole === 'PTS_OFFICER'
+      userRole === "PTS_OFFICER"
         ? await this.getOfficerCreatorIdWithFallback(requestEntity)
         : null;
     const isOwner = requestEntity.user_id === userId;
@@ -761,7 +727,9 @@ export class RequestCommandService {
       requestEntity.status !== RequestStatus.DRAFT &&
       requestEntity.status !== RequestStatus.RETURNED
     ) {
-      throw new ValidationError("สามารถลบไฟล์แนบได้เฉพาะคำขอสถานะ DRAFT หรือ RETURNED");
+      throw new ValidationError(
+        "สามารถลบไฟล์แนบได้เฉพาะคำขอสถานะ DRAFT หรือ RETURNED",
+      );
     }
 
     const attachment = await requestRepository.findAttachmentById(attachmentId);
@@ -815,8 +783,12 @@ export class RequestCommandService {
     requestEntity: Awaited<ReturnType<typeof requestRepository.findById>>,
   ): number | null {
     if (!requestEntity) return null;
-    const submissionData = this.parseSubmissionData(requestEntity.submission_data);
-    const createdByOfficerId = Number(submissionData.created_by_officer_id ?? 0);
+    const submissionData = this.parseSubmissionData(
+      requestEntity.submission_data,
+    );
+    const createdByOfficerId = Number(
+      submissionData.created_by_officer_id ?? 0,
+    );
     return Number.isInteger(createdByOfficerId) && createdByOfficerId > 0
       ? createdByOfficerId
       : null;
@@ -829,15 +801,21 @@ export class RequestCommandService {
     if (direct !== null || !requestEntity?.request_id) return direct;
 
     if (this.legacyOfficerCreatorCache.has(requestEntity.request_id)) {
-      return this.legacyOfficerCreatorCache.get(requestEntity.request_id) ?? null;
+      return (
+        this.legacyOfficerCreatorCache.get(requestEntity.request_id) ?? null
+      );
     }
 
-    const auditMeta = await requestRepository.findRequestCreateAuditMeta(requestEntity.request_id);
+    const auditMeta = await requestRepository.findRequestCreateAuditMeta(
+      requestEntity.request_id,
+    );
     const actorRole =
-      typeof auditMeta?.actor_role === 'string' ? auditMeta.actor_role.trim() : null;
+      typeof auditMeta?.actor_role === "string"
+        ? auditMeta.actor_role.trim()
+        : null;
     const actorId = Number(auditMeta?.actor_id ?? 0);
     const fallbackId =
-      actorRole === 'PTS_OFFICER' && Number.isInteger(actorId) && actorId > 0
+      actorRole === "PTS_OFFICER" && Number.isInteger(actorId) && actorId > 0
         ? actorId
         : null;
 
@@ -849,20 +827,29 @@ export class RequestCommandService {
     requestEntity: Awaited<ReturnType<typeof requestRepository.findById>>,
     userId: number,
     userRole: string,
-  ): Promise<NonNullable<Awaited<ReturnType<typeof requestRepository.findById>>>> {
+  ): Promise<
+    NonNullable<Awaited<ReturnType<typeof requestRepository.findById>>>
+  > {
     if (!requestEntity) {
       throw new Error("Request not found");
     }
     const officerCreatorId =
-      userRole === 'PTS_OFFICER' ? await this.getOfficerCreatorIdWithFallback(requestEntity) : null;
+      userRole === "PTS_OFFICER"
+        ? await this.getOfficerCreatorIdWithFallback(requestEntity)
+        : null;
     const isOfficerCreator = officerCreatorId === userId;
     if (requestEntity.user_id !== userId && !isOfficerCreator) {
       throw new Error("You do not have permission to submit this request");
     }
     if (requestEntity.status !== RequestStatus.DRAFT) {
-      throw new Error(`Cannot submit request with status: ${requestEntity.status}`);
+      throw new Error(
+        `Cannot submit request with status: ${requestEntity.status}`,
+      );
     }
-    if (!requestEntity.requested_amount || requestEntity.requested_amount <= 0) {
+    if (
+      !requestEntity.requested_amount ||
+      requestEntity.requested_amount <= 0
+    ) {
       throw new Error("requested_amount is required before submit");
     }
     return requestEntity;
@@ -880,11 +867,11 @@ export class RequestCommandService {
     let nextStep = stepNo;
     const effectiveSubmitRole =
       userRole === "HEAD_SCOPE"
-        ? (activeHeadRoles.includes("DEPT_SCOPE")
-            ? "DEPT_SCOPE"
-            : activeHeadRoles.includes("WARD_SCOPE")
-              ? "WARD_SCOPE"
-              : "HEAD_SCOPE")
+        ? activeHeadRoles.includes("DEPT_SCOPE")
+          ? "DEPT_SCOPE"
+          : activeHeadRoles.includes("WARD_SCOPE")
+            ? "WARD_SCOPE"
+            : "HEAD_SCOPE"
         : userRole;
     if (stepNo === 1 && effectiveSubmitRole === "WARD_SCOPE") {
       nextStep = 2;
@@ -903,7 +890,11 @@ export class RequestCommandService {
     let signatureSnapshot = citizenId
       ? await requestRepository.findSignatureSnapshot(citizenId, connection)
       : null;
-    if (!signatureSnapshot && fallbackCitizenId && fallbackCitizenId !== citizenId) {
+    if (
+      !signatureSnapshot &&
+      fallbackCitizenId &&
+      fallbackCitizenId !== citizenId
+    ) {
       signatureSnapshot = await requestRepository.findSignatureSnapshot(
         fallbackCitizenId,
         connection,
@@ -925,28 +916,40 @@ export class RequestCommandService {
   }
 
   private async assertRateMappingUpdatePermission(
-    request: NonNullable<Awaited<ReturnType<typeof requestRepository.findById>>>,
+    request: NonNullable<
+      Awaited<ReturnType<typeof requestRepository.findById>>
+    >,
     userId: number,
     role: string,
   ): Promise<void> {
     const isOwner = request.user_id === userId;
     const officerCreatorId =
-      role === 'PTS_OFFICER' ? await this.getOfficerCreatorIdWithFallback(request) : null;
+      role === "PTS_OFFICER"
+        ? await this.getOfficerCreatorIdWithFallback(request)
+        : null;
     const isOfficerCreator = officerCreatorId === userId;
     const isOfficer = role === "PTS_OFFICER";
     if (!isOwner && !isOfficer) {
-      throw new AuthorizationError("You do not have permission to update rate mapping");
+      throw new AuthorizationError(
+        "You do not have permission to update rate mapping",
+      );
     }
     if (isOwner || isOfficerCreator) {
       const canOwnerEdit =
         request.status === RequestStatus.DRAFT ||
         request.status === RequestStatus.RETURNED;
       if (!canOwnerEdit) {
-        throw new Error("Rate mapping can only be updated in draft or returned status");
+        throw new Error(
+          "Rate mapping can only be updated in draft or returned status",
+        );
       }
     }
     if (!isOfficer) return;
-    if (isOfficerCreator && (request.status === RequestStatus.DRAFT || request.status === RequestStatus.RETURNED)) {
+    if (
+      isOfficerCreator &&
+      (request.status === RequestStatus.DRAFT ||
+        request.status === RequestStatus.RETURNED)
+    ) {
       return;
     }
     const officerStep = ROLE_STEP_MAP["PTS_OFFICER"];
@@ -988,17 +991,19 @@ export class RequestCommandService {
     actorRoleForAudit: string;
     submissionDataExtras: Record<string, unknown>;
   }> {
-    if (actorRole === 'PTS_OFFICER' && data.target_user_id) {
-      const targetCitizenId = await requestRepository.findUserCitizenId(data.target_user_id);
+    if (actorRole === "PTS_OFFICER" && data.target_user_id) {
+      const targetCitizenId = await requestRepository.findUserCitizenId(
+        data.target_user_id,
+      );
       if (!targetCitizenId) {
-        throw new ValidationError('ไม่พบบุคลากรที่เลือก');
+        throw new ValidationError("ไม่พบบุคลากรที่เลือก");
       }
       const targetProfile = await requestRepository.findEmployeeProfile(
         targetCitizenId,
         connection,
       );
       if (!targetProfile) {
-        throw new ValidationError('ไม่พบข้อมูลบุคลากรที่เลือก');
+        throw new ValidationError("ไม่พบข้อมูลบุคลากรที่เลือก");
       }
 
       return {
@@ -1011,14 +1016,14 @@ export class RequestCommandService {
           created_by_officer_role: actorRole,
           target_user_id: data.target_user_id,
           target_citizen_id: targetCitizenId,
-          created_mode: 'OFFICER_ON_BEHALF',
+          created_mode: "OFFICER_ON_BEHALF",
         },
       };
     }
 
     const citizenId = await requestRepository.findUserCitizenId(actorId);
     if (!citizenId) {
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
     return {
@@ -1034,21 +1039,33 @@ export class RequestCommandService {
     requestId: number,
     actorId: number,
     actorRole: string,
-    requestRow: NonNullable<Awaited<ReturnType<typeof requestRepository.findById>>>,
+    requestRow: NonNullable<
+      Awaited<ReturnType<typeof requestRepository.findById>>
+    >,
     connection: PoolConnection,
     signatureSnapshot: Buffer | null,
   ): Promise<PTSRequest> {
     const submissionData = this.parseSubmissionData(requestRow.submission_data);
     const rateMapping =
-      (submissionData.rate_mapping as Record<string, unknown> | undefined) ?? {};
-    const rateIdFromMapping = Number(rateMapping.rate_id ?? submissionData.rate_id ?? 0) || null;
-    const effectiveDateStr = normalizeDateToYMD(requestRow.effective_date as string | Date);
+      (submissionData.rate_mapping as Record<string, unknown> | undefined) ??
+      {};
+    const rateIdFromMapping =
+      Number(rateMapping.rate_id ?? submissionData.rate_id ?? 0) || null;
+    const effectiveDateStr = normalizeDateToYMD(
+      requestRow.effective_date as string | Date,
+    );
     const positionName = String(
-      rateMapping.position_name ?? submissionData.position_name ?? requestRow.position_name ?? '',
+      rateMapping.position_name ??
+        submissionData.position_name ??
+        requestRow.position_name ??
+        "",
     );
     const professionCode =
-      String(rateMapping.profession_code ?? submissionData.profession_code ?? '').trim().toUpperCase() ||
-      resolveProfessionCode(positionName);
+      String(
+        rateMapping.profession_code ?? submissionData.profession_code ?? "",
+      )
+        .trim()
+        .toUpperCase() || resolveProfessionCode(positionName);
     const rateId =
       rateIdFromMapping ??
       (await requestRepository.findMatchingRateId(
@@ -1058,7 +1075,7 @@ export class RequestCommandService {
       ));
 
     if (!rateId) {
-      throw new ValidationError('ไม่พบอัตรา พ.ต.ส. ที่ใช้สร้างสิทธิ');
+      throw new ValidationError("ไม่พบอัตรา พ.ต.ส. ที่ใช้สร้างสิทธิ");
     }
 
     await requestRepository.insertApproval(
@@ -1067,7 +1084,7 @@ export class RequestCommandService {
         actor_id: actorId,
         step_no: requestRow.current_step || 1,
         action: ActionType.SUBMIT,
-        comment: 'เจ้าหน้าที่ พ.ต.ส. สร้างคำขอแทนบุคลากร',
+        comment: "เจ้าหน้าที่ พ.ต.ส. สร้างคำขอแทนบุคลากร",
         signature_snapshot: signatureSnapshot,
       },
       connection,
@@ -1091,7 +1108,7 @@ export class RequestCommandService {
         master_rate_id: rateId,
         effective_date: effectiveDateStr,
         snapshot_data: {
-          source: 'PTS_OFFICER_ON_BEHALF',
+          source: "PTS_OFFICER_ON_BEHALF",
           rate_mapping: rateMapping,
         },
         created_by: actorId,
@@ -1118,13 +1135,13 @@ export class RequestCommandService {
     await emitAuditEvent(
       {
         eventType: AuditEventType.REQUEST_SUBMIT,
-        entityType: 'request',
+        entityType: "request",
         entityId: requestId,
         actorId,
         actorRole,
         actionDetail: {
           request_no: requestRow.request_no,
-          mode: 'PTS_OFFICER_ON_BEHALF',
+          mode: "PTS_OFFICER_ON_BEHALF",
           finalized_immediately: true,
         },
       },
@@ -1135,7 +1152,7 @@ export class RequestCommandService {
 
     const updatedEntity = await requestRepository.findById(requestId);
     if (!updatedEntity) {
-      throw new Error('Request not found after immediate approval');
+      throw new Error("Request not found after immediate approval");
     }
     return mapRequestRow(updatedEntity) as PTSRequest;
   }
@@ -1152,7 +1169,7 @@ export class RequestCommandService {
       const relativePath = path.isAbsolute(file.path)
         ? path.relative(process.cwd(), file.path)
         : file.path;
-      const normalizedPath = relativePath.split(path.sep).join('/');
+      const normalizedPath = relativePath.split(path.sep).join("/");
       const normalizedName = this.normalizeFilename(file.originalname);
       const fileType = this.inferAttachmentType(file.fieldname, normalizedName);
       await requestRepository.insertAttachment(
@@ -1167,8 +1184,11 @@ export class RequestCommandService {
     }
   }
 
-  private isOfficerOnBehalfCreate(actorRole: string, data: CreateRequestDTO): boolean {
-    return actorRole === 'PTS_OFFICER' && Boolean(data.target_user_id);
+  private isOfficerOnBehalfCreate(
+    actorRole: string,
+    data: CreateRequestDTO,
+  ): boolean {
+    return actorRole === "PTS_OFFICER" && Boolean(data.target_user_id);
   }
 
   private hasOfficerDisallowedFields(data: UpdateRequestDTO): boolean {
@@ -1188,41 +1208,52 @@ export class RequestCommandService {
   private assertOfficerSubmissionData(data: UpdateRequestDTO): void {
     if (!data.submission_data) return;
     const keys = Object.keys(data.submission_data);
-    const allowedKeys = new Set(['verification_checks']);
+    const allowedKeys = new Set(["verification_checks"]);
     const hasOther = keys.some((key) => !allowedKeys.has(key));
     if (hasOther) {
-      throw new Error('PTS_OFFICER can only update verification_checks in submission_data');
+      throw new Error(
+        "PTS_OFFICER can only update verification_checks in submission_data",
+      );
     }
   }
 
   private assertOfficerCanEditRequest(
-    requestEntity: NonNullable<Awaited<ReturnType<typeof requestRepository.findById>>>,
+    requestEntity: NonNullable<
+      Awaited<ReturnType<typeof requestRepository.findById>>
+    >,
     userId: number,
     data: UpdateRequestDTO,
     files?: Express.Multer.File[],
     signatureFile?: Express.Multer.File,
   ): void {
-    const officerStep = ROLE_STEP_MAP['PTS_OFFICER'];
+    const officerStep = ROLE_STEP_MAP["PTS_OFFICER"];
     if (
       requestEntity.status !== RequestStatus.PENDING ||
       requestEntity.current_step !== officerStep
     ) {
-      throw new Error('คำขอนี้ไม่อยู่ในขั้นตอนที่เจ้าหน้าที่สามารถแก้ไขได้');
+      throw new Error("คำขอนี้ไม่อยู่ในขั้นตอนที่เจ้าหน้าที่สามารถแก้ไขได้");
     }
-    if (requestEntity.assigned_officer_id && requestEntity.assigned_officer_id !== userId) {
-      throw new Error('คำขอนี้ถูกมอบหมายให้เจ้าหน้าที่ท่านอื่นแล้ว');
+    if (
+      requestEntity.assigned_officer_id &&
+      requestEntity.assigned_officer_id !== userId
+    ) {
+      throw new Error("คำขอนี้ถูกมอบหมายให้เจ้าหน้าที่ท่านอื่นแล้ว");
     }
     if ((files && files.length > 0) || signatureFile) {
-      throw new Error('PTS_OFFICER cannot modify attachments or signature');
+      throw new Error("PTS_OFFICER cannot modify attachments or signature");
     }
     if (this.hasOfficerDisallowedFields(data)) {
-      throw new Error('PTS_OFFICER can only update verification checks via submission_data');
+      throw new Error(
+        "PTS_OFFICER can only update verification checks via submission_data",
+      );
     }
     this.assertOfficerSubmissionData(data);
   }
 
   private async assertCanUpdateRequest(
-    requestEntity: NonNullable<Awaited<ReturnType<typeof requestRepository.findById>>>,
+    requestEntity: NonNullable<
+      Awaited<ReturnType<typeof requestRepository.findById>>
+    >,
     userId: number,
     userRole: string,
     data: UpdateRequestDTO,
@@ -1231,14 +1262,14 @@ export class RequestCommandService {
   ): Promise<{ isOwner: boolean; isOfficer: boolean }> {
     const isOwner = requestEntity.user_id === userId;
     const officerCreatorId =
-      userRole === 'PTS_OFFICER'
+      userRole === "PTS_OFFICER"
         ? await this.getOfficerCreatorIdWithFallback(requestEntity)
         : null;
     const isOfficerCreator = officerCreatorId === userId;
-    const isOfficer = userRole === 'PTS_OFFICER';
+    const isOfficer = userRole === "PTS_OFFICER";
 
     if (!isOwner && !isOfficer) {
-      throw new Error('คุณไม่มีสิทธิ์แก้ไขคำขอนี้');
+      throw new Error("คุณไม่มีสิทธิ์แก้ไขคำขอนี้");
     }
 
     if (isOwner || isOfficerCreator) {
@@ -1253,13 +1284,20 @@ export class RequestCommandService {
     }
 
     if (isOfficer) {
-      if (isOfficerCreator && (
-        requestEntity.status === RequestStatus.DRAFT ||
-        requestEntity.status === RequestStatus.RETURNED
-      )) {
+      if (
+        isOfficerCreator &&
+        (requestEntity.status === RequestStatus.DRAFT ||
+          requestEntity.status === RequestStatus.RETURNED)
+      ) {
         return { isOwner: true, isOfficer };
       }
-      this.assertOfficerCanEditRequest(requestEntity, userId, data, files, signatureFile);
+      this.assertOfficerCanEditRequest(
+        requestEntity,
+        userId,
+        data,
+        files,
+        signatureFile,
+      );
     }
 
     return { isOwner, isOfficer };
@@ -1273,14 +1311,18 @@ export class RequestCommandService {
   ): Record<string, unknown> {
     const updateData: Record<string, unknown> = {};
 
-    if (data.personnel_type !== undefined) updateData.personnel_type = data.personnel_type;
+    if (data.personnel_type !== undefined)
+      updateData.personnel_type = data.personnel_type;
     if (data.position_number !== undefined)
       updateData.current_position_number = data.position_number || null;
     if (data.department_group !== undefined)
       updateData.current_department = data.department_group || null;
-    if (data.main_duty !== undefined) updateData.main_duty = data.main_duty || null;
-    if (data.work_attributes !== undefined) updateData.work_attributes = data.work_attributes;
-    if (data.request_type !== undefined) updateData.request_type = data.request_type;
+    if (data.main_duty !== undefined)
+      updateData.main_duty = data.main_duty || null;
+    if (data.work_attributes !== undefined)
+      updateData.work_attributes = data.work_attributes;
+    if (data.request_type !== undefined)
+      updateData.request_type = data.request_type;
     if (data.requested_amount !== undefined) {
       updateData.requested_amount = Number(data.requested_amount);
     }
@@ -1307,7 +1349,10 @@ export class RequestCommandService {
     if (!request) {
       throw new ValidationError("ไม่พบคำขอที่ระบุ");
     }
-    if (request.user_id !== userId && this.getOfficerCreatorId(request) !== userId) {
+    if (
+      request.user_id !== userId &&
+      this.getOfficerCreatorId(request) !== userId
+    ) {
       throw new AuthorizationError("ไม่มีสิทธิ์ยืนยันไฟล์แนบของคำขอนี้");
     }
     const status = request.status as RequestStatus;
@@ -1316,7 +1361,9 @@ export class RequestCommandService {
     }
 
     const attachments = await requestRepository.findAttachments(requestId);
-    const hasLicense = attachments.some((att) => att.file_type === FileType.LICENSE);
+    const hasLicense = attachments.some(
+      (att) => att.file_type === FileType.LICENSE,
+    );
     if (!hasLicense) {
       throw new ValidationError("ไม่พบไฟล์ใบอนุญาต");
     }
@@ -1333,25 +1380,33 @@ export class RequestCommandService {
       throw new ValidationError("กรุณาเลือกไฟล์ที่ต้องการอัปโหลด");
     }
 
-    const eligibility = await requestRepository.findEligibilityById(eligibilityId);
+    const eligibility =
+      await requestRepository.findEligibilityById(eligibilityId);
     if (!eligibility) {
       throw new NotFoundError("ไม่พบรายการสิทธิ");
     }
-    const linkedRequestId = Number((eligibility as any).request_id ?? 0) || null;
+    const linkedRequestId =
+      Number((eligibility as any).request_id ?? 0) || null;
     const requestAttachments =
       linkedRequestId !== null
         ? await requestRepository.findAttachmentsWithMetadata(linkedRequestId)
         : [];
-    const existingAttachments = await requestRepository.findEligibilityAttachments(eligibilityId);
+    const existingAttachments =
+      await requestRepository.findEligibilityAttachments(eligibilityId);
     const existingNames = new Set(
-      existingAttachments.map((attachment) => String(attachment.file_name ?? "").trim().toLowerCase()),
+      existingAttachments.map((attachment) =>
+        String(attachment.file_name ?? "")
+          .trim()
+          .toLowerCase(),
+      ),
     );
     const pendingNames = new Set<string>();
 
     for (const file of files) {
       const normalizedName = this.normalizeFilename(file.originalname);
       const displayName =
-        this.findSourceRequestDisplayName(normalizedName, requestAttachments) ?? normalizedName;
+        this.findSourceRequestDisplayName(normalizedName, requestAttachments) ??
+        normalizedName;
       const dedupeName = displayName.trim().toLowerCase();
       if (!dedupeName) continue;
       if (existingNames.has(dedupeName) || pendingNames.has(dedupeName)) {
@@ -1369,11 +1424,17 @@ export class RequestCommandService {
         const relativePath = path.isAbsolute(file.path)
           ? path.relative(process.cwd(), file.path)
           : file.path;
-        const normalizedPath = relativePath.split(path.sep).join('/');
+        const normalizedPath = relativePath.split(path.sep).join("/");
         const normalizedName = this.normalizeFilename(file.originalname);
         const displayName =
-          this.findSourceRequestDisplayName(normalizedName, requestAttachments) ?? normalizedName;
-        const fileType = this.inferAttachmentType(file.fieldname, normalizedName);
+          this.findSourceRequestDisplayName(
+            normalizedName,
+            requestAttachments,
+          ) ?? normalizedName;
+        const fileType = this.inferAttachmentType(
+          file.fieldname,
+          normalizedName,
+        );
         await requestRepository.insertEligibilityAttachment(
           {
             eligibility_id: eligibilityId,
@@ -1403,7 +1464,12 @@ export class RequestCommandService {
         uploaded_count: files.length,
         file_names: files.map((file) => {
           const normalizedName = this.normalizeFilename(file.originalname);
-          return this.findSourceRequestDisplayName(normalizedName, requestAttachments) ?? normalizedName;
+          return (
+            this.findSourceRequestDisplayName(
+              normalizedName,
+              requestAttachments,
+            ) ?? normalizedName
+          );
         }),
       },
     });
@@ -1416,11 +1482,13 @@ export class RequestCommandService {
     attachmentId: number,
     userId: number,
   ) {
-    const eligibility = await requestRepository.findEligibilityById(eligibilityId);
+    const eligibility =
+      await requestRepository.findEligibilityById(eligibilityId);
     if (!eligibility) {
       throw new NotFoundError("ไม่พบรายการสิทธิ");
     }
-    const attachment = await requestRepository.findEligibilityAttachmentById(attachmentId);
+    const attachment =
+      await requestRepository.findEligibilityAttachmentById(attachmentId);
     if (!attachment) {
       throw new NotFoundError("ไม่พบไฟล์แนบ");
     }
@@ -1431,7 +1499,10 @@ export class RequestCommandService {
     const connection = await getConnection();
     try {
       await connection.beginTransaction();
-      await requestRepository.deleteEligibilityAttachmentById(attachmentId, connection);
+      await requestRepository.deleteEligibilityAttachmentById(
+        attachmentId,
+        connection,
+      );
       await connection.commit();
     } catch (error) {
       await connection.rollback();
@@ -1447,14 +1518,20 @@ export class RequestCommandService {
       await unlink(absolutePath).catch(() => undefined);
     }
 
-    const linkedRequestId = Number((eligibility as any).request_id ?? 0) || null;
+    const linkedRequestId =
+      Number((eligibility as any).request_id ?? 0) || null;
     const requestAttachments =
       linkedRequestId !== null
         ? await requestRepository.findAttachmentsWithMetadata(linkedRequestId)
         : [];
-    const normalizedDeletedName = String(attachment.file_name ?? "").trim().toLowerCase();
+    const normalizedDeletedName = String(attachment.file_name ?? "")
+      .trim()
+      .toLowerCase();
     const hasRequestAttachmentWithSameName = requestAttachments.some(
-      (item) => String(item.file_name ?? "").trim().toLowerCase() === normalizedDeletedName,
+      (item) =>
+        String(item.file_name ?? "")
+          .trim()
+          .toLowerCase() === normalizedDeletedName,
     );
     if (!hasRequestAttachmentWithSameName) {
       await this.removeEligibilityAttachmentOcrResultByFileName(
@@ -1502,7 +1579,10 @@ export class RequestCommandService {
         connection,
       );
 
-      const officerOnBehalfCreate = this.isOfficerOnBehalfCreate(userRole, data);
+      const officerOnBehalfCreate = this.isOfficerOnBehalfCreate(
+        userRole,
+        data,
+      );
       const signatureId = officerOnBehalfCreate
         ? null
         : await requestRepository.findSignatureIdByUserId(
@@ -1510,13 +1590,15 @@ export class RequestCommandService {
             connection,
           );
       if (!officerOnBehalfCreate && !signatureId && !_signatureFile) {
-        throw new Error('ไม่พบข้อมูลลายเซ็น กรุณาเซ็นชื่อก่อนยื่นคำขอ');
+        throw new Error("ไม่พบข้อมูลลายเซ็น กรุณาเซ็นชื่อก่อนยื่นคำขอ");
       }
 
       const requestedAmount = data.requested_amount ?? 0;
       // Rate validation skipped - allowing any amount for testing
 
-      const effectiveDateStr = normalizeDateToYMD(data.effective_date as string | Date);
+      const effectiveDateStr = normalizeDateToYMD(
+        data.effective_date as string | Date,
+      );
 
       // [REFACTOR] Use Repo Create
       const requestId = await requestRepository.create(
@@ -1535,14 +1617,19 @@ export class RequestCommandService {
           current_step: 1,
           submission_data: (() => {
             const submissionDataJson = this.buildSubmissionDataJson(data);
-            const parsed = submissionDataJson ? JSON.parse(submissionDataJson) : {};
+            const parsed = submissionDataJson
+              ? JSON.parse(submissionDataJson)
+              : {};
             return { ...parsed, ...owner.submissionDataExtras };
           })(),
         },
         connection,
       );
 
-      const requestNo = await this.generateUniqueRequestNo(requestId, connection);
+      const requestNo = await this.generateUniqueRequestNo(
+        requestId,
+        connection,
+      );
       await requestRepository.updateRequestNo(requestId, requestNo, connection);
 
       await this.insertAttachments(connection, requestId, files);
@@ -1551,9 +1638,9 @@ export class RequestCommandService {
         await OcrRequestRepository.upsertRequestPrecheck(
           requestId,
           {
-            status: 'queued',
+            status: "queued",
             queued_at: new Date().toISOString(),
-            source: 'AUTO_ON_ATTACHMENT_UPLOAD',
+            source: "AUTO_ON_ATTACHMENT_UPLOAD",
           },
           connection,
         );
@@ -1562,7 +1649,7 @@ export class RequestCommandService {
       await emitAuditEvent(
         {
           eventType: AuditEventType.REQUEST_CREATE,
-          entityType: 'request',
+          entityType: "request",
           entityId: requestId,
           actorId: userId,
           actorRole: owner.actorRoleForAudit,
@@ -1583,7 +1670,7 @@ export class RequestCommandService {
 
       if (shouldEnqueueOcr) {
         void enqueueRequestOcrPrecheck(requestId).catch((error) => {
-          console.error('[OCRQueue] enqueue failed:', error);
+          console.error("[OCRQueue] enqueue failed:", error);
         });
       }
 
@@ -1616,20 +1703,23 @@ export class RequestCommandService {
     try {
       await connection.beginTransaction();
 
-      const requestEntity = await requestRepository.findById(requestId, connection);
+      const requestEntity = await requestRepository.findById(
+        requestId,
+        connection,
+      );
       if (!requestEntity) {
-        throw new Error('Request not found');
+        throw new Error("Request not found");
       }
 
-      if (!['PTS_OFFICER', 'HEAD_HR'].includes(actorRole)) {
-        throw new Error('Invalid role for verification snapshot');
+      if (!["PTS_OFFICER", "HEAD_HR"].includes(actorRole)) {
+        throw new Error("Invalid role for verification snapshot");
       }
 
       let normalizedEffectiveDate: string;
       try {
         normalizedEffectiveDate = normalizeDateToYMD(payload.effective_date);
       } catch {
-        throw new ValidationError('effective_date ต้องเป็นวันที่ที่ถูกต้อง');
+        throw new ValidationError("effective_date ต้องเป็นวันที่ที่ถูกต้อง");
       }
 
       let normalizedExpiryDate: string | null = null;
@@ -1637,7 +1727,7 @@ export class RequestCommandService {
         try {
           normalizedExpiryDate = normalizeDateToYMD(payload.expiry_date);
         } catch {
-          throw new ValidationError('expiry_date ต้องเป็นวันที่ที่ถูกต้อง');
+          throw new ValidationError("expiry_date ต้องเป็นวันที่ที่ถูกต้อง");
         }
       }
 
@@ -1655,7 +1745,10 @@ export class RequestCommandService {
         connection,
       );
 
-      const snapshot = await requestRepository.findVerificationSnapshotById(snapshotId, connection);
+      const snapshot = await requestRepository.findVerificationSnapshotById(
+        snapshotId,
+        connection,
+      );
 
       await connection.commit();
       return snapshot;
@@ -1671,18 +1764,31 @@ export class RequestCommandService {
   // Submit Request
   // ============================================================================
 
-  async submitRequest(requestId: number, userId: number, userRole: string): Promise<PTSRequest> {
+  async submitRequest(
+    requestId: number,
+    userId: number,
+    userRole: string,
+  ): Promise<PTSRequest> {
     const connection = await getConnection();
 
     try {
       await connection.beginTransaction();
 
       // [REFACTOR] Lock row for update check
-      const requestEntity = await requestRepository.findById(requestId, connection);
+      const requestEntity = await requestRepository.findById(
+        requestId,
+        connection,
+      );
 
-      const requestRow = await this.ensureRequestCanBeSubmitted(requestEntity, userId, userRole);
+      const requestRow = await this.ensureRequestCanBeSubmitted(
+        requestEntity,
+        userId,
+        userRole,
+      );
       const officerCreatorId =
-        userRole === 'PTS_OFFICER' ? await this.getOfficerCreatorIdWithFallback(requestRow) : null;
+        userRole === "PTS_OFFICER"
+          ? await this.getOfficerCreatorIdWithFallback(requestRow)
+          : null;
       const isOfficerCreatedRequest = officerCreatorId === userId;
       const actorCitizenId = isOfficerCreatedRequest
         ? await requestRepository.findUserCitizenId(userId)
@@ -1714,7 +1820,9 @@ export class RequestCommandService {
         actorCitizenId,
       );
 
-      const submissionData = this.parseSubmissionData(requestRow.submission_data);
+      const submissionData = this.parseSubmissionData(
+        requestRow.submission_data,
+      );
 
       // [REFACTOR] Use Repo Update
       await requestRepository.update(
@@ -1746,15 +1854,15 @@ export class RequestCommandService {
       // Notification (After commit)
       const nextRole =
         nextStep === 1 || nextStep === 2
-          ? 'HEAD_SCOPE'
-          : STEP_ROLE_MAP[nextStep] || 'HEAD_SCOPE';
+          ? "HEAD_SCOPE"
+          : STEP_ROLE_MAP[nextStep] || "HEAD_SCOPE";
       await NotificationService.notifyRole(
         nextRole,
-        'มีคำขอใหม่รออนุมัติ',
+        "มีคำขอใหม่รออนุมัติ",
         `มีคำขอเลขที่ ${requestRow.request_no} รอการตรวจสอบจากท่าน`,
         getRequestLinkForRole(nextRole, requestId),
       ).catch((error) => {
-        console.error('[Notification] enqueue failed after submit:', error);
+        console.error("[Notification] enqueue failed after submit:", error);
       });
 
       const updatedEntity = await requestRepository.findById(requestId);
@@ -1789,10 +1897,13 @@ export class RequestCommandService {
       await connection.beginTransaction();
 
       // [REFACTOR] Lock row
-      const requestEntity = await requestRepository.findById(requestId, connection);
+      const requestEntity = await requestRepository.findById(
+        requestId,
+        connection,
+      );
 
       if (!requestEntity) {
-        throw new Error('ไม่พบคำขอที่ต้องการแก้ไข');
+        throw new Error("ไม่พบคำขอที่ต้องการแก้ไข");
       }
 
       const { isOwner } = await this.assertCanUpdateRequest(
@@ -1822,9 +1933,9 @@ export class RequestCommandService {
         await OcrRequestRepository.upsertRequestPrecheck(
           requestId,
           {
-            status: 'queued',
+            status: "queued",
             queued_at: new Date().toISOString(),
-            source: 'AUTO_ON_ATTACHMENT_UPLOAD',
+            source: "AUTO_ON_ATTACHMENT_UPLOAD",
           },
           connection,
         );
@@ -1834,7 +1945,7 @@ export class RequestCommandService {
 
       if (shouldEnqueueOcr) {
         void enqueueRequestOcrPrecheck(requestId).catch((error) => {
-          console.error('[OCRQueue] enqueue failed:', error);
+          console.error("[OCRQueue] enqueue failed:", error);
         });
       }
       return await requestQueryService.getRequestDetails(requestId);
@@ -1861,14 +1972,19 @@ export class RequestCommandService {
     try {
       await connection.beginTransaction();
 
-      const requestEntity = await requestRepository.findById(requestId, connection);
+      const requestEntity = await requestRepository.findById(
+        requestId,
+        connection,
+      );
 
       if (!requestEntity) {
-        throw new Error('Request not found');
+        throw new Error("Request not found");
       }
 
       if (requestEntity.status !== RequestStatus.PENDING) {
-        throw new Error(`Cannot update verification checks with status: ${requestEntity.status}`);
+        throw new Error(
+          `Cannot update verification checks with status: ${requestEntity.status}`,
+        );
       }
 
       const expectedRole = STEP_ROLE_MAP[requestEntity.current_step];
@@ -1880,10 +1996,14 @@ export class RequestCommandService {
 
       // Logic to handle JSON
       const submissionData =
-        parseJsonField<Record<string, unknown>>(requestEntity.submission_data, 'submission_data') ||
-        {};
+        parseJsonField<Record<string, unknown>>(
+          requestEntity.submission_data,
+          "submission_data",
+        ) || {};
       const existingChecks =
-        (submissionData.verification_checks as Record<string, unknown> | undefined) || {};
+        (submissionData.verification_checks as
+          | Record<string, unknown>
+          | undefined) || {};
       const nextChecks: Record<string, unknown> = { ...existingChecks };
 
       const buildCheck = (input: any) => ({
@@ -1928,23 +2048,38 @@ export class RequestCommandService {
   // Cancel Request
   // ============================================================================
 
-  async cancelRequest(requestId: number, userId: number, reason?: string): Promise<PTSRequest> {
+  async cancelRequest(
+    requestId: number,
+    userId: number,
+    reason?: string,
+  ): Promise<PTSRequest> {
     const connection = await getConnection();
 
     try {
       await connection.beginTransaction();
 
-      const requestEntity = await requestRepository.findById(requestId, connection);
+      const requestEntity = await requestRepository.findById(
+        requestId,
+        connection,
+      );
       if (!requestEntity) {
-        throw new NotFoundError('คำขอ', requestId);
+        throw new NotFoundError("คำขอ", requestId);
       }
 
-      if (requestEntity.user_id !== userId && this.getOfficerCreatorId(requestEntity) !== userId) {
-        throw new AuthorizationError('คุณไม่มีสิทธิ์ยกเลิกคำขอนี้');
+      if (
+        requestEntity.user_id !== userId &&
+        this.getOfficerCreatorId(requestEntity) !== userId
+      ) {
+        throw new AuthorizationError("คุณไม่มีสิทธิ์ยกเลิกคำขอนี้");
       }
 
-      const nonCancellableStatuses = [RequestStatus.APPROVED, RequestStatus.CANCELLED];
-      if (nonCancellableStatuses.includes(requestEntity.status as RequestStatus)) {
+      const nonCancellableStatuses = [
+        RequestStatus.APPROVED,
+        RequestStatus.CANCELLED,
+      ];
+      if (
+        nonCancellableStatuses.includes(requestEntity.status as RequestStatus)
+      ) {
         throw new ConflictError(
           `ไม่สามารถยกเลิกคำขอที่มีสถานะ ${requestEntity.status} ได้`,
         );
@@ -1967,7 +2102,7 @@ export class RequestCommandService {
           actor_id: userId,
           step_no: requestEntity.current_step || 0,
           action: ActionType.CANCEL,
-          comment: reason || 'ผู้ยื่นขอยกเลิกคำขอ',
+          comment: reason || "ผู้ยื่นขอยกเลิกคำขอ",
           signature_snapshot: null,
         },
         connection,
@@ -1997,8 +2132,8 @@ export class RequestCommandService {
   }
 
   private ensureEligibilityManageRole(actorRole: string): void {
-    if (actorRole !== 'PTS_OFFICER') {
-      throw new AuthorizationError('Only PTS officer can manage eligibility');
+    if (actorRole !== "PTS_OFFICER") {
+      throw new AuthorizationError("Only PTS officer can manage eligibility");
     }
   }
 
@@ -2007,22 +2142,33 @@ export class RequestCommandService {
     actorId: number,
     actorRole: string,
     reason?: string | null,
-  ): Promise<{ eligibility_id: number; is_active: boolean; deactivated_count: number }> {
+  ): Promise<{
+    eligibility_id: number;
+    is_active: boolean;
+    deactivated_count: number;
+  }> {
     this.ensureEligibilityManageRole(actorRole);
     const connection = await getConnection();
 
     try {
       await connection.beginTransaction();
-      const eligibility = await requestRepository.findEligibilityById(eligibilityId, connection);
-      if (!eligibility) throw new NotFoundError('สิทธิ์', eligibilityId);
+      const eligibility = await requestRepository.findEligibilityById(
+        eligibilityId,
+        connection,
+      );
+      if (!eligibility) throw new NotFoundError("สิทธิ์", eligibilityId);
 
-      const citizenId = String((eligibility as any).citizen_id ?? '').trim();
-      const professionCode = String((eligibility as any).profession_code ?? '').trim();
+      const citizenId = String((eligibility as any).citizen_id ?? "").trim();
+      const professionCode = String(
+        (eligibility as any).profession_code ?? "",
+      ).trim();
       if (!citizenId || !professionCode) {
-        throw new ValidationError('Eligibility data is incomplete');
+        throw new ValidationError("Eligibility data is incomplete");
       }
 
-      const expiryDate = this.resolvePreviousDateYmd((eligibility as any).effective_date);
+      const expiryDate = this.resolvePreviousDateYmd(
+        (eligibility as any).effective_date,
+      );
       const deactivatedCount =
         await requestRepository.deactivateActiveEligibilityByCitizenAndProfession(
           citizenId,
@@ -2031,17 +2177,22 @@ export class RequestCommandService {
           eligibilityId,
           connection,
         );
-      await requestRepository.setEligibilityActiveState(eligibilityId, true, null, connection);
+      await requestRepository.setEligibilityActiveState(
+        eligibilityId,
+        true,
+        null,
+        connection,
+      );
 
       await emitAuditEvent(
         {
           eventType: AuditEventType.OTHER,
-          entityType: 'eligibility',
+          entityType: "eligibility",
           entityId: eligibilityId,
           actorId,
           actorRole,
           actionDetail: {
-            action: 'set_primary_eligibility',
+            action: "set_primary_eligibility",
             reason: reason?.trim() || null,
             citizen_id: citizenId,
             profession_code: professionCode,
@@ -2052,7 +2203,11 @@ export class RequestCommandService {
       );
 
       await connection.commit();
-      return { eligibility_id: eligibilityId, is_active: true, deactivated_count: deactivatedCount };
+      return {
+        eligibility_id: eligibilityId,
+        is_active: true,
+        deactivated_count: deactivatedCount,
+      };
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -2072,21 +2227,29 @@ export class RequestCommandService {
 
     try {
       await connection.beginTransaction();
-      const eligibility = await requestRepository.findEligibilityById(eligibilityId, connection);
-      if (!eligibility) throw new NotFoundError('สิทธิ์', eligibilityId);
+      const eligibility = await requestRepository.findEligibilityById(
+        eligibilityId,
+        connection,
+      );
+      if (!eligibility) throw new NotFoundError("สิทธิ์", eligibilityId);
 
       const nowYmd = new Date().toISOString().slice(0, 10);
-      await requestRepository.setEligibilityActiveState(eligibilityId, false, nowYmd, connection);
+      await requestRepository.setEligibilityActiveState(
+        eligibilityId,
+        false,
+        nowYmd,
+        connection,
+      );
 
       await emitAuditEvent(
         {
           eventType: AuditEventType.OTHER,
-          entityType: 'eligibility',
+          entityType: "eligibility",
           entityId: eligibilityId,
           actorId,
           actorRole,
           actionDetail: {
-            action: 'deactivate_eligibility',
+            action: "deactivate_eligibility",
             reason: reason?.trim() || null,
           },
         },
@@ -2108,9 +2271,18 @@ export class RequestCommandService {
     actorId: number,
     actorRole: string,
     reason?: string | null,
-  ): Promise<{ eligibility_id: number; is_active: boolean; deactivated_count: number }> {
+  ): Promise<{
+    eligibility_id: number;
+    is_active: boolean;
+    deactivated_count: number;
+  }> {
     this.ensureEligibilityManageRole(actorRole);
-    return this.setPrimaryEligibility(eligibilityId, actorId, actorRole, reason);
+    return this.setPrimaryEligibility(
+      eligibilityId,
+      actorId,
+      actorRole,
+      reason,
+    );
   }
 
   // ============================================================================
@@ -2121,7 +2293,11 @@ export class RequestCommandService {
     requestId: number,
     userId: number,
     role: string,
-    data: { group_no: number; item_no?: string | null; sub_item_no?: string | null },
+    data: {
+      group_no: number;
+      item_no?: string | null;
+      sub_item_no?: string | null;
+    },
   ): Promise<any> {
     const connection = await getConnection();
 
@@ -2129,16 +2305,18 @@ export class RequestCommandService {
       await connection.beginTransaction();
 
       const request = await requestRepository.findById(requestId, connection);
-      if (!request) throw new Error('Request not found');
+      if (!request) throw new Error("Request not found");
 
       await this.assertRateMappingUpdatePermission(request, userId, role);
 
       // Resolve profession from position name (joined field) or fallback
-      const positionName = request.position_name || '';
+      const positionName = request.position_name || "";
       const professionCode = resolveProfessionCode(positionName);
 
       if (!professionCode) {
-        throw new Error(`Cannot resolve profession from position: ${positionName}`);
+        throw new Error(
+          `Cannot resolve profession from position: ${positionName}`,
+        );
       }
 
       const rate = await requestRepository.findRateByDetails(
@@ -2149,13 +2327,17 @@ export class RequestCommandService {
       );
 
       if (!rate) {
-        throw new Error('Invalid rate mapping');
+        throw new Error("Invalid rate mapping");
       }
 
       const submissionData =
-        parseJsonField<Record<string, unknown>>(request.submission_data, 'submission_data') || {};
+        parseJsonField<Record<string, unknown>>(
+          request.submission_data,
+          "submission_data",
+        ) || {};
       const existingRateMapping =
-        (submissionData as any).rate_mapping || (submissionData as any).classification;
+        (submissionData as any).rate_mapping ||
+        (submissionData as any).classification;
       const nextSubmissionData = {
         ...submissionData,
         rate_mapping: {

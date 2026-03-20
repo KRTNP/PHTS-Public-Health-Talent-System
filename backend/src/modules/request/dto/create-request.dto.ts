@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { PersonnelType, RequestType } from '@/modules/request/contracts/request.types.js';
+import {
+  PersonnelType,
+  RequestType,
+} from "@/modules/request/contracts/request.types.js";
 
 // Helper to parse JSON string
 const jsonPreprocess = (val: unknown) => {
@@ -43,12 +46,14 @@ export const createRequestSchema = z.object({
     effective_date: z.string().optional(),
     work_attributes: z.preprocess(
       jsonPreprocess,
-      z.object({
+      z
+        .object({
           operation: z.boolean(),
           planning: z.boolean(),
           coordination: z.boolean(),
           service: z.boolean(),
-        }).optional(),
+        })
+        .optional(),
     ),
     submission_data: z.preprocess(jsonPreprocess, z.any().optional()),
   }),

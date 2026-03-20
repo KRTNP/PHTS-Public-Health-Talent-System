@@ -1,4 +1,4 @@
-import type { RequestSubmissionEntity } from '@/modules/request/contracts/request.entity.js';
+import type { RequestSubmissionEntity } from "@/modules/request/contracts/request.entity.js";
 
 export interface ReassignRequestDTO {
   targetOfficerId: number;

@@ -2,14 +2,14 @@
  * src/modules/request/data/repositories/request.repository.ts
  */
 import { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import pool from '@config/database.js';
+import pool from "@config/database.js";
 import {
   RequestSubmissionEntity,
   RequestAttachmentEntity,
   EligibilityAttachmentEntity,
   RequestApprovalEntity,
-} from '@/modules/request/contracts/request.entity.js';
-import { ELIGIBILITY_EXPIRING_DAYS } from '@/modules/request/contracts/request.constants.js';
+} from "@/modules/request/contracts/request.entity.js";
+import { ELIGIBILITY_EXPIRING_DAYS } from "@/modules/request/contracts/request.constants.js";
 import {
   buildEligibilityLicenseStatusWhere,
   buildLatestLicenseJoinSql,
@@ -143,7 +143,10 @@ export class RequestRepository {
       params.push(...licenseFilter.params);
     }
 
-    const alertFilter = buildEligibilityAlertWhere(filters.alertFilter ?? null, expiringDays);
+    const alertFilter = buildEligibilityAlertWhere(
+      filters.alertFilter ?? null,
+      expiringDays,
+    );
     if (alertFilter.clause) {
       where.push(alertFilter.clause);
       params.push(...alertFilter.params);
@@ -276,7 +279,9 @@ export class RequestRepository {
     return {
       total: Number(row.total ?? 0),
       total_rate_amount: Number(row.total_rate_amount ?? 0),
-      updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null,
+      updated_at: row.updated_at
+        ? new Date(row.updated_at).toISOString()
+        : null,
       has_sub_item_no: Number(row.has_sub_item_no ?? 0) === 1,
     };
   }
@@ -773,7 +778,10 @@ export class RequestRepository {
       [scopeType, scopeName, citizenIds],
     );
 
-    return rows as Array<{ citizen_id: string; role: "WARD_SCOPE" | "DEPT_SCOPE" }>;
+    return rows as Array<{
+      citizen_id: string;
+      role: "WARD_SCOPE" | "DEPT_SCOPE";
+    }>;
   }
 
   async findActiveScopeMappingsForCitizens(
@@ -1091,7 +1099,9 @@ export class RequestRepository {
     return rows as RequestAttachmentEntity[];
   }
 
-  async findAttachmentById(attachmentId: number): Promise<RequestAttachmentEntity | null> {
+  async findAttachmentById(
+    attachmentId: number,
+  ): Promise<RequestAttachmentEntity | null> {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT * FROM req_attachments WHERE attachment_id = ?`,
       [attachmentId],
@@ -1104,7 +1114,9 @@ export class RequestRepository {
     connection?: PoolConnection,
   ): Promise<void> {
     const db = this.getDb(connection);
-    await db.execute(`DELETE FROM req_attachments WHERE attachment_id = ?`, [attachmentId]);
+    await db.execute(`DELETE FROM req_attachments WHERE attachment_id = ?`, [
+      attachmentId,
+    ]);
   }
 
   async findApprovals(requestId: number): Promise<RequestApprovalEntity[]> {
@@ -1454,7 +1466,13 @@ export class RequestRepository {
          AND e.is_active = 1
          AND e.eligibility_id <> ?
       `,
-      [nextExpiryDate, nextExpiryDate, citizenId, professionCode, exceptEligibilityId],
+      [
+        nextExpiryDate,
+        nextExpiryDate,
+        citizenId,
+        professionCode,
+        exceptEligibilityId,
+      ],
     );
     return Number(result.affectedRows ?? 0);
   }
@@ -1636,7 +1654,13 @@ export class RequestRepository {
     await connection.execute(
       `INSERT INTO eligibility_attachments (eligibility_id, file_type, file_path, file_name, uploaded_by)
        VALUES (?, ?, ?, ?, ?)`,
-      [data.eligibility_id, data.file_type, data.file_path, data.file_name, data.uploaded_by],
+      [
+        data.eligibility_id,
+        data.file_type,
+        data.file_path,
+        data.file_name,
+        data.uploaded_by,
+      ],
     );
   }
 
@@ -1645,7 +1669,6 @@ export class RequestRepository {
     data: {
       status: string;
       source?: string | null;
-      service_url?: string | null;
       worker?: string | null;
       started_at?: string | null;
       finished_at?: string | null;
@@ -1660,13 +1683,12 @@ export class RequestRepository {
     const db = this.getDb(connection);
     await db.execute(
       `INSERT INTO eligibility_ocr_prechecks (
-        eligibility_id, status, source, service_url, worker, started_at, finished_at,
+        eligibility_id, status, source, worker, started_at, finished_at,
         count, success_count, failed_count, error, results_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         status = VALUES(status),
         source = VALUES(source),
-        service_url = VALUES(service_url),
         worker = VALUES(worker),
         started_at = VALUES(started_at),
         finished_at = VALUES(finished_at),
@@ -1679,7 +1701,6 @@ export class RequestRepository {
         eligibilityId,
         data.status,
         data.source ?? null,
-        data.service_url ?? null,
         data.worker ?? null,
         data.started_at ? new Date(data.started_at) : null,
         data.finished_at ? new Date(data.finished_at) : null,
@@ -1697,7 +1718,10 @@ export class RequestRepository {
     connection?: PoolConnection,
   ): Promise<void> {
     const db = this.getDb(connection);
-    await db.execute(`DELETE FROM eligibility_attachments WHERE attachment_id = ?`, [attachmentId]);
+    await db.execute(
+      `DELETE FROM eligibility_attachments WHERE attachment_id = ?`,
+      [attachmentId],
+    );
   }
 
   async insertApproval(
@@ -1736,9 +1760,7 @@ export class RequestRepository {
 
   // --- REASSIGN Operations ---
 
-  async findAvailableOfficers(
-    excludeUserId: number,
-  ): Promise<
+  async findAvailableOfficers(excludeUserId: number): Promise<
     {
       id: number;
       citizen_id: string;
@@ -1874,14 +1896,12 @@ export class RequestRepository {
     return rows[0] ?? null;
   }
 
-  async findMatchingRate(
-    params: {
-      groupNo: number;
-      professionCode: string;
-      itemNo?: string | null;
-      subItemNo?: string | null;
-    },
-  ): Promise<RowDataPacket | null> {
+  async findMatchingRate(params: {
+    groupNo: number;
+    professionCode: string;
+    itemNo?: string | null;
+    subItemNo?: string | null;
+  }): Promise<RowDataPacket | null> {
     let sql = `SELECT * FROM cfg_payment_rates
          WHERE group_no = ? AND is_active = 1 AND profession_code = ?`;
     const sqlParams: any[] = [params.groupNo, params.professionCode];

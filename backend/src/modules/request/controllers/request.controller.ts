@@ -6,25 +6,24 @@
  */
 
 import { Request, Response } from "express";
-import { ApiResponse, UserRole } from '@/types/auth.js';
+import { ApiResponse, UserRole } from "@/types/auth.js";
 
 // Services
-import { requestQueryService } from '@/modules/request/read/services/query.service.js';
-import { requestCommandService } from '@/modules/request/services/command.service.js';
-import { requestApprovalService } from '@/modules/request/services/approval.service.js';
-import * as reassignService from '@/modules/request/reassign/application/reassign.service.js';
-import * as rateService from '@/modules/master-data/services/rate.service.js';
-
-import { getUserScopesForDisplay, getUserScopesWithMembers } from '@/modules/request/scope/application/scope.service.js';
-
-import { requestRepository } from '@/modules/request/data/repositories/request.repository.js';
-import {
-  cleanupUploadSession,
-} from '@/modules/request/helpers/utils.js';
+import { requestQueryService } from "@/modules/request/read/services/query.service.js";
+import { requestCommandService } from "@/modules/request/services/command.service.js";
+import { requestApprovalService } from "@/modules/request/services/approval.service.js";
+import * as reassignService from "@/modules/request/reassign/application/reassign.service.js";
+import * as rateService from "@/modules/master-data/services/rate.service.js";
 
 import {
-  createRequestSchema,
-} from '@/modules/request/dto/create-request.dto.js';
+  getUserScopesForDisplay,
+  getUserScopesWithMembers,
+} from "@/modules/request/scope/application/scope.service.js";
+
+import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
+import { cleanupUploadSession } from "@/modules/request/helpers/utils.js";
+
+import { createRequestSchema } from "@/modules/request/dto/create-request.dto.js";
 import { updateRequestSchema } from "@/modules/request/dto/update-request.dto.js";
 
 import {
@@ -32,9 +31,9 @@ import {
   AuthenticationError,
   AuthorizationError,
   ValidationError,
-} from '@shared/utils/errors.js';
-import { resolveProfessionCode } from '@shared/utils/profession.js';
-import { ELIGIBILITY_EXPIRING_DAYS } from '@/modules/request/contracts/request.constants.js';
+} from "@shared/utils/errors.js";
+import { resolveProfessionCode } from "@shared/utils/profession.js";
+import { ELIGIBILITY_EXPIRING_DAYS } from "@/modules/request/contracts/request.constants.js";
 
 const decodeSignatureBase64 = (payload?: string): Buffer | null => {
   if (!payload || typeof payload !== "string") return null;
@@ -71,7 +70,8 @@ const readOptionalQueryString = (
 const parseEligibilityFilters = (query: Request["query"]) => {
   const page = Number(query.page ?? 1);
   const limit = Number(query.limit ?? 20);
-  const professionCodeRaw = readOptionalQueryString(query, "profession_code") ?? "ALL";
+  const professionCodeRaw =
+    readOptionalQueryString(query, "profession_code") ?? "ALL";
   const professionCode =
     professionCodeRaw.toUpperCase() === "ALL"
       ? "ALL"
@@ -123,68 +123,75 @@ const resolveRequestIdFromParam = async (rawId: string): Promise<number> => {
 };
 
 export class RequestController {
-
   // --- READ Operations ---
 
-  getRequestById = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-    if (!req.user) throw new AuthenticationError("Unauthorized access");
-    assertNotAdmin(req);
-    const rawId = String(req.params.id || "");
-    const requestId = await resolveRequestIdFromParam(rawId);
+  getRequestById = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      assertNotAdmin(req);
+      const rawId = String(req.params.id || "");
+      const requestId = await resolveRequestIdFromParam(rawId);
 
-    const request = await requestQueryService.getRequestById(
-      requestId,
-      req.user.userId,
-      req.user.role
-    );
+      const request = await requestQueryService.getRequestById(
+        requestId,
+        req.user.userId,
+        req.user.role,
+      );
 
-    res.json({ success: true, data: request });
-  });
+      res.json({ success: true, data: request });
+    },
+  );
 
-  getMyRequests = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-     if (!req.user) throw new AuthenticationError("Unauthorized access");
-     assertNotAdmin(req);
-     const requests = await requestQueryService.getMyRequests(req.user.userId);
-     res.json({ success: true, data: requests });
-  });
+  getMyRequests = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      assertNotAdmin(req);
+      const requests = await requestQueryService.getMyRequests(req.user.userId);
+      res.json({ success: true, data: requests });
+    },
+  );
 
   getHistory = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
-      const view = req.query.view === "mine" ? "mine" : "team";
-      const includeAllActions = req.query.actions === "all";
-      const history = await requestQueryService.getApprovalHistory(
-          req.user.userId,
-          req.user.role,
-          { view, includeAllActions },
-      );
-      res.json({ success: true, data: history });
-  });
-
-  getOcrPrecheckHistory = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
     if (!req.user) throw new AuthenticationError("Unauthorized access");
-    const page = Number(req.query.page ?? 1);
-    const limit = Number(req.query.limit ?? 20);
-    const status = readOptionalQueryString(req.query, "status");
-    const search = readOptionalQueryString(req.query, "search");
-    const data = await requestQueryService.getOcrPrecheckHistory({
-      page: Number.isFinite(page) && page > 0 ? page : 1,
-      limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20,
-      status,
-      search,
-    });
-    res.json({ success: true, data });
+    const view = req.query.view === "mine" ? "mine" : "team";
+    const includeAllActions = req.query.actions === "all";
+    const history = await requestQueryService.getApprovalHistory(
+      req.user.userId,
+      req.user.role,
+      { view, includeAllActions },
+    );
+    res.json({ success: true, data: history });
   });
 
-  getPendingApprovals = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  getOcrPrecheckHistory = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      const page = Number(req.query.page ?? 1);
+      const limit = Number(req.query.limit ?? 20);
+      const status = readOptionalQueryString(req.query, "status");
+      const search = readOptionalQueryString(req.query, "search");
+      const data = await requestQueryService.getOcrPrecheckHistory({
+        page: Number.isFinite(page) && page > 0 ? page : 1,
+        limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20,
+        status,
+        search,
+      });
+      res.json({ success: true, data });
+    },
+  );
+
+  getPendingApprovals = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       const scopeParam = req.query.scope as string | undefined;
       const requests = await requestQueryService.getPendingForApprover(
-          req.user.role,
-          req.user.userId,
-          scopeParam
+        req.user.role,
+        req.user.userId,
+        scopeParam,
       );
       res.json({ success: true, data: requests });
-  });
+    },
+  );
 
   getEligibilityList = catchAsync(
     async (req: Request, res: Response<ApiResponse>) => {
@@ -250,7 +257,9 @@ export class RequestController {
         throw new ValidationError("Invalid eligibility ID");
       }
 
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const files = req.files as
+        | { [fieldname: string]: Express.Multer.File[] }
+        | undefined;
       const allFiles = [
         ...(files?.["files"] || []),
         ...(files?.["files[]"] || []),
@@ -268,7 +277,9 @@ export class RequestController {
         cleanupUploadSession(req);
         throw error;
       }
-      res.status(201).json({ success: true, data, message: "อัปโหลดไฟล์แนบสำเร็จ" });
+      res
+        .status(201)
+        .json({ success: true, data, message: "อัปโหลดไฟล์แนบสำเร็จ" });
     },
   );
 
@@ -290,32 +301,66 @@ export class RequestController {
     },
   );
 
-  exportEligibilityCsv = catchAsync(
-    async (req: Request, res: Response) => {
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
+  exportEligibilityCsv = catchAsync(async (req: Request, res: Response) => {
+    if (!req.user) throw new AuthenticationError("Unauthorized access");
 
-      const activeOnly = String(req.query.active_only ?? "1") !== "0";
-      const professionCodeRaw =
-        typeof req.query.profession_code === "string" ? req.query.profession_code : "ALL";
-      const professionCode =
-        professionCodeRaw.toUpperCase() === "ALL" ? "ALL" : professionCodeRaw.toUpperCase();
-      const rawSearch = req.query.search;
-      const search = typeof rawSearch === "string" ? rawSearch.trim() : null;
-      const rateGroup = typeof req.query.rate_group === "string" ? req.query.rate_group.trim() : null;
-      const department = typeof req.query.department === "string" ? req.query.department.trim() : null;
-      const subDepartment =
-        typeof req.query.sub_department === "string" ? req.query.sub_department.trim() : null;
-      const licenseStatus =
-        typeof req.query.license_status === "string" && req.query.license_status !== "all"
-          ? (req.query.license_status as any)
-          : null;
-      const alertFilter =
-        typeof req.query.alert_filter === "string" && req.query.alert_filter !== "all"
-          ? (req.query.alert_filter as any)
-          : null;
+    const activeOnly = String(req.query.active_only ?? "1") !== "0";
+    const professionCodeRaw =
+      typeof req.query.profession_code === "string"
+        ? req.query.profession_code
+        : "ALL";
+    const professionCode =
+      professionCodeRaw.toUpperCase() === "ALL"
+        ? "ALL"
+        : professionCodeRaw.toUpperCase();
+    const rawSearch = req.query.search;
+    const search = typeof rawSearch === "string" ? rawSearch.trim() : null;
+    const rateGroup =
+      typeof req.query.rate_group === "string"
+        ? req.query.rate_group.trim()
+        : null;
+    const department =
+      typeof req.query.department === "string"
+        ? req.query.department.trim()
+        : null;
+    const subDepartment =
+      typeof req.query.sub_department === "string"
+        ? req.query.sub_department.trim()
+        : null;
+    const licenseStatus =
+      typeof req.query.license_status === "string" &&
+      req.query.license_status !== "all"
+        ? (req.query.license_status as any)
+        : null;
+    const alertFilter =
+      typeof req.query.alert_filter === "string" &&
+      req.query.alert_filter !== "all"
+        ? (req.query.alert_filter as any)
+        : null;
 
-      // Hard safety guard to avoid accidental huge exports.
-      const meta = await requestRepository.findEligibilityListMeta({
+    // Hard safety guard to avoid accidental huge exports.
+    const meta = await requestRepository.findEligibilityListMeta({
+      activeOnly,
+      professionCode,
+      search,
+      rateGroup,
+      department,
+      subDepartment,
+      licenseStatus,
+      alertFilter,
+      expiringDays: ELIGIBILITY_EXPIRING_DAYS,
+    });
+    const maxRows = 20000;
+    if (meta.total > maxRows) {
+      res.status(413).json({
+        success: false,
+        error: `Too many rows to export (${meta.total}). Please narrow filters (max ${maxRows}).`,
+      });
+      return;
+    }
+
+    const rows = await requestRepository.findEligibilityListPaged(
+      {
         activeOnly,
         professionCode,
         search,
@@ -325,89 +370,68 @@ export class RequestController {
         licenseStatus,
         alertFilter,
         expiringDays: ELIGIBILITY_EXPIRING_DAYS,
-      });
-      const maxRows = 20000;
-      if (meta.total > maxRows) {
-        res.status(413).json({
-          success: false,
-          error: `Too many rows to export (${meta.total}). Please narrow filters (max ${maxRows}).`,
-        });
-        return;
-      }
-
-      const rows = await requestRepository.findEligibilityListPaged(
-        {
-          activeOnly,
-          professionCode,
-          search,
-          rateGroup,
-          department,
-        subDepartment,
-        licenseStatus,
-        alertFilter,
-        expiringDays: ELIGIBILITY_EXPIRING_DAYS,
       },
-        1,
-        maxRows,
+      1,
+      maxRows,
+    );
+
+    const escapeCsv = (value: unknown) => {
+      if (value === null || value === undefined) return "";
+      const s = String(value);
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const header = [
+      "eligibility_id",
+      "request_no",
+      "full_name",
+      "profession_code",
+      "position_name",
+      "department",
+      "sub_department",
+      "group_no",
+      "item_no",
+      "sub_item_no",
+      "rate_amount",
+      "effective_date",
+      "expiry_date",
+    ];
+
+    const lines: string[] = [];
+    // UTF-8 BOM for Excel-friendly Thai text.
+    lines.push("\uFEFF" + header.join(","));
+
+    for (const r of rows as any[]) {
+      const fullName =
+        `${r.title ?? ""}${r.first_name ?? ""} ${r.last_name ?? ""}`.trim();
+      lines.push(
+        [
+          r.eligibility_id,
+          r.request_no,
+          fullName,
+          r.profession_code,
+          r.position_name,
+          r.department,
+          r.sub_department,
+          r.group_no,
+          r.item_no,
+          r.sub_item_no,
+          r.rate_amount,
+          r.effective_date,
+          r.expiry_date,
+        ]
+          .map(escapeCsv)
+          .join(","),
       );
+    }
 
-      const escapeCsv = (value: unknown) => {
-        if (value === null || value === undefined) return "";
-        const s = String(value);
-        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-        return s;
-      };
-
-      const header = [
-        "eligibility_id",
-        "request_no",
-        "full_name",
-        "profession_code",
-        "position_name",
-        "department",
-        "sub_department",
-        "group_no",
-        "item_no",
-        "sub_item_no",
-        "rate_amount",
-        "effective_date",
-        "expiry_date",
-      ];
-
-      const lines: string[] = [];
-      // UTF-8 BOM for Excel-friendly Thai text.
-      lines.push("\uFEFF" + header.join(","));
-
-      for (const r of rows as any[]) {
-        const fullName = `${r.title ?? ""}${r.first_name ?? ""} ${r.last_name ?? ""}`.trim();
-        lines.push(
-          [
-            r.eligibility_id,
-            r.request_no,
-            fullName,
-            r.profession_code,
-            r.position_name,
-            r.department,
-            r.sub_department,
-            r.group_no,
-            r.item_no,
-            r.sub_item_no,
-            r.rate_amount,
-            r.effective_date,
-            r.expiry_date,
-          ]
-            .map(escapeCsv)
-            .join(","),
-        );
-      }
-
-      const now = new Date();
-      const fileName = `eligibility_${now.toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`;
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-      res.status(200).send(lines.join("\n"));
-    },
-  );
+    const now = new Date();
+    const fileName = `eligibility_${now.toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.status(200).send(lines.join("\n"));
+  });
 
   getEligibilityById = catchAsync(
     async (req: Request, res: Response<ApiResponse>) => {
@@ -434,7 +458,11 @@ export class RequestController {
         req.user.role,
         typeof req.body?.reason === "string" ? req.body.reason : null,
       );
-      res.json({ success: true, data, message: "ตั้งเป็นสิทธิ์ใช้งานหลักแล้ว" });
+      res.json({
+        success: true,
+        data,
+        message: "ตั้งเป็นสิทธิ์ใช้งานหลักแล้ว",
+      });
     },
   );
 
@@ -474,18 +502,23 @@ export class RequestController {
 
   // --- WRITE Operations ---
 
-  createRequest = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  createRequest = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
 
       const validation = createRequestSchema.safeParse(req);
       if (!validation.success) {
-          cleanupUploadSession(req);
-          // ZodError 'errors' property is valid for SafeParseError
-          throw new ValidationError("Validation failed", { errors: (validation as any).error.format() });
+        cleanupUploadSession(req);
+        // ZodError 'errors' property is valid for SafeParseError
+        throw new ValidationError("Validation failed", {
+          errors: (validation as any).error.format(),
+        });
       }
 
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const files = req.files as
+        | { [fieldname: string]: Express.Multer.File[] }
+        | undefined;
       const documentFiles = [
         ...(files?.["files"] || []),
         ...(files?.["files[]"] || []),
@@ -502,41 +535,52 @@ export class RequestController {
           ? await requestRepository.findUserCitizenId(targetUserId)
           : req.user.citizenId;
       if (!targetCitizenId) {
-          cleanupUploadSession(req);
-          res.status(404).json({ success: false, error: "Employee not found" });
-          return;
+        cleanupUploadSession(req);
+        res.status(404).json({ success: false, error: "Employee not found" });
+        return;
       }
 
-      const employeeExists = await requestRepository.findEmployeeExists(targetCitizenId);
+      const employeeExists =
+        await requestRepository.findEmployeeExists(targetCitizenId);
       if (!employeeExists) {
-          cleanupUploadSession(req);
-          res.status(404).json({ success: false, error: "Employee not found" });
-          return;
+        cleanupUploadSession(req);
+        res.status(404).json({ success: false, error: "Employee not found" });
+        return;
       }
 
       const request = await requestCommandService.createRequest(
-          req.user.userId,
-          req.user.role,
-          requestData,
-          allFiles,
-          signatureFile
+        req.user.userId,
+        req.user.role,
+        requestData,
+        allFiles,
+        signatureFile,
       );
 
-      res.status(201).json({ success: true, data: request, message: "Request created successfully" });
-  });
+      res.status(201).json({
+        success: true,
+        data: request,
+        message: "Request created successfully",
+      });
+    },
+  );
 
-  updateRequest = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  updateRequest = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const requestId = parseInt(req.params.id);
 
       const validation = updateRequestSchema.safeParse(req);
       if (!validation.success) {
-          cleanupUploadSession(req);
-          throw new ValidationError("Validation failed", { errors: (validation as any).error.format() });
+        cleanupUploadSession(req);
+        throw new ValidationError("Validation failed", {
+          errors: (validation as any).error.format(),
+        });
       }
 
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const files = req.files as
+        | { [fieldname: string]: Express.Multer.File[] }
+        | undefined;
       const documentFiles = [
         ...(files?.["files"] || []),
         ...(files?.["files[]"] || []),
@@ -549,18 +593,20 @@ export class RequestController {
       const requestData = validation.data.body;
 
       const updated = await requestCommandService.updateRequest(
-          requestId,
-          req.user.userId,
-          req.user.role,
-          requestData,
-          allFiles,
-          signatureFile
+        requestId,
+        req.user.userId,
+        req.user.role,
+        requestData,
+        allFiles,
+        signatureFile,
       );
 
       res.json({ success: true, data: updated });
-  });
+    },
+  );
 
-  removeRequestAttachment = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  removeRequestAttachment = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const requestId = parseInt(req.params.id);
@@ -577,7 +623,8 @@ export class RequestController {
       );
 
       res.json({ success: true, data: updated, message: "ลบไฟล์แนบสำเร็จ" });
-  });
+    },
+  );
 
   createVerificationSnapshot = catchAsync(
     async (req: Request, res: Response<ApiResponse>) => {
@@ -597,33 +644,46 @@ export class RequestController {
 
   // --- ACTIONS ---
 
-  processAction = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  processAction = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       const requestId = parseInt(req.params.id);
       const { action, comment, signature_base64 } = req.body;
 
       let result;
-      if (action === 'APPROVE') {
-          const signatureSnapshot = decodeSignatureBase64(signature_base64);
-          result = await requestApprovalService.approveRequest(
-            requestId,
-            req.user.userId,
-            req.user.role,
-            comment,
-            signatureSnapshot,
-          );
-      } else if (action === 'REJECT') {
-          result = await requestApprovalService.rejectRequest(requestId, req.user.userId, req.user.role, comment);
-      } else if (action === 'RETURN') {
-          result = await requestApprovalService.returnRequest(requestId, req.user.userId, req.user.role, comment);
+      if (action === "APPROVE") {
+        const signatureSnapshot = decodeSignatureBase64(signature_base64);
+        result = await requestApprovalService.approveRequest(
+          requestId,
+          req.user.userId,
+          req.user.role,
+          comment,
+          signatureSnapshot,
+        );
+      } else if (action === "REJECT") {
+        result = await requestApprovalService.rejectRequest(
+          requestId,
+          req.user.userId,
+          req.user.role,
+          comment,
+        );
+      } else if (action === "RETURN") {
+        result = await requestApprovalService.returnRequest(
+          requestId,
+          req.user.userId,
+          req.user.role,
+          comment,
+        );
       } else {
-          throw new ValidationError("Invalid Action");
+        throw new ValidationError("Invalid Action");
       }
 
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  approveRequest = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  approveRequest = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       const requestId = parseInt(req.params.id);
       const { comment, signature_base64 } = req.body;
@@ -636,102 +696,142 @@ export class RequestController {
         signatureSnapshot,
       );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  rejectRequest = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  rejectRequest = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       const requestId = parseInt(req.params.id);
       const { comment } = req.body;
-      const result = await requestApprovalService.rejectRequest(requestId, req.user.userId, req.user.role, comment);
+      const result = await requestApprovalService.rejectRequest(
+        requestId,
+        req.user.userId,
+        req.user.role,
+        comment,
+      );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  returnRequest = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  returnRequest = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       const requestId = parseInt(req.params.id);
       const { comment } = req.body;
-      const result = await requestApprovalService.returnRequest(requestId, req.user.userId, req.user.role, comment);
+      const result = await requestApprovalService.returnRequest(
+        requestId,
+        req.user.userId,
+        req.user.role,
+        comment,
+      );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
   // --- REASSIGN ---
 
-  reassignRequest = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  reassignRequest = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       const requestId = parseInt(req.params.id);
       const { target_officer_id, remark } = req.body;
 
       await reassignService.reassignRequest(requestId, req.user.userId, {
-          targetOfficerId: target_officer_id,
-          reason: remark
+        targetOfficerId: target_officer_id,
+        reason: remark,
       });
 
       res.json({ success: true, message: "Request reassigned successfully" });
-  });
+    },
+  );
 
-  getReassignHistory = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  getReassignHistory = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const requestId = parseInt(req.params.id);
-      await requestQueryService.getRequestById(requestId, req.user.userId, req.user.role);
+      await requestQueryService.getRequestById(
+        requestId,
+        req.user.userId,
+        req.user.role,
+      );
       const history = await reassignService.getReassignmentHistory(requestId);
       res.json({ success: true, data: history });
-  });
+    },
+  );
 
-  getAvailableOfficers = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  getAvailableOfficers = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
-      const officers = await reassignService.getAvailableOfficers(req.user.userId);
+      const officers = await reassignService.getAvailableOfficers(
+        req.user.userId,
+      );
       res.json({ success: true, data: officers });
-  });
+    },
+  );
 
   // --- OTHER ---
 
-  getMasterRates = catchAsync(async (_req: Request, res: Response<ApiResponse>) => {
+  getMasterRates = catchAsync(
+    async (_req: Request, res: Response<ApiResponse>) => {
       const req = _req as Request;
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const rates = await rateService.getMasterRates();
       res.json({ success: true, data: rates });
-  });
-
+    },
+  );
 
   getPrefill = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user?.citizenId) throw new AuthenticationError("Unauthorized");
-      assertNotAdmin(req);
-      const targetUserId = parsePositiveInt(req.query.target_user_id);
-      let citizenId = req.user.citizenId;
+    if (!req.user?.citizenId) throw new AuthenticationError("Unauthorized");
+    assertNotAdmin(req);
+    const targetUserId = parsePositiveInt(req.query.target_user_id);
+    let citizenId = req.user.citizenId;
 
-      if (targetUserId) {
-        if (req.user.role !== UserRole.PTS_OFFICER) {
-          throw new AuthorizationError("มีสิทธิ์เลือกบุคลากรได้เฉพาะเจ้าหน้าที่ พ.ต.ส.");
-        }
-        const targetCitizenId = await requestRepository.findUserCitizenId(targetUserId);
-        if (!targetCitizenId) {
-          throw new ValidationError("ไม่พบบุคลากรที่เลือก");
-        }
-        citizenId = targetCitizenId;
+    if (targetUserId) {
+      if (req.user.role !== UserRole.PTS_OFFICER) {
+        throw new AuthorizationError(
+          "มีสิทธิ์เลือกบุคลากรได้เฉพาะเจ้าหน้าที่ พ.ต.ส.",
+        );
       }
-
-      const emp = await requestRepository.findEmployeeProfile(citizenId);
-
-      if (!emp) {
-          res.json({ success: true, data: null });
-          return;
+      const targetCitizenId =
+        await requestRepository.findUserCitizenId(targetUserId);
+      if (!targetCitizenId) {
+        throw new ValidationError("ไม่พบบุคลากรที่เลือก");
       }
-      const professionCode = resolveProfessionCode(emp.position_name || "");
+      citizenId = targetCitizenId;
+    }
 
-      res.json({ success: true, data: { ...emp, profession_code: professionCode } });
+    const emp = await requestRepository.findEmployeeProfile(citizenId);
+
+    if (!emp) {
+      res.json({ success: true, data: null });
+      return;
+    }
+    const professionCode = resolveProfessionCode(emp.position_name || "");
+
+    res.json({
+      success: true,
+      data: { ...emp, profession_code: professionCode },
+    });
   });
 
-  searchPersonnelOptions = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  searchPersonnelOptions = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       if (req.user.role !== UserRole.PTS_OFFICER) {
-        throw new AuthorizationError("มีสิทธิ์ค้นหาบุคลากรได้เฉพาะเจ้าหน้าที่ พ.ต.ส.");
+        throw new AuthorizationError(
+          "มีสิทธิ์ค้นหาบุคลากรได้เฉพาะเจ้าหน้าที่ พ.ต.ส.",
+        );
       }
 
       const search = readOptionalQueryString(req.query, "search") ?? "";
       const limit = parsePositiveInt(req.query.limit) ?? 20;
-      const rows = await requestRepository.searchPersonnelOptions(search, limit);
+      const rows = await requestRepository.searchPersonnelOptions(
+        search,
+        limit,
+      );
       const data = rows.map((row) => ({
         user_id: Number(row.user_id),
         citizen_id: String(row.citizen_id ?? ""),
@@ -745,55 +845,71 @@ export class RequestController {
         emp_type: row.emp_type ?? null,
       }));
       res.json({ success: true, data });
-  });
+    },
+  );
 
   getMyScopes = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user?.userId) throw new AuthenticationError("Unauthorized");
-      if (!req.user?.role) throw new AuthenticationError("Unauthorized");
+    if (!req.user?.userId) throw new AuthenticationError("Unauthorized");
+    if (!req.user?.role) throw new AuthenticationError("Unauthorized");
 
-      const scopes = await getUserScopesForDisplay(req.user.userId, req.user.role);
-      res.json({ success: true, data: scopes });
-  });
-
-  getMyScopeMembers = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user?.userId) throw new AuthenticationError("Unauthorized");
-      if (!req.user?.role) throw new AuthenticationError("Unauthorized");
-
-      const scopeMembers = await getUserScopesWithMembers(req.user.userId, req.user.role);
-      res.json({ success: true, data: scopeMembers });
-  });
-
-  confirmAttachments = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-    if (!req.user) throw new AuthenticationError("Unauthorized access");
-    assertNotAdmin(req);
-    const requestId = parseInt(req.params.id);
-    if (isNaN(requestId)) throw new ValidationError("Invalid Request ID");
-    const result = await requestCommandService.confirmAttachments(
-      requestId,
+    const scopes = await getUserScopesForDisplay(
       req.user.userId,
+      req.user.role,
     );
-    res.json({ success: true, data: result, message: "Attachments confirmed" });
+    res.json({ success: true, data: scopes });
   });
 
+  getMyScopeMembers = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user?.userId) throw new AuthenticationError("Unauthorized");
+      if (!req.user?.role) throw new AuthenticationError("Unauthorized");
 
+      const scopeMembers = await getUserScopesWithMembers(
+        req.user.userId,
+        req.user.role,
+      );
+      res.json({ success: true, data: scopeMembers });
+    },
+  );
 
-  updateRateMapping = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  confirmAttachments = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      assertNotAdmin(req);
+      const requestId = parseInt(req.params.id);
+      if (isNaN(requestId)) throw new ValidationError("Invalid Request ID");
+      const result = await requestCommandService.confirmAttachments(
+        requestId,
+        req.user.userId,
+      );
+      res.json({
+        success: true,
+        data: result,
+        message: "Attachments confirmed",
+      });
+    },
+  );
+
+  updateRateMapping = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const requestId = parseInt(req.params.id);
       const { group_no, item_no, sub_item_no } = req.body;
 
       const result = await requestCommandService.updateRateMapping(
-          requestId,
-          req.user.userId,
-          req.user.role,
-          { group_no, item_no, sub_item_no }
+        requestId,
+        req.user.userId,
+        req.user.role,
+        { group_no, item_no, sub_item_no },
       );
 
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  persistManualOcrPrecheck = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  persistManualOcrPrecheck = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const requestId = parseInt(req.params.id);
@@ -804,9 +920,11 @@ export class RequestController {
         req.body,
       );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  runRequestAttachmentsOcr = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  runRequestAttachmentsOcr = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const requestId = parseInt(req.params.id);
@@ -817,9 +935,11 @@ export class RequestController {
         req.body,
       );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  clearRequestAttachmentOcr = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  clearRequestAttachmentOcr = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const requestId = parseInt(req.params.id);
@@ -830,22 +950,27 @@ export class RequestController {
         req.body.file_name,
       );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  persistEligibilityManualOcrPrecheck = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  persistEligibilityManualOcrPrecheck = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const eligibilityId = parseInt(req.params.id);
-      const result = await requestCommandService.persistEligibilityManualOcrPrecheck(
-        eligibilityId,
-        req.user.userId,
-        req.user.role,
-        req.body,
-      );
+      const result =
+        await requestCommandService.persistEligibilityManualOcrPrecheck(
+          eligibilityId,
+          req.user.userId,
+          req.user.role,
+          req.body,
+        );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  runEligibilityAttachmentsOcr = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  runEligibilityAttachmentsOcr = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const eligibilityId = parseInt(req.params.eligibilityId);
@@ -856,9 +981,11 @@ export class RequestController {
         req.body,
       );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  clearEligibilityAttachmentOcr = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
+  clearEligibilityAttachmentOcr = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
       assertNotAdmin(req);
       const eligibilityId = parseInt(req.params.eligibilityId);
@@ -869,52 +996,61 @@ export class RequestController {
         req.body.file_name,
       );
       res.json({ success: true, data: result });
-  });
+    },
+  );
 
-  updateVerificationChecks = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-     if (!req.user) throw new AuthenticationError("Unauthorized access");
-     const requestId = parseInt(req.params.id);
-     const result = await requestCommandService.updateVerificationChecks(
-       requestId,
-       req.user.userId,
-       req.user.role,
-       req.body,
-     );
-     res.json({ success: true, data: result });
-  });
+  updateVerificationChecks = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      const requestId = parseInt(req.params.id);
+      const result = await requestCommandService.updateVerificationChecks(
+        requestId,
+        req.user.userId,
+        req.user.role,
+        req.body,
+      );
+      res.json({ success: true, data: result });
+    },
+  );
 
-  cancelRequest = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-     if (!req.user) throw new AuthenticationError("Unauthorized access");
-     assertNotAdmin(req);
-     const user = req.user;
-     const requestId = parseInt(req.params.id);
-     await requestCommandService.cancelRequest(requestId, user.userId);
-     res.json({ success: true, message: "Cancelled" });
-  });
+  cancelRequest = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      assertNotAdmin(req);
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      await requestCommandService.cancelRequest(requestId, user.userId);
+      res.json({ success: true, message: "Cancelled" });
+    },
+  );
 
-  submitRequest = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-     if (!req.user) throw new AuthenticationError("Unauthorized access");
-     assertNotAdmin(req);
-     const user = req.user;
-     const requestId = parseInt(req.params.id);
-     const result = await requestCommandService.submitRequest(
-       requestId,
-       user.userId,
-       user.role,
-     );
-     res.json({ success: true, message: "Submitted", data: result });
-  });
+  submitRequest = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      assertNotAdmin(req);
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      const result = await requestCommandService.submitRequest(
+        requestId,
+        user.userId,
+        user.role,
+      );
+      res.json({ success: true, message: "Submitted", data: result });
+    },
+  );
 
-  approveBatch = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
-       if (!req.user) throw new AuthenticationError("Unauthorized access");
-       const { requestIds, comment } = req.body;
-       const result = await requestApprovalService.approveBatch(
-         req.user.userId,
-         req.user.role,
-         { requestIds, comment },
-       );
-       res.json({ success: true, data: result });
-  });
+  approveBatch = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      const { requestIds, comment } = req.body;
+      const result = await requestApprovalService.approveBatch(
+        req.user.userId,
+        req.user.role,
+        { requestIds, comment },
+      );
+      res.json({ success: true, data: result });
+    },
+  );
 }
 
 const assertNotAdmin = (req: Request) => {
