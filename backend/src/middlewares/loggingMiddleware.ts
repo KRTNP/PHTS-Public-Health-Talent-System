@@ -6,7 +6,7 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import Logger from '@shared/utils/logger.js';
+import Logger from "@shared/utils/logger.js";
 
 const logger = Logger.create("HTTP");
 
@@ -56,16 +56,12 @@ export const errorLoggingMiddleware = (
 ) => {
   const requestId = (req as any).requestId || "unknown";
 
-  logger.error(
-    `Request error: ${req.method} ${req.originalUrl}`,
-    err,
-    {
-      requestId,
-      userId: (req as any).user?.userId,
-      method: req.method,
-      path: req.originalUrl,
-    },
-  );
+  logger.error(`Request error: ${req.method} ${req.originalUrl}`, err, {
+    requestId,
+    userId: (req as any).user?.userId,
+    method: req.method,
+    path: req.originalUrl,
+  });
 
   // Pass error to next middleware
   next(err);

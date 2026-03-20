@@ -4,9 +4,12 @@
  * Manages position allowance rates (P.T.S. rates).
  */
 
-import { emitAuditEvent, AuditEventType } from '@/modules/audit/services/audit.service.js';
-import { MasterDataRepository } from '@/modules/master-data/repositories/master-data.repository.js';
-import { ConflictError } from '@shared/utils/errors.js';
+import {
+  emitAuditEvent,
+  AuditEventType,
+} from "@/modules/audit/services/audit.service.js";
+import { MasterDataRepository } from "@/modules/master-data/repositories/master-data.repository.js";
+import { ConflictError } from "@shared/utils/errors.js";
 
 type CreateMasterRatePayload = {
   profession_code: string;
@@ -57,7 +60,8 @@ export const deleteMasterRate = async (
   rateId: number,
   actorId?: number,
 ): Promise<void> => {
-  const referenceCount = await MasterDataRepository.countMasterRateReferences(rateId);
+  const referenceCount =
+    await MasterDataRepository.countMasterRateReferences(rateId);
   if (referenceCount > 0) {
     throw new ConflictError(
       `ไม่สามารถลบอัตราเงินนี้ได้ เนื่องจากมีข้อมูลอ้างอิงอยู่ ${referenceCount} รายการ`,
@@ -117,7 +121,9 @@ export const createMasterRate = async ({
   return rateId;
 };
 
-export const getMasterRateById = async (rateId: number): Promise<any | null> => {
+export const getMasterRateById = async (
+  rateId: number,
+): Promise<any | null> => {
   return MasterDataRepository.findMasterRateById(rateId);
 };
 
@@ -213,7 +219,9 @@ export const getRateHierarchy = async (): Promise<ProfessionNode[]> => {
     description: string,
     rateId?: number,
   ): CriterionNode => {
-    const existing = group.criteria.find((criterion) => criterion.id === itemNo);
+    const existing = group.criteria.find(
+      (criterion) => criterion.id === itemNo,
+    );
     if (existing) return existing;
     const next: CriterionNode = {
       id: itemNo,
@@ -228,7 +236,11 @@ export const getRateHierarchy = async (): Promise<ProfessionNode[]> => {
 
   for (const row of rows) {
     const profession = getOrCreateProfession(String(row.profession_code));
-    const group = getOrCreateGroup(profession, Number(row.group_no), Number(row.amount));
+    const group = getOrCreateGroup(
+      profession,
+      Number(row.group_no),
+      Number(row.amount),
+    );
 
     const itemNo = row.item_no ? String(row.item_no) : "";
     const subItemNo = row.sub_item_no ? String(row.sub_item_no) : "";

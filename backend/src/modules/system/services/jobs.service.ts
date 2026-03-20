@@ -1,53 +1,59 @@
-import redis from '@config/redis.js';
-import db from '@config/database.js';
-import { OCR_QUEUE_KEY } from '@/modules/ocr/entities/ocr-precheck.entity.js';
-import { OcrHttpProvider } from '@/modules/ocr/providers/ocr-http.provider.js';
-import { getOcrWorkerEnabled } from '@/modules/ocr/services/ocr-worker.service.js';
-import { OpsJobRunsRepository } from '@/modules/system/repositories/ops-job-runs.repository.js';
-import { getSyncRuntimeStatus } from '@/modules/sync/services/sync-status.service.js';
-import { OpsStatusRepository } from '@/modules/system/repositories/ops-status.repository.js';
-import type { SyncRuntimeStatus } from '@/modules/sync/services/shared/sync.types.js';
+import redis from "@config/redis.js";
+import db from "@config/database.js";
+import { OCR_QUEUE_KEY } from "@/modules/ocr/entities/ocr-precheck.entity.js";
+import { getOcrWorkerEnabled } from "@/modules/ocr/services/ocr-worker.service.js";
+import { OpsJobRunsRepository } from "@/modules/system/repositories/ops-job-runs.repository.js";
+import { getSyncRuntimeStatus } from "@/modules/sync/services/sync-status.service.js";
+import { OpsStatusRepository } from "@/modules/system/repositories/ops-status.repository.js";
+import type { SyncRuntimeStatus } from "@/modules/sync/services/shared/sync.types.js";
 
 type JobError = {
-  source: 'sync' | 'notifications' | 'payroll' | 'snapshot' | 'ocr' | 'workforce' | 'redis';
+  source:
+    | "sync"
+    | "notifications"
+    | "payroll"
+    | "snapshot"
+    | "ocr"
+    | "workforce"
+    | "redis";
   message: string;
 };
 
 const WORKFORCE_JOB_KEYS = [
-  'sla',
-  'leave-report',
-  'military-leave',
-  'license-auto-cut',
-  'retirement-cut',
-  'movement-cut',
-  'license-compliance',
+  "sla",
+  "leave-report",
+  "military-leave",
+  "license-auto-cut",
+  "retirement-cut",
+  "movement-cut",
+  "license-compliance",
 ] as const;
 
 type JobSummary = {
   checked_at: string;
   dependencies: {
     mysql: {
-      status: 'IDLE' | 'FAILED';
+      status: "IDLE" | "FAILED";
       latency_ms: number;
       checked_at: string;
       error: string | null;
     };
     redis: {
-      status: 'IDLE' | 'FAILED';
+      status: "IDLE" | "FAILED";
       latency_ms: number;
       checked_at: string;
       lock_present: boolean;
       error: string | null;
     };
     hrms: {
-      status: 'IDLE' | 'FAILED';
+      status: "IDLE" | "FAILED";
       latency_ms: number;
       checked_at: string;
       error: string | null;
     };
   };
   sync: {
-    status: 'RUNNING' | 'IDLE' | 'FAILED' | 'DEGRADED' | 'UNKNOWN';
+    status: "RUNNING" | "IDLE" | "FAILED" | "DEGRADED" | "UNKNOWN";
     isSyncing: boolean;
     lastResult: unknown | null;
   };
@@ -119,7 +125,7 @@ type JobSummary = {
       job_run_id: number;
       job_key: string;
       trigger_source: string;
-      status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
+      status: "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED";
       summary_json: unknown | null;
       error_message: string | null;
       started_at: Date;
@@ -136,7 +142,7 @@ type JobStatusPayload = {
   jobs: Array<{
     key: string;
     name: string;
-    status: 'RUNNING' | 'IDLE' | 'FAILED' | 'DEGRADED' | 'UNKNOWN';
+    status: "RUNNING" | "IDLE" | "FAILED" | "DEGRADED" | "UNKNOWN";
     detail?: Record<string, unknown>;
   }>;
 };
@@ -182,7 +188,8 @@ const fetchLatestSnapshotOutbox = async () =>
     processed_at: Date | null;
   }>;
 
-const toIso = (value: Date | null): string | null => (value ? value.toISOString() : null);
+const toIso = (value: Date | null): string | null =>
+  value ? value.toISOString() : null;
 
 const toMinutesDiff = (value: Date | null, now: Date): number | null => {
   if (!value) return null;
@@ -197,7 +204,7 @@ const aggregateCounts = (rows: Array<{ status: string; count: number }>) => {
     SENT: 0,
   };
   for (const row of rows) {
-    const key = String(row.status || '').toUpperCase() as keyof typeof result;
+    const key = String(row.status || "").toUpperCase() as keyof typeof result;
     if (Object.prototype.hasOwnProperty.call(result, key)) {
       result[key] += Number(row.count ?? 0);
     }
@@ -230,20 +237,20 @@ const checkMysqlDependency = async () => {
   const checkedAt = new Date().toISOString();
   try {
     const result = await timed(async () => {
-      await db.query('SELECT 1 AS ok');
+      await db.query("SELECT 1 AS ok");
     });
     return {
-      status: 'IDLE' as const,
+      status: "IDLE" as const,
       latency_ms: result.latencyMs,
       checked_at: checkedAt,
       error: null,
     };
   } catch (error) {
     return {
-      status: 'FAILED' as const,
+      status: "FAILED" as const,
       latency_ms: 0,
       checked_at: checkedAt,
-      error: error instanceof Error ? error.message : 'mysql_check_failed',
+      error: error instanceof Error ? error.message : "mysql_check_failed",
     };
   }
 };
@@ -253,21 +260,21 @@ const checkHrmsDependency = async () => {
   try {
     const result = await timed(async () => {
       await db.query(
-        'SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) AS citizen_id FROM hrms_databases.tb_ap_index_view LIMIT 1',
+        "SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) AS citizen_id FROM hrms_databases.tb_ap_index_view LIMIT 1",
       );
     });
     return {
-      status: 'IDLE' as const,
+      status: "IDLE" as const,
       latency_ms: result.latencyMs,
       checked_at: checkedAt,
       error: null,
     };
   } catch (error) {
     return {
-      status: 'FAILED' as const,
+      status: "FAILED" as const,
       latency_ms: 0,
       checked_at: checkedAt,
-      error: error instanceof Error ? error.message : 'hrms_check_failed',
+      error: error instanceof Error ? error.message : "hrms_check_failed",
     };
   }
 };
@@ -293,51 +300,57 @@ const fetchPayrollOpenPeriods = async () => {
 const buildSyncStatus = (syncStatus: {
   isSyncing: boolean;
   lastResult: Record<string, unknown> | null;
-}): 'RUNNING' | 'IDLE' | 'FAILED' | 'DEGRADED' | 'UNKNOWN' => {
+}): "RUNNING" | "IDLE" | "FAILED" | "DEGRADED" | "UNKNOWN" => {
   const lastResult = syncStatus.lastResult;
-  if (syncStatus.isSyncing) return 'RUNNING';
+  if (syncStatus.isSyncing) return "RUNNING";
   if (lastResult?.success === false) {
-    return 'FAILED';
+    return "FAILED";
   }
-  const overallStatus = String(lastResult?.overall_status ?? '').toUpperCase();
+  const overallStatus = String(lastResult?.overall_status ?? "").toUpperCase();
   const warningsCount = Number(lastResult?.warnings_count ?? 0);
-  const warnings = Array.isArray(lastResult?.warnings) ? lastResult.warnings.length : 0;
-  if (overallStatus === 'SUCCESS_WITH_WARNINGS' || warningsCount > 0 || warnings > 0) {
-    return 'DEGRADED';
+  const warnings = Array.isArray(lastResult?.warnings)
+    ? lastResult.warnings.length
+    : 0;
+  if (
+    overallStatus === "SUCCESS_WITH_WARNINGS" ||
+    warningsCount > 0 ||
+    warnings > 0
+  ) {
+    return "DEGRADED";
   }
-  if (lastResult) return 'IDLE';
-  return 'UNKNOWN';
+  if (lastResult) return "IDLE";
+  return "UNKNOWN";
 };
 
 const buildNotificationStatus = (summary: {
   pending: number;
   processing: number;
   failed: number;
-}): 'DEGRADED' | 'RUNNING' | 'IDLE' => {
-  if (summary.failed > 0) return 'DEGRADED';
-  if (summary.pending > 0 || summary.processing > 0) return 'RUNNING';
-  return 'IDLE';
+}): "DEGRADED" | "RUNNING" | "IDLE" => {
+  if (summary.failed > 0) return "DEGRADED";
+  if (summary.pending > 0 || summary.processing > 0) return "RUNNING";
+  return "IDLE";
 };
 
 const buildSnapshotStatus = (summary: {
   pending: number;
   processing: number;
   failed: number;
-}): 'DEGRADED' | 'RUNNING' | 'IDLE' => {
-  if (summary.failed > 0) return 'DEGRADED';
-  if (summary.pending > 0 || summary.processing > 0) return 'RUNNING';
-  return 'IDLE';
+}): "DEGRADED" | "RUNNING" | "IDLE" => {
+  if (summary.failed > 0) return "DEGRADED";
+  if (summary.pending > 0 || summary.processing > 0) return "RUNNING";
+  return "IDLE";
 };
 
 const buildOcrStatus = (summary: {
   pending: number;
   configured: boolean;
   worker_enabled: boolean;
-}): 'FAILED' | 'RUNNING' | 'IDLE' => {
-  if (!summary.worker_enabled) return 'FAILED';
-  if (!summary.configured) return summary.pending > 0 ? 'FAILED' : 'IDLE';
-  if (summary.pending > 0) return 'RUNNING';
-  return 'IDLE';
+}): "FAILED" | "RUNNING" | "IDLE" => {
+  if (!summary.worker_enabled) return "FAILED";
+  if (!summary.configured) return summary.pending > 0 ? "FAILED" : "IDLE";
+  if (summary.pending > 0) return "RUNNING";
+  return "IDLE";
 };
 
 export const getJobStatus = async (): Promise<JobStatusPayload> => {
@@ -358,11 +371,11 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
     failed_last_hour: 0,
     total_last_hour: 0,
     failed_rate_last_hour: 0,
-    latest: [] as JobSummary['notifications']['latest'],
+    latest: [] as JobSummary["notifications"]["latest"],
   };
   let payroll = {
     openPeriods: 0,
-    latestOpen: [] as JobSummary['payroll']['latestOpen'],
+    latestOpen: [] as JobSummary["payroll"]["latestOpen"],
   };
   let snapshot = {
     pending: 0,
@@ -376,7 +389,7 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
     failed_last_hour: 0,
     total_last_hour: 0,
     failed_rate_last_hour: 0,
-    latest: [] as JobSummary['snapshot']['latest'],
+    latest: [] as JobSummary["snapshot"]["latest"],
   };
   let ocr = {
     pending: 0,
@@ -385,26 +398,26 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
   };
   let workforce = {
     failed_last_24h: 0,
-    latest_runs: [] as JobSummary['workforce']['latest_runs'],
+    latest_runs: [] as JobSummary["workforce"]["latest_runs"],
   };
   const notificationMaxAttempts = getNotificationMaxAttempts();
   const snapshotMaxAttempts = getSnapshotMaxAttempts();
-  const dependencies: JobSummary['dependencies'] = {
+  const dependencies: JobSummary["dependencies"] = {
     mysql: {
-      status: 'IDLE',
+      status: "IDLE",
       latency_ms: 0,
       checked_at: now.toISOString(),
       error: null,
     },
     redis: {
-      status: 'IDLE',
+      status: "IDLE",
       latency_ms: 0,
       checked_at: now.toISOString(),
       lock_present: false,
       error: null,
     },
     hrms: {
-      status: 'IDLE',
+      status: "IDLE",
       latency_ms: 0,
       checked_at: now.toISOString(),
       error: null,
@@ -417,18 +430,18 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
   ]);
   dependencies.mysql = mysqlDependency;
   dependencies.hrms = hrmsDependency;
-  if (mysqlDependency.status === 'FAILED') {
+  if (mysqlDependency.status === "FAILED") {
     partial = true;
     errors.push({
-      source: 'payroll',
-      message: mysqlDependency.error || 'MySQL health check failed',
+      source: "payroll",
+      message: mysqlDependency.error || "MySQL health check failed",
     });
   }
-  if (hrmsDependency.status === 'FAILED') {
+  if (hrmsDependency.status === "FAILED") {
     partial = true;
     errors.push({
-      source: 'sync',
-      message: hrmsDependency.error || 'HRMS source health check failed',
+      source: "sync",
+      message: hrmsDependency.error || "HRMS source health check failed",
     });
   }
 
@@ -437,42 +450,54 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
   } catch (err) {
     partial = true;
     errors.push({
-      source: 'sync',
-      message: err instanceof Error ? err.message : 'Failed to load sync status',
+      source: "sync",
+      message:
+        err instanceof Error ? err.message : "Failed to load sync status",
     });
   }
 
   try {
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const [summary, latest, oldestBacklogAt, hourlyRows, deadLetters] = await Promise.all([
-      countOutboxByStatus(),
-      fetchLatestOutbox(),
-      OpsStatusRepository.findOldestNotificationBacklogAt(notificationMaxAttempts),
-      OpsStatusRepository.countNotificationOutboxByStatusSince(oneHourAgo),
-      OpsStatusRepository.countNotificationOutboxDeadLetters(notificationMaxAttempts),
-    ]);
+    const [summary, latest, oldestBacklogAt, hourlyRows, deadLetters] =
+      await Promise.all([
+        countOutboxByStatus(),
+        fetchLatestOutbox(),
+        OpsStatusRepository.findOldestNotificationBacklogAt(
+          notificationMaxAttempts,
+        ),
+        OpsStatusRepository.countNotificationOutboxByStatusSince(oneHourAgo),
+        OpsStatusRepository.countNotificationOutboxDeadLetters(
+          notificationMaxAttempts,
+        ),
+      ]);
     const retryableFailed = Math.max(0, summary.FAILED - deadLetters);
     const hourly = aggregateCounts(hourlyRows);
-    const totalLastHour = hourly.PENDING + hourly.PROCESSING + hourly.FAILED + hourly.SENT;
+    const totalLastHour =
+      hourly.PENDING + hourly.PROCESSING + hourly.FAILED + hourly.SENT;
     notifications = {
       pending: summary.PENDING,
       processing: summary.PROCESSING,
       failed: retryableFailed,
       dead_letter: deadLetters,
       sent: summary.SENT,
-      total: summary.PENDING + summary.PROCESSING + retryableFailed + summary.SENT,
+      total:
+        summary.PENDING + summary.PROCESSING + retryableFailed + summary.SENT,
       oldest_backlog_at: toIso(oldestBacklogAt),
       oldest_backlog_minutes: toMinutesDiff(oldestBacklogAt, now),
       failed_last_hour: hourly.FAILED,
       total_last_hour: totalLastHour,
-      failed_rate_last_hour: totalLastHour > 0 ? Math.round((hourly.FAILED / totalLastHour) * 100) : 0,
+      failed_rate_last_hour:
+        totalLastHour > 0
+          ? Math.round((hourly.FAILED / totalLastHour) * 100)
+          : 0,
       latest,
     };
   } catch (err) {
     partial = true;
     errors.push({
-      source: 'notifications',
-      message: err instanceof Error ? err.message : 'Failed to load outbox status',
+      source: "notifications",
+      message:
+        err instanceof Error ? err.message : "Failed to load outbox status",
     });
   }
 
@@ -485,8 +510,9 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
   } catch (err) {
     partial = true;
     errors.push({
-      source: 'payroll',
-      message: err instanceof Error ? err.message : 'Failed to load payroll status',
+      source: "payroll",
+      message:
+        err instanceof Error ? err.message : "Failed to load payroll status",
     });
   }
 
@@ -494,14 +520,15 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
     const queueLength = await redis.llen(OCR_QUEUE_KEY);
     ocr = {
       pending: Number(queueLength ?? 0),
-      configured: Boolean(OcrHttpProvider.getServiceBase()),
+      configured: true,
       worker_enabled: getOcrWorkerEnabled(),
     };
   } catch (err) {
     partial = true;
     errors.push({
-      source: 'ocr',
-      message: err instanceof Error ? err.message : 'Failed to load OCR queue status',
+      source: "ocr",
+      message:
+        err instanceof Error ? err.message : "Failed to load OCR queue status",
     });
   }
 
@@ -518,24 +545,29 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
   } catch (err) {
     partial = true;
     errors.push({
-      source: 'workforce',
-      message: err instanceof Error ? err.message : 'Failed to load workforce job status',
+      source: "workforce",
+      message:
+        err instanceof Error
+          ? err.message
+          : "Failed to load workforce job status",
     });
   }
 
   try {
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const [summary, latest, oldestBacklogAt, hourlyRows, deadLetters] = await Promise.all([
-      OpsStatusRepository.countSnapshotOutboxByStatus(),
-      fetchLatestSnapshotOutbox(),
-      OpsStatusRepository.findOldestSnapshotBacklogAt(snapshotMaxAttempts),
-      OpsStatusRepository.countSnapshotOutboxByStatusSince(oneHourAgo),
-      OpsStatusRepository.countSnapshotOutboxDeadLetters(snapshotMaxAttempts),
-    ]);
+    const [summary, latest, oldestBacklogAt, hourlyRows, deadLetters] =
+      await Promise.all([
+        OpsStatusRepository.countSnapshotOutboxByStatus(),
+        fetchLatestSnapshotOutbox(),
+        OpsStatusRepository.findOldestSnapshotBacklogAt(snapshotMaxAttempts),
+        OpsStatusRepository.countSnapshotOutboxByStatusSince(oneHourAgo),
+        OpsStatusRepository.countSnapshotOutboxDeadLetters(snapshotMaxAttempts),
+      ]);
     const counts = aggregateCounts(summary);
     const retryableFailed = Math.max(0, counts.FAILED - deadLetters);
     const hourly = aggregateCounts(hourlyRows);
-    const totalLastHour = hourly.PENDING + hourly.PROCESSING + hourly.FAILED + hourly.SENT;
+    const totalLastHour =
+      hourly.PENDING + hourly.PROCESSING + hourly.FAILED + hourly.SENT;
     snapshot = {
       pending: counts.PENDING,
       processing: counts.PROCESSING,
@@ -547,14 +579,20 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
       oldest_backlog_minutes: toMinutesDiff(oldestBacklogAt, now),
       failed_last_hour: hourly.FAILED,
       total_last_hour: totalLastHour,
-      failed_rate_last_hour: totalLastHour > 0 ? Math.round((hourly.FAILED / totalLastHour) * 100) : 0,
+      failed_rate_last_hour:
+        totalLastHour > 0
+          ? Math.round((hourly.FAILED / totalLastHour) * 100)
+          : 0,
       latest,
     };
   } catch (err) {
     partial = true;
     errors.push({
-      source: 'snapshot',
-      message: err instanceof Error ? err.message : 'Failed to load snapshot outbox status',
+      source: "snapshot",
+      message:
+        err instanceof Error
+          ? err.message
+          : "Failed to load snapshot outbox status",
     });
   }
 
@@ -562,20 +600,21 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
   const redisCheckedAt = new Date().toISOString();
   const redisStartedAt = Date.now();
   try {
-    redisPing = await redis.get('system:sync:lock');
+    redisPing = await redis.get("system:sync:lock");
   } catch (err) {
     partial = true;
     errors.push({
-      source: 'redis',
-      message: err instanceof Error ? err.message : 'Failed to query redis health',
+      source: "redis",
+      message:
+        err instanceof Error ? err.message : "Failed to query redis health",
     });
   }
   dependencies.redis = {
-    status: errors.some((item) => item.source === 'redis') ? 'FAILED' : 'IDLE',
+    status: errors.some((item) => item.source === "redis") ? "FAILED" : "IDLE",
     latency_ms: Date.now() - redisStartedAt,
     checked_at: redisCheckedAt,
     lock_present: Boolean(redisPing),
-    error: errors.find((item) => item.source === 'redis')?.message ?? null,
+    error: errors.find((item) => item.source === "redis")?.message ?? null,
   };
 
   const summary: JobSummary = {
@@ -593,10 +632,10 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
     workforce,
   };
 
-  const jobs: JobStatusPayload['jobs'] = [
+  const jobs: JobStatusPayload["jobs"] = [
     {
-      key: 'hrms-sync',
-      name: 'HRMS Sync',
+      key: "hrms-sync",
+      name: "HRMS Sync",
       status: summary.sync.status,
       detail: {
         isSyncing: summary.sync.isSyncing,
@@ -605,8 +644,8 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
       },
     },
     {
-      key: 'mysql',
-      name: 'MySQL',
+      key: "mysql",
+      name: "MySQL",
       status: dependencies.mysql.status,
       detail: {
         latencyMs: dependencies.mysql.latency_ms,
@@ -615,8 +654,8 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
       },
     },
     {
-      key: 'redis',
-      name: 'Redis',
+      key: "redis",
+      name: "Redis",
       status: dependencies.redis.status,
       detail: {
         latencyMs: dependencies.redis.latency_ms,
@@ -626,8 +665,8 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
       },
     },
     {
-      key: 'hrms-source',
-      name: 'HRMS Source',
+      key: "hrms-source",
+      name: "HRMS Source",
       status: dependencies.hrms.status,
       detail: {
         latencyMs: dependencies.hrms.latency_ms,
@@ -636,8 +675,8 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
       },
     },
     {
-      key: 'notification-outbox',
-      name: 'Notification Outbox',
+      key: "notification-outbox",
+      name: "Notification Outbox",
       status: buildNotificationStatus(notifications),
       detail: {
         counts: {
@@ -656,8 +695,8 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
       },
     },
     {
-      key: 'snapshot-outbox',
-      name: 'Payroll Snapshot Queue',
+      key: "snapshot-outbox",
+      name: "Payroll Snapshot Queue",
       status: buildSnapshotStatus(snapshot),
       detail: {
         counts: {
@@ -677,8 +716,8 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
       },
     },
     {
-      key: 'ocr-precheck',
-      name: 'OCR Precheck',
+      key: "ocr-precheck",
+      name: "OCR Precheck",
       status: buildOcrStatus(ocr),
       detail: {
         pending: ocr.pending,
@@ -688,21 +727,20 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
       },
     },
     {
-      key: 'workforce-compliance',
-      name: 'Workforce Compliance Jobs',
-      status:
-        workforce.latest_runs.some((row) => row.status === 'FAILED')
-          ? 'DEGRADED'
-          : 'IDLE',
+      key: "workforce-compliance",
+      name: "Workforce Compliance Jobs",
+      status: workforce.latest_runs.some((row) => row.status === "FAILED")
+        ? "DEGRADED"
+        : "IDLE",
       detail: {
         failedLast24h: workforce.failed_last_24h,
         latestRuns: workforce.latest_runs,
       },
     },
     {
-      key: 'payroll-periods',
-      name: 'Payroll Periods',
-      status: payroll.openPeriods > 0 ? 'RUNNING' : 'IDLE',
+      key: "payroll-periods",
+      name: "Payroll Periods",
+      status: payroll.openPeriods > 0 ? "RUNNING" : "IDLE",
       detail: {
         openPeriods: payroll.openPeriods,
         latestOpen: payroll.latestOpen,

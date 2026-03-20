@@ -1,7 +1,7 @@
-import { getConnection } from '@config/database.js';
-import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
-import { buildLeaveViewQuery } from '@/modules/sync/repositories/sync-query-builders.repository.js';
-import { normalizeLeaveRowWithMeta } from '@/modules/sync/services/domain/leave-normalizer.service.js';
+import { getConnection } from "@config/database.js";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import { buildLeaveViewQuery } from "@/modules/sync/repositories/sync-query-builders.repository.js";
+import { normalizeLeaveRowWithMeta } from "@/modules/sync/services/domain/leave-normalizer.service.js";
 
 type CandidateRow = RowDataPacket & {
   ref_id: string;
@@ -19,7 +19,7 @@ type CandidateRow = RowDataPacket & {
   existing_leave_type: string | null;
 };
 
-const APPLY_FLAG = '--apply';
+const APPLY_FLAG = "--apply";
 
 const run = async () => {
   const applyMode = process.argv.includes(APPLY_FLAG);
@@ -47,20 +47,22 @@ const run = async () => {
     }> = [];
 
     for (const row of rows) {
-      const normalized = normalizeLeaveRowWithMeta(row as unknown as RowDataPacket);
-      const predicted = String(normalized.row.leave_type ?? '');
-      const existing = String(row.existing_leave_type ?? '');
+      const normalized = normalizeLeaveRowWithMeta(
+        row as unknown as RowDataPacket,
+      );
+      const predicted = String(normalized.row.leave_type ?? "");
+      const existing = String(row.existing_leave_type ?? "");
       if (!row.ref_id) continue;
-      if (predicted !== 'wife_help') continue;
-      if (!existing || existing === 'wife_help') continue;
+      if (predicted !== "wife_help") continue;
+      if (!existing || existing === "wife_help") continue;
 
       candidates.push({
         ref_id: String(row.ref_id),
         old_leave_type: existing,
-        new_leave_type: 'wife_help',
-        citizen_id: String(row.citizen_id ?? ''),
-        hrms_leave_type: String(row.hrms_leave_type ?? ''),
-        remark: String(row.remark ?? '').slice(0, 160),
+        new_leave_type: "wife_help",
+        citizen_id: String(row.citizen_id ?? ""),
+        hrms_leave_type: String(row.hrms_leave_type ?? ""),
+        remark: String(row.remark ?? "").slice(0, 160),
       });
     }
 
@@ -69,15 +71,15 @@ const run = async () => {
       return acc;
     }, {});
 
-    console.log(`[backfill-wife-help] mode=${applyMode ? 'APPLY' : 'DRY_RUN'}`);
+    console.log(`[backfill-wife-help] mode=${applyMode ? "APPLY" : "DRY_RUN"}`);
     console.log(`[backfill-wife-help] candidates=${candidates.length}`);
-    console.log('[backfill-wife-help] by_old_type=', byOldType);
+    console.log("[backfill-wife-help] by_old_type=", byOldType);
     console.table(candidates.slice(0, 30));
 
     if (!applyMode || candidates.length === 0) return;
 
     const refIds = candidates.map((v) => v.ref_id);
-    const marks = refIds.map(() => '?').join(', ');
+    const marks = refIds.map(() => "?").join(", ");
     await conn.beginTransaction();
     const [result] = await conn.query<RowDataPacket[]>(
       `
@@ -90,13 +92,15 @@ const run = async () => {
     );
     await conn.commit();
 
-    const affected = Number((result as unknown as { affectedRows?: number }).affectedRows ?? 0);
+    const affected = Number(
+      (result as unknown as { affectedRows?: number }).affectedRows ?? 0,
+    );
     console.log(`[backfill-wife-help] updated_rows=${affected}`);
   } catch (error) {
     try {
       await conn.rollback();
     } catch (rollbackError) {
-      console.error('[backfill-wife-help] rollback failed:', rollbackError);
+      console.error("[backfill-wife-help] rollback failed:", rollbackError);
     }
     throw error;
   } finally {
@@ -109,6 +113,6 @@ run()
     process.exit(0);
   })
   .catch((error) => {
-    console.error('[backfill-wife-help] failed:', error);
+    console.error("[backfill-wife-help] failed:", error);
     process.exit(1);
   });

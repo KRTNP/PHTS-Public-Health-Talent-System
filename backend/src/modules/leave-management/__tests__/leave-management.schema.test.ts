@@ -9,7 +9,9 @@ import {
 
 describe("leave-management schema", () => {
   test("upsert requires leave_management_id or leave_record_id", () => {
-    expect(() => upsertLeaveManagementExtensionSchema.parse({ body: {} })).toThrow();
+    expect(() =>
+      upsertLeaveManagementExtensionSchema.parse({ body: {} }),
+    ).toThrow();
   });
 
   test("upsert accepts leave_record_id alias", () => {
@@ -17,7 +19,9 @@ describe("leave-management schema", () => {
       leave_record_id: 10,
       note: "legacy-client",
     };
-    const parsed = upsertLeaveManagementExtensionSchema.parse({ body: payload });
+    const parsed = upsertLeaveManagementExtensionSchema.parse({
+      body: payload,
+    });
     expect(parsed.body.leave_record_id).toBe(10);
   });
 
@@ -32,7 +36,9 @@ describe("leave-management schema", () => {
       is_no_pay: false,
       study_institution: "Uni",
     };
-    const parsed = upsertLeaveManagementExtensionSchema.parse({ body: payload });
+    const parsed = upsertLeaveManagementExtensionSchema.parse({
+      body: payload,
+    });
     expect(parsed.body.leave_management_id).toBe(10);
   });
 
@@ -41,7 +47,9 @@ describe("leave-management schema", () => {
       leave_management_id: 10,
       local_status: "approved",
     };
-    expect(() => upsertLeaveManagementExtensionSchema.parse({ body: payload })).toThrow();
+    expect(() =>
+      upsertLeaveManagementExtensionSchema.parse({ body: payload }),
+    ).toThrow();
   });
 
   test("createLeaveManagement requires core fields", () => {
@@ -66,7 +74,9 @@ describe("leave-management schema", () => {
       start_date: "2026-02-16",
       end_date: "2026-02-01",
     };
-    expect(() => createLeaveManagementSchema.parse({ body: payload })).toThrow();
+    expect(() =>
+      createLeaveManagementSchema.parse({ body: payload }),
+    ).toThrow();
   });
 
   test("createLeaveManagement rejects unsupported leave_type", () => {
@@ -76,7 +86,9 @@ describe("leave-management schema", () => {
       start_date: "2026-02-01",
       end_date: "2026-02-03",
     };
-    expect(() => createLeaveManagementSchema.parse({ body: payload })).toThrow();
+    expect(() =>
+      createLeaveManagementSchema.parse({ body: payload }),
+    ).toThrow();
   });
 
   test("createLeaveManagement rejects impossible calendar date", () => {
@@ -86,7 +98,9 @@ describe("leave-management schema", () => {
       start_date: "2026-02-31",
       end_date: "2026-03-01",
     };
-    expect(() => createLeaveManagementSchema.parse({ body: payload })).toThrow();
+    expect(() =>
+      createLeaveManagementSchema.parse({ body: payload }),
+    ).toThrow();
   });
 
   test("upsert rejects document dates when only one side provided", () => {
@@ -94,7 +108,9 @@ describe("leave-management schema", () => {
       leave_management_id: 10,
       document_start_date: "2026-02-01",
     };
-    expect(() => upsertLeaveManagementExtensionSchema.parse({ body: payload })).toThrow();
+    expect(() =>
+      upsertLeaveManagementExtensionSchema.parse({ body: payload }),
+    ).toThrow();
   });
 
   test("upsert rejects document_end_date before document_start_date", () => {
@@ -103,18 +119,30 @@ describe("leave-management schema", () => {
       document_start_date: "2026-02-16",
       document_end_date: "2026-02-01",
     };
-    expect(() => upsertLeaveManagementExtensionSchema.parse({ body: payload })).toThrow();
+    expect(() =>
+      upsertLeaveManagementExtensionSchema.parse({ body: payload }),
+    ).toThrow();
   });
 
   test("upsert accepts ordered return_report_events", () => {
     const payload = {
       leave_management_id: 10,
       return_report_events: [
-        { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
-        { report_date: "2026-03-07", resume_date: "2026-03-17", resume_study_program: "A" },
+        {
+          report_date: "2026-01-31",
+          resume_date: "2026-02-15",
+          resume_study_program: "B",
+        },
+        {
+          report_date: "2026-03-07",
+          resume_date: "2026-03-17",
+          resume_study_program: "A",
+        },
       ],
     };
-    const parsed = upsertLeaveManagementExtensionSchema.parse({ body: payload });
+    const parsed = upsertLeaveManagementExtensionSchema.parse({
+      body: payload,
+    });
     expect(parsed.body.return_report_events?.length).toBe(2);
   });
 
@@ -122,21 +150,37 @@ describe("leave-management schema", () => {
     const payload = {
       leave_management_id: 10,
       return_report_events: [
-        { report_date: "2026-01-31", resume_date: "2026-01-31", resume_study_program: "A" },
+        {
+          report_date: "2026-01-31",
+          resume_date: "2026-01-31",
+          resume_study_program: "A",
+        },
       ],
     };
-    expect(() => upsertLeaveManagementExtensionSchema.parse({ body: payload })).toThrow();
+    expect(() =>
+      upsertLeaveManagementExtensionSchema.parse({ body: payload }),
+    ).toThrow();
   });
 
   test("upsert rejects return_report_events when report_date is unsorted", () => {
     const payload = {
       leave_management_id: 10,
       return_report_events: [
-        { report_date: "2026-03-07", resume_date: "2026-03-17", resume_study_program: "A" },
-        { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
+        {
+          report_date: "2026-03-07",
+          resume_date: "2026-03-17",
+          resume_study_program: "A",
+        },
+        {
+          report_date: "2026-01-31",
+          resume_date: "2026-02-15",
+          resume_study_program: "B",
+        },
       ],
     };
-    expect(() => upsertLeaveManagementExtensionSchema.parse({ body: payload })).toThrow();
+    expect(() =>
+      upsertLeaveManagementExtensionSchema.parse({ body: payload }),
+    ).toThrow();
   });
 
   test("replaceLeaveReturnEventsSchema accepts sorted events payload", () => {
@@ -144,8 +188,16 @@ describe("leave-management schema", () => {
       params: { leaveManagementId: "12" },
       body: {
         events: [
-          { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
-          { report_date: "2026-03-07", resume_date: "2026-03-17", resume_study_program: "A" },
+          {
+            report_date: "2026-01-31",
+            resume_date: "2026-02-15",
+            resume_study_program: "B",
+          },
+          {
+            report_date: "2026-03-07",
+            resume_date: "2026-03-17",
+            resume_study_program: "A",
+          },
         ],
       },
     });
@@ -166,7 +218,9 @@ describe("leave-management schema", () => {
 
   test("leaveManagementId param rejects non-numeric value", () => {
     expect(() =>
-      leaveManagementIdParamSchema.parse({ params: { leaveManagementId: "abc" } }),
+      leaveManagementIdParamSchema.parse({
+        params: { leaveManagementId: "abc" },
+      }),
     ).toThrow();
   });
 

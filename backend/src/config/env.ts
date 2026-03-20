@@ -10,8 +10,7 @@ export function loadEnv(): void {
   const testPath = path.join(root, ".env.test");
   const localPath = path.join(root, ".env.local");
   const defaultPath = path.join(root, ".env");
-  const useTestEnv =
-    process.env.NODE_ENV === "test" && fs.existsSync(testPath);
+  const useTestEnv = process.env.NODE_ENV === "test" && fs.existsSync(testPath);
   let envPath = defaultPath;
   if (useTestEnv) {
     envPath = testPath;

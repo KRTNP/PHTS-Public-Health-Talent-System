@@ -1,9 +1,10 @@
-import crypto from 'node:crypto';
-import { AlertLogsRepository } from '@/modules/workforce-compliance/repositories/alert-logs.repository.js';
-import type { AlertType } from '@/modules/workforce-compliance/entities/workforce-compliance.entity.js';
-import { formatOpsDate } from '@/modules/workforce-compliance/services/jobs/shared/job-date.js';
+import crypto from "node:crypto";
+import { AlertLogsRepository } from "@/modules/workforce-compliance/repositories/alert-logs.repository.js";
+import type { AlertType } from "@/modules/workforce-compliance/entities/workforce-compliance.entity.js";
+import { formatOpsDate } from "@/modules/workforce-compliance/services/jobs/shared/job-date.js";
 
-const hashKey = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
+const hashKey = (value: string) =>
+  crypto.createHash("sha256").update(value).digest("hex");
 
 export async function shouldSendAlert(
   alertType: AlertType,
@@ -33,7 +34,7 @@ export async function logAlert(params: {
     reference_type: params.referenceType,
     reference_id: params.referenceId,
     payload_hash: payloadHash,
-    status: params.errorMessage ? 'FAILED' : 'SENT',
+    status: params.errorMessage ? "FAILED" : "SENT",
     error_message: params.errorMessage ?? null,
     sent_at: sentAt,
   });

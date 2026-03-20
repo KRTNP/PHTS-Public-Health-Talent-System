@@ -1,9 +1,6 @@
-import { SnapshotRepository } from '@/modules/snapshot/repositories/snapshot.repository.js';
-import { SnapshotType } from '@/modules/snapshot/entities/snapshot.entity.js';
-import {
-  resetSnapshotSchema,
-  getTestConnection,
-} from '@/test/test-db.js';
+import { SnapshotRepository } from "@/modules/snapshot/repositories/snapshot.repository.js";
+import { SnapshotType } from "@/modules/snapshot/entities/snapshot.entity.js";
+import { resetSnapshotSchema, getTestConnection } from "@/test/test-db.js";
 
 jest.setTimeout(30000);
 
@@ -91,7 +88,10 @@ describe("SnapshotRepository (integration)", () => {
 
     const conn2 = await SnapshotRepository.getConnection();
     try {
-      const rows = await SnapshotRepository.findPayoutsForSnapshot(periodId, conn2);
+      const rows = await SnapshotRepository.findPayoutsForSnapshot(
+        periodId,
+        conn2,
+      );
       expect(rows.length).toBe(1);
       expect(Number(rows[0].base_rate)).toBe(1000);
     } finally {

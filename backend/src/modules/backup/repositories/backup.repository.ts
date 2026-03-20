@@ -1,9 +1,9 @@
-import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
-import db from '@config/database.js';
+import { RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import db from "@config/database.js";
 
 export class BackupRepository {
   static async createBackupJob(
-    triggerSource: 'MANUAL' | 'SCHEDULED',
+    triggerSource: "MANUAL" | "SCHEDULED",
     triggeredBy: number | null,
   ): Promise<number> {
     const [result] = await db.execute<ResultSetHeader>(
@@ -19,7 +19,7 @@ export class BackupRepository {
   static async finishBackupJob(
     jobId: number,
     payload: {
-      status: 'SUCCESS' | 'FAILED';
+      status: "SUCCESS" | "FAILED";
       backupFilePath?: string | null;
       backupFileSizeBytes?: number | null;
       durationMs?: number | null;

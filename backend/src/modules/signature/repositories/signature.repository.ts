@@ -1,6 +1,6 @@
 import { RowDataPacket } from "mysql2";
-import pool from '@config/database.js';
-import { UserSignature } from '@/modules/signature/entities/signature.entity.js';
+import pool from "@config/database.js";
+import { UserSignature } from "@/modules/signature/entities/signature.entity.js";
 
 class SignatureRepository {
   async findByCitizenId(citizenId: string): Promise<UserSignature | null> {

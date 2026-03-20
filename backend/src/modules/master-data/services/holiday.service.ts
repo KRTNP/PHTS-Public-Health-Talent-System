@@ -4,8 +4,11 @@
  * Manages official holidays configuration.
  */
 
-import { emitAuditEvent, AuditEventType } from '@/modules/audit/services/audit.service.js';
-import { MasterDataRepository } from '@/modules/master-data/repositories/master-data.repository.js';
+import {
+  emitAuditEvent,
+  AuditEventType,
+} from "@/modules/audit/services/audit.service.js";
+import { MasterDataRepository } from "@/modules/master-data/repositories/master-data.repository.js";
 
 type HolidayType = "national" | "special" | "substitution";
 
@@ -41,7 +44,8 @@ const hasHolidayTypeColumn = async (): Promise<boolean> => {
   if (holidayTypeColumnAvailable !== null) {
     return holidayTypeColumnAvailable;
   }
-  holidayTypeColumnAvailable = await MasterDataRepository.hasHolidayTypeColumn();
+  holidayTypeColumnAvailable =
+    await MasterDataRepository.hasHolidayTypeColumn();
   return holidayTypeColumnAvailable;
 };
 
@@ -54,7 +58,9 @@ export const getHolidays = async (year?: string | number): Promise<any[]> => {
   return holidays.map((row) => ({
     ...row,
     holiday_date: normalizeHolidayDate((row as any).holiday_date),
-    holiday_type: (row as any).holiday_type ?? resolveHolidayTypeFromName((row as any).holiday_name),
+    holiday_type:
+      (row as any).holiday_type ??
+      resolveHolidayTypeFromName((row as any).holiday_name),
   }));
 };
 

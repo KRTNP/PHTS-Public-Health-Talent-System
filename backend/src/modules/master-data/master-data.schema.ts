@@ -84,14 +84,20 @@ const nullableTrimmedString = z
 export const createRateSchema = z.object({
   body: z.object({
     profession_code: professionCodeSchema,
-    group_no: z.union([z.string(), z.number()]).transform((val) => Number(val)).refine((v) => Number.isFinite(v) && v >= 1, {
-      message: "group_no must be a number >= 1",
-    }),
+    group_no: z
+      .union([z.string(), z.number()])
+      .transform((val) => Number(val))
+      .refine((v) => Number.isFinite(v) && v >= 1, {
+        message: "group_no must be a number >= 1",
+      }),
     item_no: nullableTrimmedString,
     sub_item_no: nullableTrimmedString,
-    amount: z.union([z.string(), z.number()]).transform((val) => Number(val)).refine((v) => Number.isFinite(v) && v >= 0, {
-      message: "amount must be a number >= 0",
-    }),
+    amount: z
+      .union([z.string(), z.number()])
+      .transform((val) => Number(val))
+      .refine((v) => Number.isFinite(v) && v >= 0, {
+        message: "amount must be a number >= 0",
+      }),
     condition_desc: z.string().optional().default(""),
     detailed_desc: z.string().optional().default(""),
     is_active: z.boolean().optional().default(true),
@@ -108,14 +114,18 @@ export const updateRateSchema = z.object({
     group_no: z
       .union([z.string(), z.number()])
       .transform((val) => Number(val))
-      .refine((v) => Number.isFinite(v) && v >= 1, { message: "group_no must be a number >= 1" })
+      .refine((v) => Number.isFinite(v) && v >= 1, {
+        message: "group_no must be a number >= 1",
+      })
       .optional(),
     item_no: nullableTrimmedString,
     sub_item_no: nullableTrimmedString,
     amount: z
       .union([z.string(), z.number()])
       .transform((val) => Number(val))
-      .refine((v) => Number.isFinite(v) && v >= 0, { message: "amount must be a number >= 0" })
+      .refine((v) => Number.isFinite(v) && v >= 0, {
+        message: "amount must be a number >= 0",
+      })
       .optional(),
     condition_desc: z.string().optional(),
     detailed_desc: z.string().optional(),

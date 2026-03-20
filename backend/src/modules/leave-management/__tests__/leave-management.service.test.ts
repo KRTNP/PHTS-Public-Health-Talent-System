@@ -2,10 +2,18 @@ import { describe, expect, test, jest } from "@jest/globals";
 
 const insertLeaveManagementMock = jest.fn().mockResolvedValue(99);
 const upsertExtensionMock = jest.fn().mockResolvedValue(undefined);
-const replaceLeaveReturnReportEventsMock = jest.fn().mockResolvedValue(undefined);
-const findExtensionReturnMetaMock = jest.fn().mockResolvedValue({ require_return_report: 1 });
-const upsertLegacyReturnReportCompatMock = jest.fn().mockResolvedValue(undefined);
-const listLeaveReturnReportEventsByLeaveIdsMock = jest.fn().mockResolvedValue([]);
+const replaceLeaveReturnReportEventsMock = jest
+  .fn()
+  .mockResolvedValue(undefined);
+const findExtensionReturnMetaMock = jest
+  .fn()
+  .mockResolvedValue({ require_return_report: 1 });
+const upsertLegacyReturnReportCompatMock = jest
+  .fn()
+  .mockResolvedValue(undefined);
+const listLeaveReturnReportEventsByLeaveIdsMock = jest
+  .fn()
+  .mockResolvedValue([]);
 const findLeaveManagementQuotaContextMock = jest.fn();
 const listLeaveManagementRowsForQuotaMock = jest.fn();
 const findQuotaRowMock = jest.fn();
@@ -21,7 +29,8 @@ jest.mock("../repositories/leave-management.repository", () => ({
     replaceLeaveReturnReportEvents: replaceLeaveReturnReportEventsMock,
     findExtensionReturnMeta: findExtensionReturnMetaMock,
     upsertLegacyReturnReportCompat: upsertLegacyReturnReportCompatMock,
-    listLeaveReturnReportEventsByLeaveIds: listLeaveReturnReportEventsByLeaveIdsMock,
+    listLeaveReturnReportEventsByLeaveIds:
+      listLeaveReturnReportEventsByLeaveIdsMock,
     findLeaveManagementQuotaContext: findLeaveManagementQuotaContextMock,
     listLeaveManagementRowsForQuota: listLeaveManagementRowsForQuotaMock,
     findQuotaRow: findQuotaRowMock,
@@ -57,7 +66,13 @@ describe("leave-management service", () => {
       duration_days: 30,
     });
     listLeaveManagementRowsForQuotaMock.mockResolvedValue([
-      { id: 10, start_date: "2026-03-29", end_date: "2026-08-06", document_start_date: null, document_end_date: null },
+      {
+        id: 10,
+        start_date: "2026-03-29",
+        end_date: "2026-08-06",
+        document_start_date: null,
+        document_end_date: null,
+      },
     ]);
     findQuotaRowMock.mockResolvedValue({});
     findLatestQuotaRowBeforeFiscalYearMock.mockResolvedValue(null);
@@ -152,7 +167,13 @@ describe("leave-management service", () => {
       duration_days: 1,
     });
     listLeaveManagementRowsForQuotaMock.mockResolvedValue([
-      { id: 11, start_date: "2025-12-11", end_date: "2025-12-11", document_start_date: null, document_end_date: null },
+      {
+        id: 11,
+        start_date: "2025-12-11",
+        end_date: "2025-12-11",
+        document_start_date: null,
+        document_end_date: null,
+      },
     ]);
     findQuotaRowMock.mockResolvedValue(null);
     findLatestQuotaRowBeforeFiscalYearMock.mockResolvedValue({
@@ -244,8 +265,16 @@ describe("leave-management service", () => {
         leave_management_id: 10,
         require_return_report: true,
         return_report_events: [
-          { report_date: "2026-03-07", resume_date: "2026-03-17", resume_study_program: "A" },
-          { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
+          {
+            report_date: "2026-03-07",
+            resume_date: "2026-03-17",
+            resume_study_program: "A",
+          },
+          {
+            report_date: "2026-01-31",
+            resume_date: "2026-02-15",
+            resume_study_program: "B",
+          },
         ],
       },
       7,
@@ -261,8 +290,16 @@ describe("leave-management service", () => {
     expect(replaceLeaveReturnReportEventsMock).toHaveBeenCalledWith(
       10,
       [
-        { report_date: "2026-03-07", resume_date: "2026-03-17", resume_study_program: "A" },
-        { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
+        {
+          report_date: "2026-03-07",
+          resume_date: "2026-03-17",
+          resume_study_program: "A",
+        },
+        {
+          report_date: "2026-01-31",
+          resume_date: "2026-02-15",
+          resume_study_program: "B",
+        },
       ],
       7,
     );
@@ -289,8 +326,16 @@ describe("leave-management service", () => {
       10,
       {
         events: [
-          { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
-          { report_date: "2026-03-07", resume_date: "2026-03-17", resume_study_program: "A" },
+          {
+            report_date: "2026-01-31",
+            resume_date: "2026-02-15",
+            resume_study_program: "B",
+          },
+          {
+            report_date: "2026-03-07",
+            resume_date: "2026-03-17",
+            resume_study_program: "A",
+          },
         ],
       },
       9,
@@ -299,8 +344,16 @@ describe("leave-management service", () => {
     expect(replaceLeaveReturnReportEventsMock).toHaveBeenCalledWith(
       10,
       [
-        { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
-        { report_date: "2026-03-07", resume_date: "2026-03-17", resume_study_program: "A" },
+        {
+          report_date: "2026-01-31",
+          resume_date: "2026-02-15",
+          resume_study_program: "B",
+        },
+        {
+          report_date: "2026-03-07",
+          resume_date: "2026-03-17",
+          resume_study_program: "A",
+        },
       ],
       9,
     );
@@ -351,7 +404,11 @@ describe("leave-management service", () => {
         require_return_report: true,
         return_report_events: [
           { report_date: "2026-01-31" },
-          { report_date: "2026-03-02", resume_date: "2026-03-03", resume_study_program: "A" },
+          {
+            report_date: "2026-03-02",
+            resume_date: "2026-03-03",
+            resume_study_program: "A",
+          },
         ],
       },
       7,
@@ -371,7 +428,11 @@ describe("leave-management service", () => {
       10,
       {
         events: [
-          { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
+          {
+            report_date: "2026-01-31",
+            resume_date: "2026-02-15",
+            resume_study_program: "B",
+          },
           { report_date: "2026-04-22" },
         ],
       },

@@ -1,7 +1,7 @@
-import { BackupRepository } from '@/modules/backup/repositories/backup.repository.js';
-import db from '@config/database.js';
+import { BackupRepository } from "@/modules/backup/repositories/backup.repository.js";
+import db from "@config/database.js";
 
-jest.mock('@config/database.js', () => ({
+jest.mock("@config/database.js", () => ({
   __esModule: true,
   default: {
     query: jest.fn(),
@@ -11,19 +11,19 @@ jest.mock('@config/database.js', () => ({
   query: jest.fn(),
 }));
 
-describe('BackupRepository', () => {
+describe("BackupRepository", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('provides backup job repository methods', () => {
+  it("provides backup job repository methods", () => {
     const repo: any = BackupRepository;
-    expect(typeof repo.createBackupJob).toBe('function');
-    expect(typeof repo.finishBackupJob).toBe('function');
-    expect(typeof repo.getBackupHistory).toBe('function');
+    expect(typeof repo.createBackupJob).toBe("function");
+    expect(typeof repo.finishBackupJob).toBe("function");
+    expect(typeof repo.getBackupHistory).toBe("function");
   });
 
-  it('caps backup history limit to 100', async () => {
+  it("caps backup history limit to 100", async () => {
     const mockQuery = db.query as jest.Mock;
     mockQuery.mockResolvedValue([[]]);
 
@@ -32,6 +32,6 @@ describe('BackupRepository', () => {
 
     expect(mockQuery).toHaveBeenCalled();
     const sql = mockQuery.mock.calls[0][0] as string;
-    expect(sql).toContain('LIMIT 100');
+    expect(sql).toContain("LIMIT 100");
   });
 });

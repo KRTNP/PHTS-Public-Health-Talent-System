@@ -1,6 +1,6 @@
 import { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import db from '@config/database.js';
-import type { AlertLogInput } from '@/modules/workforce-compliance/entities/workforce-compliance.entity.js';
+import db from "@config/database.js";
+import type { AlertLogInput } from "@/modules/workforce-compliance/entities/workforce-compliance.entity.js";
 
 export class AlertLogsRepository {
   static async hasPayloadHash(
@@ -23,8 +23,7 @@ export class AlertLogsRepository {
     const [result] = await executor.execute<ResultSetHeader>(
       `INSERT INTO alert_logs
        (alert_type, target_user_id, reference_type, reference_id, payload_hash, status, error_message, sent_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      ,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.alert_type,
         input.target_user_id ?? null,

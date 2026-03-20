@@ -86,7 +86,10 @@ const PHASE2_CITIZEN_COLUMNS: CitizenColumnSpec[] = [
 const CHECK_TARGETS = [
   { table: "users", constraint: "chk_users_citizen_id_13" },
   { table: "emp_profiles", constraint: "chk_emp_profiles_citizen_id_13" },
-  { table: "emp_support_staff", constraint: "chk_emp_support_staff_citizen_id_13" },
+  {
+    table: "emp_support_staff",
+    constraint: "chk_emp_support_staff_citizen_id_13",
+  },
   { table: "emp_licenses", constraint: "chk_emp_licenses_citizen_id_13" },
   { table: "leave_quotas", constraint: "chk_leave_quotas_citizen_id_13" },
   { table: "emp_movements", constraint: "chk_emp_movements_citizen_id_13" },
@@ -234,13 +237,16 @@ const ensurePhase2 = async (conn: PoolConnection): Promise<void> => {
 
     const isAlreadyChar13 =
       String(meta.COLUMN_TYPE).toLowerCase() === "char(13)";
-    const isAlreadyBinaryCollation =
-      String(meta.COLLATION_NAME ?? "").toLowerCase().includes("_bin");
+    const isAlreadyBinaryCollation = String(meta.COLLATION_NAME ?? "")
+      .toLowerCase()
+      .includes("_bin");
     const isNullable = String(meta.IS_NULLABLE) === "YES";
     const nullableMatches = spec.nullable ? isNullable : !isNullable;
 
     if (isAlreadyChar13 && isAlreadyBinaryCollation && nullableMatches) {
-      console.log(`  - skip alter ${spec.table}.${columnName} (already normalized)`);
+      console.log(
+        `  - skip alter ${spec.table}.${columnName} (already normalized)`,
+      );
       continue;
     }
 
@@ -250,7 +256,9 @@ const ensurePhase2 = async (conn: PoolConnection): Promise<void> => {
         ? ""
         : ` DEFAULT ${conn.escape(meta.COLUMN_DEFAULT)}`;
     const commentValue = String(meta.COLUMN_COMMENT ?? "").trim();
-    const commentSql = commentValue ? ` COMMENT ${conn.escape(commentValue)}` : "";
+    const commentSql = commentValue
+      ? ` COMMENT ${conn.escape(commentValue)}`
+      : "";
 
     await conn.query(
       `
@@ -260,7 +268,9 @@ const ensurePhase2 = async (conn: PoolConnection): Promise<void> => {
       ${nullableSql}${defaultSql}${commentSql}
       `,
     );
-    console.log(`  - normalize ${spec.table}.${columnName} -> CHAR(13) utf8mb4_bin`);
+    console.log(
+      `  - normalize ${spec.table}.${columnName} -> CHAR(13) utf8mb4_bin`,
+    );
   }
 
   for (const target of CHECK_TARGETS) {
@@ -269,7 +279,12 @@ const ensurePhase2 = async (conn: PoolConnection): Promise<void> => {
       console.log(`  - skip check ${target.constraint} (exists)`);
       continue;
     }
-    const invalid = await countInvalidCitizenIds(conn, target.table, "citizen_id", false);
+    const invalid = await countInvalidCitizenIds(
+      conn,
+      target.table,
+      "citizen_id",
+      false,
+    );
     if (invalid > 0) {
       console.warn(
         `  - skip check ${target.constraint} (invalid existing rows=${invalid})`,

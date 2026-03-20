@@ -1,10 +1,10 @@
 import { RowDataPacket, ResultSetHeader } from "mysql2/promise";
-import db from '@/config/database.js';
+import db from "@/config/database.js";
 import type {
   LeaveManagementListQuery,
   LeavePersonnelListQuery,
   LeaveManagementExtensionBody,
-} from '../leave-management.schema.js';
+} from "../leave-management.schema.js";
 
 export type LeaveManagementRow = RowDataPacket & {
   id: number;
@@ -272,7 +272,9 @@ export class LeaveManagementRepository {
     return rows[0] as LeaveManagementQuotaContextRow;
   }
 
-  async listPersonnel(params: LeavePersonnelListQuery): Promise<LeavePersonnelRow[]> {
+  async listPersonnel(
+    params: LeavePersonnelListQuery,
+  ): Promise<LeavePersonnelRow[]> {
     const q = (params.q ?? "").trim().toLowerCase();
     const limit = params.limit ?? 2000;
     const where = q
@@ -286,7 +288,9 @@ export class LeaveManagementRepository {
         )
       `
       : "";
-    const values = q ? [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, limit] : [limit];
+    const values = q
+      ? [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, limit]
+      : [limit];
 
     const [rows] = await db.query<RowDataPacket[]>(
       `
@@ -309,7 +313,9 @@ export class LeaveManagementRepository {
     return rows as LeavePersonnelRow[];
   }
 
-  async listLeaveManagement(params: LeaveManagementListQuery): Promise<LeaveManagementRow[]> {
+  async listLeaveManagement(
+    params: LeaveManagementListQuery,
+  ): Promise<LeaveManagementRow[]> {
     const { whereClause, values } = buildLeaveManagementFilters(params);
     const positionExpr = "COALESCE(ep.position_name, ss.position_name, '')";
     const professionCaseSql = buildProfessionCaseSql(positionExpr);
@@ -430,7 +436,9 @@ export class LeaveManagementRepository {
     return rows as LeaveManagementRow[];
   }
 
-  async insertLeaveManagement(data: LeaveManagementCreateInput): Promise<number> {
+  async insertLeaveManagement(
+    data: LeaveManagementCreateInput,
+  ): Promise<number> {
     const [result] = await db.execute<ResultSetHeader>(
       `
         INSERT INTO leave_records (
@@ -456,7 +464,9 @@ export class LeaveManagementRepository {
     return result.insertId;
   }
 
-  async countLeaveManagement(params: LeaveManagementListQuery): Promise<number> {
+  async countLeaveManagement(
+    params: LeaveManagementListQuery,
+  ): Promise<number> {
     const { whereClause, values } = buildLeaveManagementFilters(params);
 
     const [rows] = await db.query<RowDataPacket[]>(
@@ -499,9 +509,20 @@ export class LeaveManagementRepository {
   async summarizeLeaveManagementByProfessionByPeriod(
     params: Pick<
       LeaveManagementPeriodQuery,
-      "start_date" | "end_date" | "search" | "leave_type" | "pending_report" | "citizen_ids"
+      | "start_date"
+      | "end_date"
+      | "search"
+      | "leave_type"
+      | "pending_report"
+      | "citizen_ids"
     >,
-  ): Promise<Array<{ profession_code: string | null; profession_name: string; leave_count: number }>> {
+  ): Promise<
+    Array<{
+      profession_code: string | null;
+      profession_name: string;
+      leave_count: number;
+    }>
+  > {
     const { start_date, end_date, ...filters } = params;
     const { whereClause, values } = buildLeaveManagementFilters(filters);
     const positionExpr = "COALESCE(ep.position_name, ss.position_name, '')";
@@ -550,7 +571,10 @@ export class LeaveManagementRepository {
     );
 
     return rows.map((row: any) => ({
-      profession_code: row.profession_code === null || row.profession_code === undefined ? null : String(row.profession_code),
+      profession_code:
+        row.profession_code === null || row.profession_code === undefined
+          ? null
+          : String(row.profession_code),
       profession_name: String(row.profession_name ?? "ไม่ระบุวิชาชีพ"),
       leave_count: Number(row.leave_count ?? 0),
     }));
@@ -724,7 +748,9 @@ export class LeaveManagementRepository {
     return res.insertId;
   }
 
-  async listDocuments(leaveManagementId: number): Promise<LeaveManagementDocumentRow[]> {
+  async listDocuments(
+    leaveManagementId: number,
+  ): Promise<LeaveManagementDocumentRow[]> {
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT * FROM leave_record_documents WHERE leave_record_id = ? ORDER BY uploaded_at DESC`,
       [leaveManagementId],
@@ -732,7 +758,9 @@ export class LeaveManagementRepository {
     return rows as LeaveManagementDocumentRow[];
   }
 
-  async findDocumentById(documentId: number): Promise<LeaveManagementDocumentRow | null> {
+  async findDocumentById(
+    documentId: number,
+  ): Promise<LeaveManagementDocumentRow | null> {
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT * FROM leave_record_documents WHERE document_id = ? LIMIT 1`,
       [documentId],
@@ -898,7 +926,8 @@ export class LeaveManagementRepository {
     if (!row) return null;
     return {
       require_return_report:
-        row.require_return_report === null || row.require_return_report === undefined
+        row.require_return_report === null ||
+        row.require_return_report === undefined
           ? null
           : Number(row.require_return_report),
     };

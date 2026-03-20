@@ -28,7 +28,9 @@ const SQL_CALL_DOUBLE_QUOTE_RE =
 
 const resolveValue = (row: Record<string, unknown>, key: string): string => {
   if (row[key] !== undefined && row[key] !== null) return String(row[key]);
-  const matchedKey = Object.keys(row).find((k) => k.toLowerCase() === key.toLowerCase());
+  const matchedKey = Object.keys(row).find(
+    (k) => k.toLowerCase() === key.toLowerCase(),
+  );
   return matchedKey ? String(row[matchedKey]) : "";
 };
 
@@ -77,8 +79,12 @@ async function main(): Promise<void> {
     database: process.env.DB_NAME || "phts_system",
   });
 
-  const [tableRows] = await connection.query("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()");
-  const [columnRows] = await connection.query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE()");
+  const [tableRows] = await connection.query(
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()",
+  );
+  const [columnRows] = await connection.query(
+    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = DATABASE()",
+  );
 
   const dbTables = new Set<string>(
     (tableRows as Array<Record<string, unknown>>).map((row) =>
@@ -127,13 +133,17 @@ async function main(): Promise<void> {
           referencedTables.add(table);
           aliasToTable.set(table, table);
           if (alias) aliasToTable.set(alias, table);
-        } else if (!full.startsWith("information_schema.") && !IGNORE_EXTERNAL_TABLE_REFS.has(full)) {
+        } else if (
+          !full.startsWith("information_schema.") &&
+          !IGNORE_EXTERNAL_TABLE_REFS.has(full)
+        ) {
           if (!missingTables.has(full)) missingTables.set(full, new Set());
           missingTables.get(full)!.add(relPath);
         }
       }
 
-      const insertRe = /\bINSERT\s+INTO\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]+)\)/gi;
+      const insertRe =
+        /\bINSERT\s+INTO\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]+)\)/gi;
       while ((match = insertRe.exec(sql))) {
         const table = match[1].toLowerCase();
         if (!dbTables.has(table)) continue;
@@ -152,7 +162,8 @@ async function main(): Promise<void> {
         }
       }
 
-      const updateRe = /\bUPDATE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+SET\s+([\s\S]*?)(?:\bWHERE\b|$)/gi;
+      const updateRe =
+        /\bUPDATE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+SET\s+([\s\S]*?)(?:\bWHERE\b|$)/gi;
       while ((match = updateRe.exec(sql))) {
         const table = match[1].toLowerCase();
         if (!dbTables.has(table)) continue;
@@ -161,7 +172,9 @@ async function main(): Promise<void> {
         const columns = tableColumns.get(table) ?? new Set<string>();
         const setPart = match[2];
         for (const assignment of setPart.split(",")) {
-          const assignMatch = assignment.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*=/);
+          const assignMatch = assignment.match(
+            /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*=/,
+          );
           if (!assignMatch) continue;
           const column = assignMatch[1].toLowerCase();
           markUsedColumn(table, column);
@@ -173,11 +186,13 @@ async function main(): Promise<void> {
         }
       }
 
-      const referenceRe = /\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
+      const referenceRe =
+        /\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
       while ((match = referenceRe.exec(sql))) {
         const prefix = match[1].toLowerCase();
         const column = match[2].toLowerCase();
-        const table = aliasToTable.get(prefix) ?? (dbTables.has(prefix) ? prefix : null);
+        const table =
+          aliasToTable.get(prefix) ?? (dbTables.has(prefix) ? prefix : null);
         if (!table) continue;
         markUsedColumn(table, column);
         const columns = tableColumns.get(table) ?? new Set<string>();
@@ -208,22 +223,31 @@ async function main(): Promise<void> {
     }
   }
 
-  const realMissingTables = [...missingTables.entries()].map(([table, filesSet]) => ({
-    ref: table,
-    file: [...filesSet][0]!,
-  })) as MissingRef[];
+  const realMissingTables = [...missingTables.entries()].map(
+    ([table, filesSet]) => ({
+      ref: table,
+      file: [...filesSet][0]!,
+    }),
+  ) as MissingRef[];
 
-  const realMissingColumns = [...missingColumns.entries()].map(([column, filesSet]) => ({
-    ref: column,
-    file: [...filesSet][0]!,
-  })) as MissingRef[];
+  const realMissingColumns = [...missingColumns.entries()].map(
+    ([column, filesSet]) => ({
+      ref: column,
+      file: [...filesSet][0]!,
+    }),
+  ) as MissingRef[];
 
-  const unusedTables = [...dbTables].filter((table) => !usedTables.has(table)).sort();
+  const unusedTables = [...dbTables]
+    .filter((table) => !usedTables.has(table))
+    .sort();
   const possiblyUnusedColumns = [...tableColumns.entries()]
     .map(([table, columns]) => ({
       table,
       columns: [...columns]
-        .filter((column) => !(usedColumns.get(table) ?? new Set<string>()).has(column))
+        .filter(
+          (column) =>
+            !(usedColumns.get(table) ?? new Set<string>()).has(column),
+        )
         .sort(),
     }))
     .filter((item) => item.columns.length > 0)
@@ -235,15 +259,21 @@ async function main(): Promise<void> {
   console.log(`- Missing table refs: ${realMissingTables.length}`);
   console.log(`- Missing column refs: ${realMissingColumns.length}`);
   console.log(`- Unused DB tables: ${unusedTables.length}`);
-  console.log(`- Tables with possibly-unused columns: ${possiblyUnusedColumns.length}`);
+  console.log(
+    `- Tables with possibly-unused columns: ${possiblyUnusedColumns.length}`,
+  );
 
   if (realMissingTables.length > 0) {
     console.log("\nMissing table refs:");
-    realMissingTables.forEach((item) => console.log(`- ${item.ref} @ ${item.file}`));
+    realMissingTables.forEach((item) =>
+      console.log(`- ${item.ref} @ ${item.file}`),
+    );
   }
   if (realMissingColumns.length > 0) {
     console.log("\nMissing column refs:");
-    realMissingColumns.forEach((item) => console.log(`- ${item.ref} @ ${item.file}`));
+    realMissingColumns.forEach((item) =>
+      console.log(`- ${item.ref} @ ${item.file}`),
+    );
   }
   if (unusedTables.length > 0) {
     console.log("\nUnused DB tables:");

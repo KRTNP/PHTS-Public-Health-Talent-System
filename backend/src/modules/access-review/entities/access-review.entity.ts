@@ -32,7 +32,7 @@ export interface ReviewCycle {
   due_date: Date;
   opened_at?: Date | null;
   expires_at?: Date | null;
-  sync_source?: 'SYNC' | null;
+  sync_source?: "SYNC" | null;
   cycle_code?: string | null;
   completed_at: Date | null;
   completed_by: number | null;
@@ -102,4 +102,3 @@ export interface AccessReviewQueueEvent {
   event_payload: Record<string, unknown> | null;
   created_at: Date;
 }
-

@@ -1,8 +1,8 @@
-import { RetirementsRepository } from '@/modules/workforce-compliance/repositories/retirements.repository.js';
+import { RetirementsRepository } from "@/modules/workforce-compliance/repositories/retirements.repository.js";
 import type {
   RetirementInput,
   RetirementRecord,
-} from '@/modules/workforce-compliance/entities/workforce-compliance.entity.js';
+} from "@/modules/workforce-compliance/entities/workforce-compliance.entity.js";
 
 export async function createRetirement(
   input: RetirementInput,

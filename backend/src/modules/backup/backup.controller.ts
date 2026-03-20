@@ -11,14 +11,16 @@ import type {
   UpdateBackupScheduleBody,
 } from "@/modules/backup/backup.schema.js";
 
-export const triggerBackup = asyncHandler(async (req: Request, res: Response) => {
-  const actorId = req.user?.userId ?? null;
-  const result = await runBackupJob({
-    triggerSource: "MANUAL",
-    triggeredBy: actorId,
-  });
-  res.json({ success: true, data: result });
-});
+export const triggerBackup = asyncHandler(
+  async (req: Request, res: Response) => {
+    const actorId = req.user?.userId ?? null;
+    const result = await runBackupJob({
+      triggerSource: "MANUAL",
+      triggeredBy: actorId,
+    });
+    res.json({ success: true, data: result });
+  },
+);
 
 export const getBackupHistory = asyncHandler(
   async (req: Request, res: Response) => {

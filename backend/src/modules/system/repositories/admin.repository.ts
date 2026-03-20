@@ -1,7 +1,7 @@
-import { PoolConnection, RowDataPacket } from 'mysql2/promise';
-import { getConnection } from '@config/database.js';
-import db from '@config/database.js';
-import { DB_HEAD_SCOPE_ROLE_SQL_LIST } from '@/shared/utils/head-scope-category.js';
+import { PoolConnection, RowDataPacket } from "mysql2/promise";
+import { getConnection } from "@config/database.js";
+import db from "@config/database.js";
+import { DB_HEAD_SCOPE_ROLE_SQL_LIST } from "@/shared/utils/head-scope-category.js";
 
 export class AdminRepository {
   static async searchUsers(params: {
@@ -27,12 +27,18 @@ export class AdminRepository {
     limit: number;
     total_pages: number;
   }> {
-    const page = Number.isFinite(params.page) && params.page > 0 ? Math.floor(params.page) : 1;
-    const limitRaw = Number.isFinite(params.limit) && params.limit > 0 ? Math.floor(params.limit) : 20;
+    const page =
+      Number.isFinite(params.page) && params.page > 0
+        ? Math.floor(params.page)
+        : 1;
+    const limitRaw =
+      Number.isFinite(params.limit) && params.limit > 0
+        ? Math.floor(params.limit)
+        : 20;
     const limit = Math.min(limitRaw, 100);
     const offset = (page - 1) * limit;
 
-    const sanitized = params.q.replace(/[%_]/g, '\\$&');
+    const sanitized = params.q.replace(/[%_]/g, "\\$&");
     const search = `%${sanitized}%`;
 
     const whereParts: string[] = [
@@ -41,15 +47,15 @@ export class AdminRepository {
     const whereParams: Array<string | number> = [search, search, search];
 
     if (params.role) {
-      whereParts.push('u.role = ?');
+      whereParts.push("u.role = ?");
       whereParams.push(params.role);
     }
     if (params.isActive === 0 || params.isActive === 1) {
-      whereParts.push('u.is_active = ?');
+      whereParts.push("u.is_active = ?");
       whereParams.push(params.isActive);
     }
 
-    const whereClause = `WHERE ${whereParts.join(' AND ')}`;
+    const whereClause = `WHERE ${whereParts.join(" AND ")}`;
 
     const [countRows] = await db.query<RowDataPacket[]>(
       `SELECT
@@ -62,7 +68,9 @@ export class AdminRepository {
       whereParams,
     );
     const total = Number((countRows[0] as { total?: number })?.total ?? 0);
-    const activeTotal = Number((countRows[0] as { active_total?: number })?.active_total ?? 0);
+    const activeTotal = Number(
+      (countRows[0] as { active_total?: number })?.active_total ?? 0,
+    );
     const inactiveTotal = Math.max(0, total - activeTotal);
     const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
@@ -94,7 +102,7 @@ export class AdminRepository {
         last_login_at: Date | null;
         first_name: string | null;
         last_name: string | null;
-      }> ,
+      }>,
       total,
       active_total: activeTotal,
       inactive_total: inactiveTotal,
@@ -113,16 +121,16 @@ export class AdminRepository {
     try {
       await conn.beginTransaction();
 
-      await conn.execute('UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?', [
-        role,
-        userId,
-      ]);
+      await conn.execute(
+        "UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?",
+        [role, userId],
+      );
 
       if (isActive !== undefined) {
-        await conn.execute('UPDATE users SET is_active = ?, updated_at = NOW() WHERE id = ?', [
-          isActive ? 1 : 0,
-          userId,
-        ]);
+        await conn.execute(
+          "UPDATE users SET is_active = ?, updated_at = NOW() WHERE id = ?",
+          [isActive ? 1 : 0, userId],
+        );
       }
 
       await conn.commit();
@@ -147,7 +155,7 @@ export class AdminRepository {
     updated_at: Date | null;
     created_at: Date | null;
     scopes: Array<{
-      scope_type: 'UNIT' | 'DEPT';
+      scope_type: "UNIT" | "DEPT";
       scope_name: string;
       source: string;
     }>;
@@ -172,19 +180,22 @@ export class AdminRepository {
        LIMIT 1`,
       [userId],
     );
-    const userRow = (rows[0] as {
-      id: number;
-      citizen_id: string;
-      role: string;
-      is_active: number;
-      last_login_at: Date | null;
-      first_name: string | null;
-      last_name: string | null;
-      department: string | null;
-      position_name: string | null;
-      updated_at: Date | null;
-      created_at: Date | null;
-    } | undefined) ?? null;
+    const userRow =
+      (rows[0] as
+        | {
+            id: number;
+            citizen_id: string;
+            role: string;
+            is_active: number;
+            last_login_at: Date | null;
+            first_name: string | null;
+            last_name: string | null;
+            department: string | null;
+            position_name: string | null;
+            updated_at: Date | null;
+            created_at: Date | null;
+          }
+        | undefined) ?? null;
 
     if (!userRow) return null;
 
@@ -204,9 +215,9 @@ export class AdminRepository {
     return {
       ...userRow,
       scopes: scopeRows.map((row) => ({
-        scope_type: String(row.scope_type) === 'DEPT' ? 'DEPT' : 'UNIT',
-        scope_name: String(row.scope_name ?? ''),
-        source: String(row.source ?? 'AUTO'),
+        scope_type: String(row.scope_type) === "DEPT" ? "DEPT" : "UNIT",
+        scope_name: String(row.scope_name ?? ""),
+        source: String(row.source ?? "AUTO"),
       })),
     };
   }

@@ -1,12 +1,15 @@
 import type { PoolConnection } from "mysql2/promise";
-import { WorkforceComplianceRepository } from '@/modules/workforce-compliance/repositories/workforce-compliance.repository.js';
-import { formatOpsDate } from '@/modules/workforce-compliance/services/jobs/shared/job-date.js';
+import { WorkforceComplianceRepository } from "@/modules/workforce-compliance/repositories/workforce-compliance.repository.js";
+import { formatOpsDate } from "@/modules/workforce-compliance/services/jobs/shared/job-date.js";
 
 export async function applyImmediateMovementEligibilityCutoff(
   asOf: Date = new Date(),
   conn?: PoolConnection,
 ): Promise<{ candidates: number; cut: number }> {
-  const due = await WorkforceComplianceRepository.getMovementOutCandidates(asOf, conn);
+  const due = await WorkforceComplianceRepository.getMovementOutCandidates(
+    asOf,
+    conn,
+  );
   let cut = 0;
 
   for (const row of due) {

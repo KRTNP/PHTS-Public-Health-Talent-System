@@ -11,7 +11,7 @@ import {
   ValidationError,
   buildErrorResponse,
   isOperationalError,
-} from '@shared/utils/errors.js';
+} from "@shared/utils/errors.js";
 
 /**
  * Handle 404 Not Found routes
@@ -91,7 +91,8 @@ export const errorHandler = (
   }
 
   // Determine status code
-  const statusCode = normalizedError instanceof AppError ? normalizedError.statusCode : 500;
+  const statusCode =
+    normalizedError instanceof AppError ? normalizedError.statusCode : 500;
 
   // Build standardized response
   const errorResponse = buildErrorResponse(normalizedError);

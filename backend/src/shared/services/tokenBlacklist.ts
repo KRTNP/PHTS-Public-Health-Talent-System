@@ -90,15 +90,11 @@ class TokenBlacklistService {
       // TTL is 24 hours to handle old token expiries
       await redis.set(userTokensKey, JSON.stringify({ reason }), "EX", 86400);
 
-      this.log.info(
-        `All tokens blacklisted for user ${userId}: ${reason}`,
-      );
+      this.log.info(`All tokens blacklisted for user ${userId}: ${reason}`);
     } catch (error) {
-      this.log.error(
-        "Failed to blacklist all user tokens",
-        error as Error,
-        { userId },
-      );
+      this.log.error("Failed to blacklist all user tokens", error as Error, {
+        userId,
+      });
       throw error;
     }
   }
@@ -114,11 +110,9 @@ class TokenBlacklistService {
       const marker = await redis.get(userTokensKey);
       return marker !== null;
     } catch (error) {
-      this.log.error(
-        "Failed to check user token blacklist",
-        error as Error,
-        { userId },
-      );
+      this.log.error("Failed to check user token blacklist", error as Error, {
+        userId,
+      });
       // On Redis error, allow token (fail open)
       return false;
     }
@@ -134,11 +128,9 @@ class TokenBlacklistService {
       await redis.del(userTokensKey);
       this.log.debug(`Token blacklist removed for user ${userId}`);
     } catch (error) {
-      this.log.error(
-        "Failed to remove user token blacklist",
-        error as Error,
-        { userId },
-      );
+      this.log.error("Failed to remove user token blacklist", error as Error, {
+        userId,
+      });
       throw error;
     }
   }
@@ -162,10 +154,7 @@ class TokenBlacklistService {
 
       this.log.warn(`Cleared all token blacklist entries`);
     } catch (error) {
-      this.log.error(
-        "Failed to clear token blacklist",
-        error as Error,
-      );
+      this.log.error("Failed to clear token blacklist", error as Error);
       throw error;
     }
   }

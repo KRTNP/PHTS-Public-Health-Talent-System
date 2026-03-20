@@ -5,9 +5,9 @@
  */
 
 import { RowDataPacket, PoolConnection } from "mysql2/promise";
-import db from '@config/database.js';
-import { SLAConfig, ReminderType } from '@/modules/sla/entities/sla.entity.js';
-import { formatDateOnly } from '@/shared/utils/date-only.js';
+import db from "@config/database.js";
+import { SLAConfig, ReminderType } from "@/modules/sla/entities/sla.entity.js";
+import { formatDateOnly } from "@/shared/utils/date-only.js";
 
 export class SLARepository {
   // ── SLA Config queries ──────────────────────────────────────────────────────
@@ -89,10 +89,7 @@ export class SLARepository {
     return holidays;
   }
 
-  static async isHoliday(
-    date: Date,
-    conn?: PoolConnection,
-  ): Promise<boolean> {
+  static async isHoliday(date: Date, conn?: PoolConnection): Promise<boolean> {
     const executor = conn ?? db;
     const appTimezone = process.env.APP_TIMEZONE || "Asia/Bangkok";
     const dateStr = formatDateOnly(date, {
@@ -108,9 +105,11 @@ export class SLARepository {
 
   // ── Pending request queries ─────────────────────────────────────────────────
 
-  static async findPendingRequestsWithSLA(
-    params?: { startDate?: Date | null; endDate?: Date | null; conn?: PoolConnection },
-  ): Promise<any[]> {
+  static async findPendingRequestsWithSLA(params?: {
+    startDate?: Date | null;
+    endDate?: Date | null;
+    conn?: PoolConnection;
+  }): Promise<any[]> {
     const executor = params?.conn ?? db;
     let sql = `
       SELECT

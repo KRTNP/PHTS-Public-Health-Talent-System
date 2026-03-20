@@ -1,7 +1,7 @@
-import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import db from '@config/database.js';
+import { ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import db from "@config/database.js";
 
-export type OpsJobRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
+export type OpsJobRunStatus = "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED";
 
 export class OpsJobRunsRepository {
   static async createRun(input: {
@@ -53,7 +53,7 @@ export class OpsJobRunsRepository {
     }>
   > {
     if (!jobKeys.length) return [];
-    const placeholders = jobKeys.map(() => '?').join(',');
+    const placeholders = jobKeys.map(() => "?").join(",");
     const [rows] = await db.query<RowDataPacket[]>(
       `
       SELECT r.job_run_id, r.job_key, r.trigger_source, r.status, r.summary_json, r.error_message,
@@ -76,19 +76,25 @@ export class OpsJobRunsRepository {
       trigger_source: String(row.trigger_source),
       status: String(row.status) as OpsJobRunStatus,
       summary_json:
-        typeof row.summary_json === 'string'
+        typeof row.summary_json === "string"
           ? JSON.parse(row.summary_json)
           : (row.summary_json ?? null),
       error_message: row.error_message ? String(row.error_message) : null,
       started_at: row.started_at as Date,
       finished_at: (row.finished_at as Date | null) ?? null,
-      duration_ms: row.duration_ms === null || row.duration_ms === undefined ? null : Number(row.duration_ms),
+      duration_ms:
+        row.duration_ms === null || row.duration_ms === undefined
+          ? null
+          : Number(row.duration_ms),
     }));
   }
 
-  static async countFailedRunsSince(jobKeys: string[], since: Date): Promise<number> {
+  static async countFailedRunsSince(
+    jobKeys: string[],
+    since: Date,
+  ): Promise<number> {
     if (!jobKeys.length) return 0;
-    const placeholders = jobKeys.map(() => '?').join(',');
+    const placeholders = jobKeys.map(() => "?").join(",");
     const [rows] = await db.query<RowDataPacket[]>(
       `
       SELECT COUNT(*) AS count

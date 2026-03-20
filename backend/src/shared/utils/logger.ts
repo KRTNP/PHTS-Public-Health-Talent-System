@@ -42,7 +42,9 @@ class Logger {
   constructor(module = "App") {
     this.module = module;
     const envLevel = process.env.LOG_LEVEL || "info";
-    this.minLevel = LogLevel[envLevel.toUpperCase() as keyof typeof LogLevel] ?? LogLevel.INFO;
+    this.minLevel =
+      LogLevel[envLevel.toUpperCase() as keyof typeof LogLevel] ??
+      LogLevel.INFO;
   }
 
   /**
@@ -166,16 +168,13 @@ class Logger {
   ): void {
     const statusLabel = statusCode ? `→ ${statusCode}` : "";
     const message = [method, path, statusLabel].filter(Boolean).join(" ");
-    this.info(
-      message,
-      {
-        method,
-        path,
-        statusCode,
-        duration,
-        ...context,
-      },
-    );
+    this.info(message, {
+      method,
+      path,
+      statusCode,
+      duration,
+      ...context,
+    });
   }
 
   /**
@@ -187,15 +186,12 @@ class Logger {
     duration?: number,
     context?: LogContext,
   ): void {
-    this.debug(
-      `DB ${operation} ${table}`,
-      {
-        operation,
-        table,
-        duration,
-        ...context,
-      },
-    );
+    this.debug(`DB ${operation} ${table}`, {
+      operation,
+      table,
+      duration,
+      ...context,
+    });
   }
 
   /**
@@ -218,11 +214,7 @@ class Logger {
   /**
    * Log business event
    */
-  logEvent(
-    eventType: string,
-    eventName: string,
-    context?: LogContext,
-  ): void {
+  logEvent(eventType: string, eventName: string, context?: LogContext): void {
     this.info(`Event: ${eventType} - ${eventName}`, {
       eventType,
       eventName,

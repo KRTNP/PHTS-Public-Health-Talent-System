@@ -15,7 +15,10 @@ import { LeaveManagementRepository } from "../repositories/leave-management.repo
 describe("LeaveManagementRepository", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (db.execute as jest.Mock).mockResolvedValue([{ insertId: 1, affectedRows: 1 }, []]);
+    (db.execute as jest.Mock).mockResolvedValue([
+      { insertId: 1, affectedRows: 1 },
+      [],
+    ]);
     (db.getConnection as jest.Mock).mockResolvedValue({
       beginTransaction: jest.fn().mockResolvedValue(undefined),
       execute: jest.fn().mockResolvedValue([{ affectedRows: 1 }, []]),
@@ -149,7 +152,10 @@ describe("LeaveManagementRepository", () => {
   });
 
   test("findHolidaysForFiscalYear selects active holidays within range", async () => {
-    (db.query as jest.Mock).mockResolvedValue([[{ holiday_date: "2026-01-01" }], []]);
+    (db.query as jest.Mock).mockResolvedValue([
+      [{ holiday_date: "2026-01-01" }],
+      [],
+    ]);
     const repo = new LeaveManagementRepository();
     await repo.findHolidaysForFiscalYear(2026);
 
@@ -161,7 +167,10 @@ describe("LeaveManagementRepository", () => {
   });
 
   test("findEmployeeServiceDates selects start_work_date and first_entry_date", async () => {
-    (db.query as jest.Mock).mockResolvedValue([[{ start_work_date: "2020-01-01" }], []]);
+    (db.query as jest.Mock).mockResolvedValue([
+      [{ start_work_date: "2020-01-01" }],
+      [],
+    ]);
     const repo = new LeaveManagementRepository();
     await repo.findEmployeeServiceDates("123");
 
@@ -174,7 +183,14 @@ describe("LeaveManagementRepository", () => {
 
   test("listLeaveReturnReportEventsByLeaveIds reads event rows when table exists", async () => {
     (db.query as jest.Mock).mockResolvedValue([
-      [{ event_id: 1, leave_record_id: 11, report_date: "2026-01-31", resume_date: "2026-02-15" }],
+      [
+        {
+          event_id: 1,
+          leave_record_id: 11,
+          report_date: "2026-01-31",
+          resume_date: "2026-02-15",
+        },
+      ],
       [],
     ]);
     const repo = new LeaveManagementRepository();
@@ -202,8 +218,16 @@ describe("LeaveManagementRepository", () => {
     await repo.replaceLeaveReturnReportEvents(
       10,
       [
-        { report_date: "2026-01-31", resume_date: "2026-02-15", resume_study_program: "B" },
-        { report_date: "2026-03-07", resume_date: "2026-03-17", resume_study_program: "A" },
+        {
+          report_date: "2026-01-31",
+          resume_date: "2026-02-15",
+          resume_study_program: "B",
+        },
+        {
+          report_date: "2026-03-07",
+          resume_date: "2026-03-17",
+          resume_study_program: "A",
+        },
       ],
       7,
     );
@@ -223,12 +247,15 @@ describe("LeaveManagementRepository", () => {
   });
 
   test("findExtensionReturnMeta selects require_return_report", async () => {
-    (db.query as jest.Mock).mockResolvedValue([[{ require_return_report: 1 }], []]);
+    (db.query as jest.Mock).mockResolvedValue([
+      [{ require_return_report: 1 }],
+      [],
+    ]);
     const repo = new LeaveManagementRepository();
     const row = await repo.findExtensionReturnMeta(10);
 
     const call = (db.query as jest.Mock).mock.calls.at(-1);
-    expect((call[0] as string)).toContain("FROM leave_record_extensions");
+    expect(call[0] as string).toContain("FROM leave_record_extensions");
     expect(row).toEqual({ require_return_report: 1 });
   });
 
@@ -242,7 +269,7 @@ describe("LeaveManagementRepository", () => {
     });
 
     const call = (db.execute as jest.Mock).mock.calls.at(-1);
-    expect((call[0] as string)).toContain("INSERT INTO leave_record_extensions");
+    expect(call[0] as string).toContain("INSERT INTO leave_record_extensions");
     expect(call[1]).toEqual([10, 1, "DONE", "2026-01-31", 7, 7]);
   });
 });

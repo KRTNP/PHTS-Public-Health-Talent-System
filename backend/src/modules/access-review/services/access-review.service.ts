@@ -6,39 +6,42 @@
  * - role/scope mismatch verification
  */
 
-import { NotificationService } from '@/modules/notification/services/notification.service.js';
-import { emitAuditEvent, AuditEventType } from '@/modules/audit/services/audit.service.js';
-import { IdentityRolePolicyRepository } from '@/modules/identity/repositories/identity-role-policy.repository.js';
-import { IdentityRolePolicyService } from '@/modules/identity/services/identity-role-policy.service.js';
+import { NotificationService } from "@/modules/notification/services/notification.service.js";
+import {
+  emitAuditEvent,
+  AuditEventType,
+} from "@/modules/audit/services/audit.service.js";
+import { IdentityRolePolicyRepository } from "@/modules/identity/repositories/identity-role-policy.repository.js";
+import { IdentityRolePolicyService } from "@/modules/identity/services/identity-role-policy.service.js";
 import {
   inferScopeType,
   parseSpecialPositionScopes,
   removeOverlaps,
-} from '@/modules/request/scope/domain/scope.utils.js';
-import { getSyncRuntimeStatus } from '@/modules/sync/services/sync-status.service.js';
-import { AccessReviewRepository } from '@/modules/access-review/repositories/access-review.repository.js';
+} from "@/modules/request/scope/domain/scope.utils.js";
+import { getSyncRuntimeStatus } from "@/modules/sync/services/sync-status.service.js";
+import { AccessReviewRepository } from "@/modules/access-review/repositories/access-review.repository.js";
 import {
   AccessReviewQueueStatus,
   AccessReviewReasonCode,
-} from '@/modules/access-review/entities/access-review.entity.js';
+} from "@/modules/access-review/entities/access-review.entity.js";
 
 /**
  * Review cycle status
  */
 export enum ReviewCycleStatus {
-  PENDING = 'PENDING',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  OVERDUE = 'OVERDUE',
+  PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+  OVERDUE = "OVERDUE",
 }
 
 /**
  * Review result for a user
  */
 export enum ReviewResult {
-  KEEP = 'KEEP',
-  DISABLE = 'DISABLE',
-  PENDING = 'PENDING',
+  KEEP = "KEEP",
+  DISABLE = "DISABLE",
+  PENDING = "PENDING",
 }
 
 /**
@@ -94,20 +97,22 @@ function getQuarterDates(
 }
 
 const INACTIVE_STATUS_KEYWORDS = [
-  'ลาออก',
-  'เกษียณ',
-  'เสียชีวิต',
-  'โอนออก',
-  'not working',
-  'inactive',
-  'resigned',
-  'retired',
-  'deceased',
-  'terminated',
+  "ลาออก",
+  "เกษียณ",
+  "เสียชีวิต",
+  "โอนออก",
+  "not working",
+  "inactive",
+  "resigned",
+  "retired",
+  "deceased",
+  "terminated",
 ];
 
 function isInactiveEmployeeStatus(status: string | null | undefined): boolean {
-  const normalized = String(status ?? '').trim().toLowerCase();
+  const normalized = String(status ?? "")
+    .trim()
+    .toLowerCase();
   if (!normalized) return false;
   return INACTIVE_STATUS_KEYWORDS.some((keyword) =>
     normalized.includes(keyword.toLowerCase()),
@@ -118,19 +123,24 @@ function buildScopeExplanation(
   role: string,
   specialPosition: string | null | undefined,
 ): string | null {
-  if (role !== 'HEAD_SCOPE') return null;
+  if (role !== "HEAD_SCOPE") return null;
   const rawScopes = parseSpecialPositionScopes(specialPosition ?? null);
-  if (rawScopes.length === 0) return 'ไม่พบข้อมูลตำแหน่งพิเศษที่ใช้คำนวณขอบเขตการดูแล';
+  if (rawScopes.length === 0)
+    return "ไม่พบข้อมูลตำแหน่งพิเศษที่ใช้คำนวณขอบเขตการดูแล";
 
-  const wardScopes = rawScopes.filter((scope) => inferScopeType(scope) === 'UNIT');
-  const deptScopes = rawScopes.filter((scope) => inferScopeType(scope) === 'DEPT');
+  const wardScopes = rawScopes.filter(
+    (scope) => inferScopeType(scope) === "UNIT",
+  );
+  const deptScopes = rawScopes.filter(
+    (scope) => inferScopeType(scope) === "DEPT",
+  );
   const cleanedWardScopes = removeOverlaps(wardScopes, deptScopes);
 
   return [
-    `ข้อมูลตำแหน่งพิเศษ: ${String(specialPosition ?? '-')}`,
-    `ขอบเขตระดับหน่วยงาน: ${cleanedWardScopes.length ? cleanedWardScopes.join(', ') : '-'}`,
-    `ขอบเขตระดับกลุ่มงาน: ${deptScopes.length ? deptScopes.join(', ') : '-'}`,
-  ].join(' | ');
+    `ข้อมูลตำแหน่งพิเศษ: ${String(specialPosition ?? "-")}`,
+    `ขอบเขตระดับหน่วยงาน: ${cleanedWardScopes.length ? cleanedWardScopes.join(", ") : "-"}`,
+    `ขอบเขตระดับกลุ่มงาน: ${deptScopes.length ? deptScopes.join(", ") : "-"}`,
+  ].join(" | ");
 }
 
 type RiskDetectionCandidate = {
@@ -158,10 +168,13 @@ async function buildRiskDetectionCandidates(
   options?: { syncTimestamp?: Date | null; citizenId?: string | null },
 ): Promise<RiskDetectionCandidate[]> {
   const users = await AccessReviewRepository.findNonAdminUsers(connection);
-  const activeHeadScopes = await IdentityRolePolicyRepository.findActiveHeadScopes(connection);
+  const activeHeadScopes =
+    await IdentityRolePolicyRepository.findActiveHeadScopes(connection);
   const syncTimestamp = options?.syncTimestamp ?? null;
   const scopedHeadRoleSet = new Set(
-    activeHeadScopes.map((row) => `${String(row.citizen_id)}|${String(row.role)}`),
+    activeHeadScopes.map(
+      (row) => `${String(row.citizen_id)}|${String(row.role)}`,
+    ),
   );
 
   return (users as any[])
@@ -181,41 +194,46 @@ async function buildRiskDetectionCandidates(
 
       const currentRole = String(user.role ?? "");
       const isUserActive = Number(user.is_active ?? 0) === 1;
-      const isProtectedRole = IdentityRolePolicyService.PROTECTED_ROLES.has(currentRole);
+      const isProtectedRole =
+        IdentityRolePolicyService.PROTECTED_ROLES.has(currentRole);
       const derivedRole = isProtectedRole
         ? currentRole
         : IdentityRolePolicyService.deriveRole(hrRow as any);
       const expectedRole =
-        derivedRole === 'WARD_SCOPE' || derivedRole === 'DEPT_SCOPE'
+        derivedRole === "WARD_SCOPE" || derivedRole === "DEPT_SCOPE"
           ? scopedHeadRoleSet.has(`${hrRow.citizen_id}|${derivedRole}`)
-            ? 'HEAD_SCOPE'
-            : 'USER'
+            ? "HEAD_SCOPE"
+            : "USER"
           : derivedRole;
       const roleMismatch = isUserActive && expectedRole !== currentRole;
-      const inactiveStatus = isUserActive && isInactiveEmployeeStatus(user.employee_status);
-      const scopeExplanation = buildScopeExplanation(currentRole, user.special_position);
+      const inactiveStatus =
+        isUserActive && isInactiveEmployeeStatus(user.employee_status);
+      const scopeExplanation = buildScopeExplanation(
+        currentRole,
+        user.special_position,
+      );
 
       const profileSyncedAt = toDateOrNull(user.profile_synced_at);
-      const changedByLatestSync =
-        Boolean(
-          isUserActive &&
-            syncTimestamp &&
-            profileSyncedAt &&
-            profileSyncedAt.getTime() >= syncTimestamp.getTime(),
-        );
+      const changedByLatestSync = Boolean(
+        isUserActive &&
+        syncTimestamp &&
+        profileSyncedAt &&
+        profileSyncedAt.getTime() >= syncTimestamp.getTime(),
+      );
       const userCreatedAt = toDateOrNull(user.created_at);
-      const isNewUser =
-        Boolean(
-          syncTimestamp &&
-            userCreatedAt &&
-            userCreatedAt.getTime() >= syncTimestamp.getTime(),
-        );
+      const isNewUser = Boolean(
+        syncTimestamp &&
+        userCreatedAt &&
+        userCreatedAt.getTime() >= syncTimestamp.getTime(),
+      );
 
       const reasons: AccessReviewReasonCode[] = [];
       if (isNewUser) reasons.push(AccessReviewReasonCode.NEW_USER);
       if (roleMismatch) reasons.push(AccessReviewReasonCode.ROLE_MISMATCH);
-      if (changedByLatestSync) reasons.push(AccessReviewReasonCode.PROFILE_CHANGED);
-      if (inactiveStatus) reasons.push(AccessReviewReasonCode.INACTIVE_BUT_ACTIVE);
+      if (changedByLatestSync)
+        reasons.push(AccessReviewReasonCode.PROFILE_CHANGED);
+      if (inactiveStatus)
+        reasons.push(AccessReviewReasonCode.INACTIVE_BUT_ACTIVE);
 
       const reviewNoteParts = [
         `sync_at=${syncTimestamp ? syncTimestamp.toISOString() : "unknown"}`,
@@ -278,7 +296,10 @@ async function syncGlobalReviewQueue(
 
   let targetUserId: number | null = null;
   if (options?.citizenId) {
-    targetUserId = await AccessReviewRepository.findUserIdByCitizenId(options.citizenId, connection);
+    targetUserId = await AccessReviewRepository.findUserIdByCitizenId(
+      options.citizenId,
+      connection,
+    );
   }
 
   await AccessReviewRepository.autoResolveUnseenQueueByBatch({
@@ -305,9 +326,11 @@ export async function createReviewCycle(): Promise<ReviewCycle> {
   const refreshResult = await refreshReviewCycleFromSync({
     syncTimestamp,
   });
-  const cycle = await AccessReviewRepository.findCycleById(refreshResult.cycleId);
+  const cycle = await AccessReviewRepository.findCycleById(
+    refreshResult.cycleId,
+  );
   if (!cycle) {
-    throw new Error('Review cycle not found after refresh');
+    throw new Error("Review cycle not found after refresh");
   }
   return cycle as ReviewCycle;
 }
@@ -327,10 +350,11 @@ export async function refreshReviewCycleFromSync(options?: {
 
     let effectiveSyncTimestamp = options?.syncTimestamp ?? null;
     if (options?.batchId) {
-      const batchStartedAt = await AccessReviewRepository.findSyncBatchStartedAt(
-        options.batchId,
-        connection,
-      );
+      const batchStartedAt =
+        await AccessReviewRepository.findSyncBatchStartedAt(
+          options.batchId,
+          connection,
+        );
       if (batchStartedAt) {
         effectiveSyncTimestamp = batchStartedAt;
       }
@@ -365,7 +389,7 @@ export async function refreshReviewCycleFromSync(options?: {
         createdCycle = true;
         cycle = await AccessReviewRepository.findCycleById(cycleId, connection);
         if (!cycle) {
-          throw new Error('Failed to load access review cycle after creation');
+          throw new Error("Failed to load access review cycle after creation");
         }
       }
     }
@@ -391,10 +415,10 @@ export async function refreshReviewCycleFromSync(options?: {
 
     const reviewCandidates = riskDetections.map((user) => ({
       id: Number(user.id),
-      role: String(user.role ?? ''),
+      role: String(user.role ?? ""),
       employee_status: user.employee_status ?? null,
       last_login_at: user.last_login_at ?? null,
-      reviewNote: String(user.reviewNote ?? ''),
+      reviewNote: String(user.reviewNote ?? ""),
     }));
 
     let insertedItems = 0;
@@ -430,24 +454,24 @@ export async function refreshReviewCycleFromSync(options?: {
         await NotificationService.notifyUser(
           adminId,
           createdCycle
-            ? 'สร้างรอบตรวจทานสิทธิ์อัตโนมัติหลัง Sync'
-            : 'อัปเดตรายการตรวจทานสิทธิ์หลัง Sync',
+            ? "สร้างรอบตรวจทานสิทธิ์อัตโนมัติหลัง Sync"
+            : "อัปเดตรายการตรวจทานสิทธิ์หลัง Sync",
           createdCycle
             ? `มีผู้ใช้ทั้งหมด ${totalUsers} คนในรอบตรวจทานล่าสุด`
             : `พบรายการต้องตรวจทานเพิ่ม ${insertedItems} รายการ`,
           `/dashboard/admin/access-review/${cycle.cycle_id}`,
-          'SYSTEM',
+          "SYSTEM",
         );
       }
     }
 
     await emitAuditEvent({
       eventType: AuditEventType.ACCESS_REVIEW_CREATE,
-      entityType: 'access_review_cycle',
+      entityType: "access_review_cycle",
       entityId: cycle.cycle_id,
       actorId: options?.actorId ?? null,
       actionDetail: {
-        action: createdCycle ? 'CREATE_OR_REFRESH' : 'REFRESH',
+        action: createdCycle ? "CREATE_OR_REFRESH" : "REFRESH",
         inserted_items: insertedItems,
         total_users: totalUsers,
         quarter,
@@ -474,9 +498,9 @@ export async function refreshReviewCycleFromSync(options?: {
 }
 
 function getTimestamp(value: unknown): string | null {
-  if (!value || typeof value !== 'object') return null;
+  if (!value || typeof value !== "object") return null;
   const timestamp = (value as { timestamp?: unknown }).timestamp;
-  return typeof timestamp === 'string' ? timestamp : null;
+  return typeof timestamp === "string" ? timestamp : null;
 }
 
 function extractReviewNoteValue(
@@ -484,7 +508,7 @@ function extractReviewNoteValue(
   key: string,
 ): string | null {
   if (!reviewNote) return null;
-  const parts = reviewNote.split('|').map((part) => part.trim());
+  const parts = reviewNote.split("|").map((part) => part.trim());
   const prefix = `${key}=`;
   for (const part of parts) {
     if (part.startsWith(prefix)) {
@@ -497,10 +521,10 @@ function extractReviewNoteValue(
 function hasRoleMismatchFromReviewNote(
   reviewNote: string | null | undefined,
 ): boolean | null {
-  const value = extractReviewNoteValue(reviewNote, 'role_mismatch');
+  const value = extractReviewNoteValue(reviewNote, "role_mismatch");
   if (!value) return null;
-  if (value === 'yes') return true;
-  if (value === 'no') return false;
+  if (value === "yes") return true;
+  if (value === "no") return false;
   return null;
 }
 
@@ -523,7 +547,10 @@ export async function getAccessReviewQueue(input?: AccessReviewQueueListInput) {
   return AccessReviewRepository.getReviewQueue(input);
 }
 
-export async function getAccessReviewQueueEvents(queueId: number, limit?: number) {
+export async function getAccessReviewQueueEvents(
+  queueId: number,
+  limit?: number,
+) {
   return AccessReviewRepository.getReviewQueueEvents(queueId, limit);
 }
 
@@ -561,9 +588,13 @@ export async function resolveAccessReviewQueueItems(params: {
   actorId: number;
   note?: string | null;
 }): Promise<{ updatedCount: number }> {
-  const queueIds = [...new Set(params.queueIds.map((queueId) => Number(queueId)).filter(Number.isFinite))];
+  const queueIds = [
+    ...new Set(
+      params.queueIds.map((queueId) => Number(queueId)).filter(Number.isFinite),
+    ),
+  ];
   if (queueIds.length === 0) {
-    throw new Error('Queue ids are required');
+    throw new Error("Queue ids are required");
   }
 
   const connection = await AccessReviewRepository.getConnection();
@@ -602,7 +633,12 @@ export async function autoReviewCycle(
   cycleId: number,
   reviewerId: number,
   options?: { disableInactive?: boolean },
-): Promise<{ processed: number; kept: number; disabled: number; skipped: number }> {
+): Promise<{
+  processed: number;
+  kept: number;
+  disabled: number;
+  skipped: number;
+}> {
   const connection = await AccessReviewRepository.getConnection();
   const disableInactive = options?.disableInactive ?? true;
   const summary = {
@@ -615,12 +651,15 @@ export async function autoReviewCycle(
   try {
     await connection.beginTransaction();
 
-    const cycle = await AccessReviewRepository.findCycleById(cycleId, connection);
+    const cycle = await AccessReviewRepository.findCycleById(
+      cycleId,
+      connection,
+    );
     if (!cycle) {
-      throw new Error('Review cycle not found');
+      throw new Error("Review cycle not found");
     }
     if (cycle.status === ReviewCycleStatus.COMPLETED) {
-      throw new Error('Review cycle already completed');
+      throw new Error("Review cycle already completed");
     }
 
     const pendingItems = await AccessReviewRepository.findItems(
@@ -639,12 +678,9 @@ export async function autoReviewCycle(
           item.item_id,
           ReviewResult.DISABLE,
           reviewerId,
-          [
-            item.review_note,
-            'auto_review=DISABLE(reason=inactive_status)',
-          ]
+          [item.review_note, "auto_review=DISABLE(reason=inactive_status)"]
             .filter(Boolean)
-            .join(' | '),
+            .join(" | "),
           connection,
         );
         await AccessReviewRepository.disableUser(item.user_id, connection);
@@ -652,13 +688,13 @@ export async function autoReviewCycle(
         await emitAuditEvent(
           {
             eventType: AuditEventType.USER_DISABLE,
-            entityType: 'users',
+            entityType: "users",
             entityId: item.user_id,
             actorId: reviewerId,
             actionDetail: {
-              reason: 'access_review_auto',
+              reason: "access_review_auto",
               cycle_id: cycleId,
-              rule: 'inactive_status',
+              rule: "inactive_status",
             },
           },
           connection,
@@ -671,12 +707,9 @@ export async function autoReviewCycle(
           item.item_id,
           ReviewResult.KEEP,
           reviewerId,
-          [
-            item.review_note,
-            'auto_review=KEEP(reason=role_aligned)',
-          ]
+          [item.review_note, "auto_review=KEEP(reason=role_aligned)"]
             .filter(Boolean)
-            .join(' | '),
+            .join(" | "),
           connection,
         );
         summary.kept += 1;
@@ -691,11 +724,11 @@ export async function autoReviewCycle(
 
     await emitAuditEvent({
       eventType: AuditEventType.ACCESS_REVIEW_COMPLETE,
-      entityType: 'access_review_cycle',
+      entityType: "access_review_cycle",
       entityId: cycleId,
       actorId: reviewerId,
       actionDetail: {
-        action: 'AUTO_REVIEW',
+        action: "AUTO_REVIEW",
         disable_inactive: disableInactive,
         ...summary,
       },
@@ -723,7 +756,7 @@ export async function updateReviewItem(
 
     const item = await AccessReviewRepository.findItemById(itemId, connection);
     if (!item) {
-      throw new Error('Review item not found');
+      throw new Error("Review item not found");
     }
 
     await AccessReviewRepository.updateItemResult(
@@ -739,20 +772,20 @@ export async function updateReviewItem(
 
       await NotificationService.notifyUser(
         item.user_id,
-        'บัญชีถูกปิดใช้งาน',
-        'บัญชีของท่านถูกปิดใช้งานจากการตรวจทานสิทธิ์ กรุณาติดต่อผู้ดูแลระบบ',
-        '/login',
-        'OTHER',
+        "บัญชีถูกปิดใช้งาน",
+        "บัญชีของท่านถูกปิดใช้งานจากการตรวจทานสิทธิ์ กรุณาติดต่อผู้ดูแลระบบ",
+        "/login",
+        "OTHER",
       );
 
       await emitAuditEvent(
         {
           eventType: AuditEventType.USER_DISABLE,
-          entityType: 'users',
+          entityType: "users",
           entityId: item.user_id,
           actorId: reviewerId,
           actionDetail: {
-            reason: 'access_review',
+            reason: "access_review",
             cycle_id: item.cycle_id,
             note,
           },
@@ -794,7 +827,7 @@ export async function completeReviewCycle(
       await AccessReviewRepository.updatePendingItemsToKeep({
         cycleId,
         completedBy,
-        note: options.note ?? 'อนุมัติคงค้างอัตโนมัติขณะปิดรอบ',
+        note: options.note ?? "อนุมัติคงค้างอัตโนมัติขณะปิดรอบ",
         conn: connection,
       });
     }
@@ -812,7 +845,7 @@ export async function completeReviewCycle(
     await emitAuditEvent(
       {
         eventType: AuditEventType.ACCESS_REVIEW_COMPLETE,
-        entityType: 'access_review_cycle',
+        entityType: "access_review_cycle",
         entityId: cycleId,
         actorId: completedBy,
         actionDetail: {

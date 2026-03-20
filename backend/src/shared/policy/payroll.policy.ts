@@ -1,5 +1,5 @@
-import { UserRole } from '@/types/auth.js';
-import { PeriodStatus } from '@/modules/payroll/entities/payroll.entity.js';
+import { UserRole } from "@/types/auth.js";
+import { PeriodStatus } from "@/modules/payroll/entities/payroll.entity.js";
 
 export type PayrollAction =
   | "SUBMIT"
@@ -45,9 +45,7 @@ export function resolveNextStatus(
 ): PeriodStatus {
   const next = TRANSITIONS[action]?.[currentStatus];
   if (!next) {
-    throw new Error(
-      `Invalid action '${action}' for status '${currentStatus}'`,
-    );
+    throw new Error(`Invalid action '${action}' for status '${currentStatus}'`);
   }
   return next;
 }

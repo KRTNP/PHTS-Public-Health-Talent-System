@@ -5,8 +5,12 @@
  */
 
 import { RowDataPacket, ResultSetHeader, PoolConnection } from "mysql2/promise";
-import db, { getConnection } from '@config/database.js';
-import { Snapshot, SnapshotType, PeriodWithSnapshot } from '@/modules/snapshot/entities/snapshot.entity.js';
+import db, { getConnection } from "@config/database.js";
+import {
+  Snapshot,
+  SnapshotType,
+  PeriodWithSnapshot,
+} from "@/modules/snapshot/entities/snapshot.entity.js";
 
 export class SnapshotRepository {
   private static parseSnapshotData(snapshotData: unknown): any {
@@ -22,7 +26,7 @@ export class SnapshotRepository {
   static async findSnapshotOutboxRows(params: {
     page: number;
     limit: number;
-    status?: 'PENDING' | 'PROCESSING' | 'FAILED' | 'SENT' | 'DEAD_LETTER';
+    status?: "PENDING" | "PROCESSING" | "FAILED" | "SENT" | "DEAD_LETTER";
     periodId?: number;
     maxAttempts: number;
   }): Promise<{
@@ -42,8 +46,14 @@ export class SnapshotRepository {
     limit: number;
     total_pages: number;
   }> {
-    const page = Number.isFinite(params.page) && params.page > 0 ? Math.floor(params.page) : 1;
-    const limitRaw = Number.isFinite(params.limit) && params.limit > 0 ? Math.floor(params.limit) : 20;
+    const page =
+      Number.isFinite(params.page) && params.page > 0
+        ? Math.floor(params.page)
+        : 1;
+    const limitRaw =
+      Number.isFinite(params.limit) && params.limit > 0
+        ? Math.floor(params.limit)
+        : 20;
     const limit = Math.min(limitRaw, 100);
     const offset = (page - 1) * limit;
     const safeMaxAttempts = Math.max(1, Math.floor(params.maxAttempts));
@@ -51,10 +61,10 @@ export class SnapshotRepository {
     const whereParts: string[] = [];
     const whereParams: Array<string | number> = [];
 
-    if (params.status === 'DEAD_LETTER') {
+    if (params.status === "DEAD_LETTER") {
       whereParts.push(`status = 'FAILED' AND attempts >= ?`);
       whereParams.push(safeMaxAttempts);
-    } else if (params.status === 'FAILED') {
+    } else if (params.status === "FAILED") {
       whereParts.push(`status = 'FAILED' AND attempts < ?`);
       whereParams.push(safeMaxAttempts);
     } else if (params.status) {
@@ -63,11 +73,12 @@ export class SnapshotRepository {
     }
 
     if (params.periodId && Number.isFinite(params.periodId)) {
-      whereParts.push('period_id = ?');
+      whereParts.push("period_id = ?");
       whereParams.push(params.periodId);
     }
 
-    const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : '';
+    const whereClause =
+      whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
     const [countRows] = await db.query<RowDataPacket[]>(
       `SELECT COUNT(*) AS total
@@ -75,7 +86,9 @@ export class SnapshotRepository {
        ${whereClause}`,
       whereParams,
     );
-    const total = Number((countRows[0] as { total?: number } | undefined)?.total ?? 0);
+    const total = Number(
+      (countRows[0] as { total?: number } | undefined)?.total ?? 0,
+    );
     const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
     const [rows] = await db.query<RowDataPacket[]>(
@@ -279,7 +292,10 @@ export class SnapshotRepository {
     return rows;
   }
 
-  static async markOutboxProcessing(outboxId: number, conn: PoolConnection): Promise<void> {
+  static async markOutboxProcessing(
+    outboxId: number,
+    conn: PoolConnection,
+  ): Promise<void> {
     await conn.execute(
       `UPDATE pay_snapshot_outbox
        SET status = 'PROCESSING', available_at = NOW()
@@ -288,7 +304,10 @@ export class SnapshotRepository {
     );
   }
 
-  static async markOutboxSent(outboxId: number, conn: PoolConnection): Promise<void> {
+  static async markOutboxSent(
+    outboxId: number,
+    conn: PoolConnection,
+  ): Promise<void> {
     await conn.execute(
       `UPDATE pay_snapshot_outbox
        SET status = 'SENT', processed_at = NOW(), last_error = NULL
@@ -307,7 +326,10 @@ export class SnapshotRepository {
   ): Promise<void> {
     const safeMaxAttempts = Math.max(1, Math.floor(maxAttempts));
     const safeRetryBaseSeconds = Math.max(1, Math.floor(retryBaseSeconds));
-    const safeRetryMaxSeconds = Math.max(safeRetryBaseSeconds, Math.floor(retryMaxSeconds));
+    const safeRetryMaxSeconds = Math.max(
+      safeRetryBaseSeconds,
+      Math.floor(retryMaxSeconds),
+    );
     await conn.execute(
       `UPDATE pay_snapshot_outbox
        SET status = 'FAILED',
@@ -338,10 +360,16 @@ export class SnapshotRepository {
     retryMaxSeconds: number,
     conn: PoolConnection,
   ): Promise<number> {
-    const safeTimeoutSeconds = Math.max(10, Math.floor(processingTimeoutSeconds));
+    const safeTimeoutSeconds = Math.max(
+      10,
+      Math.floor(processingTimeoutSeconds),
+    );
     const safeMaxAttempts = Math.max(1, Math.floor(maxAttempts));
     const safeRetryBaseSeconds = Math.max(1, Math.floor(retryBaseSeconds));
-    const safeRetryMaxSeconds = Math.max(safeRetryBaseSeconds, Math.floor(retryMaxSeconds));
+    const safeRetryMaxSeconds = Math.max(
+      safeRetryBaseSeconds,
+      Math.floor(retryMaxSeconds),
+    );
     const [result] = await conn.execute<ResultSetHeader>(
       `UPDATE pay_snapshot_outbox
        SET status = 'FAILED',
@@ -442,7 +470,13 @@ export class SnapshotRepository {
       `INSERT INTO pay_snapshots
        (period_id, snapshot_type, snapshot_data, record_count, total_amount)
        VALUES (?, ?, ?, ?, ?)`,
-      [periodId, snapshotType, JSON.stringify(snapshotData), recordCount, totalAmount],
+      [
+        periodId,
+        snapshotType,
+        JSON.stringify(snapshotData),
+        recordCount,
+        totalAmount,
+      ],
     );
     return result.insertId;
   }
@@ -451,7 +485,9 @@ export class SnapshotRepository {
     periodId: number,
     conn: PoolConnection,
   ): Promise<void> {
-    await conn.execute("DELETE FROM pay_snapshots WHERE period_id = ?", [periodId]);
+    await conn.execute("DELETE FROM pay_snapshots WHERE period_id = ?", [
+      periodId,
+    ]);
   }
 
   static async setPeriodSnapshotReady(params: {
@@ -485,7 +521,10 @@ export class SnapshotRepository {
       WHERE period_id = ? AND snapshot_type = ?
       ORDER BY snapshot_id DESC LIMIT 1
     `;
-    const [latestIdRows] = await executor.query<RowDataPacket[]>(latestIdSql, [periodId, snapshotType]);
+    const [latestIdRows] = await executor.query<RowDataPacket[]>(latestIdSql, [
+      periodId,
+      snapshotType,
+    ]);
     if (latestIdRows.length === 0) return null;
     const latestSnapshotId = Number((latestIdRows[0] as any).snapshot_id);
 
@@ -495,7 +534,9 @@ export class SnapshotRepository {
       WHERE snapshot_id = ?
       LIMIT 1
     `;
-    const [rows] = await executor.query<RowDataPacket[]>(snapshotSql, [latestSnapshotId]);
+    const [rows] = await executor.query<RowDataPacket[]>(snapshotSql, [
+      latestSnapshotId,
+    ]);
     if (rows.length === 0) return null;
 
     const row = rows[0] as any;

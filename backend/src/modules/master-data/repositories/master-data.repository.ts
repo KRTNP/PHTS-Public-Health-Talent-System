@@ -220,7 +220,9 @@ export class MasterDataRepository {
     return result.insertId;
   }
 
-  static async findMasterRateById(rateId: number): Promise<RowDataPacket | null> {
+  static async findMasterRateById(
+    rateId: number,
+  ): Promise<RowDataPacket | null> {
     const [rows] = await db.query<RowDataPacket[]>(
       "SELECT * FROM cfg_payment_rates WHERE rate_id = ?",
       [rateId],
@@ -228,7 +230,9 @@ export class MasterDataRepository {
     return (rows[0] as RowDataPacket) ?? null;
   }
 
-  static async findRatesByProfession(professionCode: string): Promise<RowDataPacket[]> {
+  static async findRatesByProfession(
+    professionCode: string,
+  ): Promise<RowDataPacket[]> {
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT rate_id, profession_code, group_no, item_no, sub_item_no, amount, condition_desc
        FROM cfg_payment_rates

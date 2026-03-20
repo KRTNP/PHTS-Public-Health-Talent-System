@@ -16,7 +16,10 @@ import crypto from "node:crypto";
 const CSRF_TOKEN_LENGTH = 32;
 const CSRF_HEADER_NAME = "x-csrf-token";
 const SAFE_METHODS = ["GET", "HEAD", "OPTIONS"];
-const CSRF_TOKEN_CACHE = new Map<string, { token: string; timestamp: number }>();
+const CSRF_TOKEN_CACHE = new Map<
+  string,
+  { token: string; timestamp: number }
+>();
 const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
 /**

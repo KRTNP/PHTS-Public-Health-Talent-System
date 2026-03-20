@@ -68,7 +68,9 @@ export async function authorizeUploadAccess(
       return;
     }
 
-    const eligibilityAttachments = await query<Array<{ eligibility_id: number }>>(
+    const eligibilityAttachments = await query<
+      Array<{ eligibility_id: number }>
+    >(
       `SELECT a.eligibility_id
        FROM eligibility_attachments a
        WHERE a.file_path = ?

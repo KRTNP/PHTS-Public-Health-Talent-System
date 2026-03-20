@@ -5,14 +5,14 @@
  */
 
 import { RowDataPacket, ResultSetHeader, PoolConnection } from "mysql2/promise";
-import db, { getConnection } from '@config/database.js';
+import db, { getConnection } from "@config/database.js";
 import {
   AccessReviewQueueStatus,
   ReviewCycle,
   ReviewCycleStatus,
   ReviewItem,
   ReviewResult,
-} from '@/modules/access-review/entities/access-review.entity.js';
+} from "@/modules/access-review/entities/access-review.entity.js";
 
 export class AccessReviewRepository {
   private static hasSupportSubDepartmentColumnCache: boolean | null = null;
@@ -41,7 +41,8 @@ export class AccessReviewRepository {
     if (typeof value === "string") {
       try {
         const parsed = JSON.parse(value) as unknown;
-        if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
+        if (parsed && typeof parsed === "object")
+          return parsed as Record<string, unknown>;
       } catch {
         return null;
       }
@@ -289,7 +290,8 @@ export class AccessReviewRepository {
   }
 
   static async findNonAdminUsers(conn: PoolConnection): Promise<any[]> {
-    const hasSupportSubDepartment = await this.hasSupportSubDepartmentColumn(conn);
+    const hasSupportSubDepartment =
+      await this.hasSupportSubDepartmentColumn(conn);
     const supportSubDepartmentExpr = hasSupportSubDepartment
       ? "s.sub_department"
       : "NULL";
@@ -403,7 +405,9 @@ export class AccessReviewRepository {
        LIMIT 1`,
       [batchId],
     );
-    const startedAt = (rows[0] as { started_at?: Date | string | null } | undefined)?.started_at;
+    const startedAt = (
+      rows[0] as { started_at?: Date | string | null } | undefined
+    )?.started_at;
     if (!startedAt) return null;
     const value = startedAt instanceof Date ? startedAt : new Date(startedAt);
     return Number.isNaN(value.getTime()) ? null : value;
@@ -422,7 +426,13 @@ export class AccessReviewRepository {
       `INSERT INTO access_review_queue_events
        (queue_id, event_type, batch_id, actor_id, event_payload)
        VALUES (?, ?, ?, ?, CAST(? AS JSON))`,
-      [input.queueId, input.eventType, input.batchId ?? null, input.actorId ?? null, payload],
+      [
+        input.queueId,
+        input.eventType,
+        input.batchId ?? null,
+        input.actorId ?? null,
+        payload,
+      ],
     );
   }
 
@@ -433,7 +443,10 @@ export class AccessReviewRepository {
     detectedAt: Date;
     payload?: Record<string, unknown> | null;
     conn: PoolConnection;
-  }): Promise<{ queueId: number; eventType: "OPENED" | "REOPENED_FROM_SYNC" | "RESEEN_IN_BATCH" }> {
+  }): Promise<{
+    queueId: number;
+    eventType: "OPENED" | "REOPENED_FROM_SYNC" | "RESEEN_IN_BATCH";
+  }> {
     const payload = input.payload ? JSON.stringify(input.payload) : null;
     const [rows] = await input.conn.query<RowDataPacket[]>(
       `SELECT queue_id, status
@@ -472,7 +485,10 @@ export class AccessReviewRepository {
       return { queueId, eventType: "OPENED" };
     }
 
-    const row = rows[0] as { queue_id: number; status: AccessReviewQueueStatus };
+    const row = rows[0] as {
+      queue_id: number;
+      status: AccessReviewQueueStatus;
+    };
     const queueId = Number(row.queue_id);
     const isReopen =
       row.status === AccessReviewQueueStatus.RESOLVED ||
@@ -531,7 +547,9 @@ export class AccessReviewRepository {
 
     const [rows] = await input.conn.query<RowDataPacket[]>(sql, params);
     if (!rows.length) return 0;
-    const queueIds = rows.map((row) => Number((row as { queue_id: number }).queue_id));
+    const queueIds = rows.map((row) =>
+      Number((row as { queue_id: number }).queue_id),
+    );
     const placeholders = queueIds.map(() => "?").join(",");
     await input.conn.execute(
       `UPDATE access_review_queue
@@ -631,7 +649,9 @@ export class AccessReviewRepository {
        ${whereSql}`,
       params,
     );
-    const total = Number((countRows[0] as { total?: number } | undefined)?.total ?? 0);
+    const total = Number(
+      (countRows[0] as { total?: number } | undefined)?.total ?? 0,
+    );
 
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT
@@ -661,8 +681,11 @@ export class AccessReviewRepository {
 
     const mappedRows = rows.map((row) => ({
       ...row,
-      payload_json: this.parseJsonCell((row as { payload_json?: unknown }).payload_json),
-      user_name: `${String((row as { first_name?: string }).first_name ?? "")} ${String((row as { last_name?: string }).last_name ?? "")}`.trim(),
+      payload_json: this.parseJsonCell(
+        (row as { payload_json?: unknown }).payload_json,
+      ),
+      user_name:
+        `${String((row as { first_name?: string }).first_name ?? "")} ${String((row as { last_name?: string }).last_name ?? "")}`.trim(),
     }));
 
     const [summaryRows] = await db.query<RowDataPacket[]>(
@@ -714,7 +737,10 @@ export class AccessReviewRepository {
     };
   }
 
-  static async getReviewQueueEvents(queueId: number, limit = 100): Promise<Array<Record<string, unknown>>> {
+  static async getReviewQueueEvents(
+    queueId: number,
+    limit = 100,
+  ): Promise<Array<Record<string, unknown>>> {
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT event_id, queue_id, event_type, batch_id, actor_id, event_payload, created_at
        FROM access_review_queue_events
@@ -725,13 +751,17 @@ export class AccessReviewRepository {
     );
     return rows.map((row) => ({
       ...row,
-      event_payload: this.parseJsonCell((row as { event_payload?: unknown }).event_payload),
+      event_payload: this.parseJsonCell(
+        (row as { event_payload?: unknown }).event_payload,
+      ),
     })) as Array<Record<string, unknown>>;
   }
 
   static async resolveQueueItem(input: {
     queueId: number;
-    status: AccessReviewQueueStatus.RESOLVED | AccessReviewQueueStatus.DISMISSED;
+    status:
+      | AccessReviewQueueStatus.RESOLVED
+      | AccessReviewQueueStatus.DISMISSED;
     actorId: number;
     note?: string | null;
     conn: PoolConnection;

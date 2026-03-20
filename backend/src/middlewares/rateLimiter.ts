@@ -1,6 +1,7 @@
 import rateLimit from "express-rate-limit";
 
-const getNodeEnv = () => String(process.env.NODE_ENV || "development").toLowerCase();
+const getNodeEnv = () =>
+  String(process.env.NODE_ENV || "development").toLowerCase();
 const isDevelopment = () => getNodeEnv() === "development";
 const isProduction = () => getNodeEnv() === "production";
 const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
@@ -12,13 +13,18 @@ const authMax = Number(process.env.AUTH_RATE_LIMIT_MAX || 5);
 const isDevRateLimitEnabled = () =>
   String(process.env.DEV_ENABLE_RATE_LIMIT || "").toLowerCase() === "true";
 
-const firstHeaderValue = (value: string | string[] | undefined): string | null => {
+const firstHeaderValue = (
+  value: string | string[] | undefined,
+): string | null => {
   if (Array.isArray(value)) return value[0]?.trim() || null;
   if (typeof value === "string") return value.trim() || null;
   return null;
 };
 
-const getClientKey = (req: { headers?: Record<string, string | string[] | undefined>; ip?: string }) => {
+const getClientKey = (req: {
+  headers?: Record<string, string | string[] | undefined>;
+  ip?: string;
+}) => {
   const cfIp = firstHeaderValue(req.headers?.["cf-connecting-ip"]);
   if (cfIp) return `ip:${cfIp}`;
 
@@ -33,7 +39,8 @@ const getClientKey = (req: { headers?: Record<string, string | string[] | undefi
   return `ip:${ip || "unknown"}`;
 };
 
-const shouldSkipRateLimitInDevelopment = () => isDevelopment() && !isDevRateLimitEnabled();
+const shouldSkipRateLimitInDevelopment = () =>
+  isDevelopment() && !isDevRateLimitEnabled();
 
 type RateLimitedRequest = {
   rateLimit?: {
@@ -63,7 +70,8 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientKey(req),
-  skip: () => process.env.NODE_ENV === "test" || shouldSkipRateLimitInDevelopment(),
+  skip: () =>
+    process.env.NODE_ENV === "test" || shouldSkipRateLimitInDevelopment(),
   handler: (req, res) => {
     const requestWithRateLimit = req as typeof req & RateLimitedRequest;
     const now = Date.now();

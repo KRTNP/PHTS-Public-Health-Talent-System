@@ -122,20 +122,23 @@ jest.mock("@/modules/system/admin/admin.controller.js", () => ({
   retrySnapshotOutbox: ok,
 }));
 
-jest.mock("@/modules/leave-management/controllers/leave-management.controller.js", () => ({
-  listLeaveManagement: ok,
-  listLeavePersonnel: ok,
-  createLeaveManagement: ok,
-  getLeaveManagementStats: ok,
-  getLeaveManagementQuotaStatus: ok,
-  upsertLeaveManagementExtension: ok,
-  listLeaveReturnReportEvents: ok,
-  replaceLeaveReturnReportEvents: ok,
-  listLeaveManagementDocuments: ok,
-  addLeaveManagementDocuments: ok,
-  deleteLeaveManagementDocument: ok,
-  deleteLeaveManagementExtension: ok,
-}));
+jest.mock(
+  "@/modules/leave-management/controllers/leave-management.controller.js",
+  () => ({
+    listLeaveManagement: ok,
+    listLeavePersonnel: ok,
+    createLeaveManagement: ok,
+    getLeaveManagementStats: ok,
+    getLeaveManagementQuotaStatus: ok,
+    upsertLeaveManagementExtension: ok,
+    listLeaveReturnReportEvents: ok,
+    replaceLeaveReturnReportEvents: ok,
+    listLeaveManagementDocuments: ok,
+    addLeaveManagementDocuments: ok,
+    deleteLeaveManagementDocument: ok,
+    deleteLeaveManagementExtension: ok,
+  }),
+);
 
 jest.mock("@/modules/report/report.controller.js", () => ({
   downloadDetailReport: ok,
@@ -187,15 +190,29 @@ describe("API role access matrix", () => {
   };
 
   const buildApp = async () => {
-    const requestRoutes = (await import("@/modules/request/request.routes.js")).default;
-    const payrollRoutes = (await import("@/modules/payroll/payroll.routes.js")).default;
-    const financeRoutes = (await import("@/modules/finance/finance.routes.js")).default;
-    const snapshotRoutes = (await import("@/modules/snapshot/snapshot.routes.js")).default;
-    const dashboardRoutes = (await import("@/modules/dashboard/routes/dashboard.routes.js")).default;
-    const systemRoutes = (await import("@/modules/system/admin/admin.routes.js")).default;
-    const leaveRoutes = (await import("@/modules/leave-management/leave-management.routes.js")).default;
-    const reportRoutes = (await import("@/modules/report/report.routes.js")).default;
-    const notificationRoutes = (await import("@/modules/notification/notification.routes.js")).default;
+    const requestRoutes = (await import("@/modules/request/request.routes.js"))
+      .default;
+    const payrollRoutes = (await import("@/modules/payroll/payroll.routes.js"))
+      .default;
+    const financeRoutes = (await import("@/modules/finance/finance.routes.js"))
+      .default;
+    const snapshotRoutes = (
+      await import("@/modules/snapshot/snapshot.routes.js")
+    ).default;
+    const dashboardRoutes = (
+      await import("@/modules/dashboard/routes/dashboard.routes.js")
+    ).default;
+    const systemRoutes = (
+      await import("@/modules/system/admin/admin.routes.js")
+    ).default;
+    const leaveRoutes = (
+      await import("@/modules/leave-management/leave-management.routes.js")
+    ).default;
+    const reportRoutes = (await import("@/modules/report/report.routes.js"))
+      .default;
+    const notificationRoutes = (
+      await import("@/modules/notification/notification.routes.js")
+    ).default;
 
     const app = express();
     app.disable("x-powered-by");
@@ -212,12 +229,17 @@ describe("API role access matrix", () => {
     return app;
   };
 
-  const assertAccessCases = async (app: express.Application, cases: AccessCase[]) => {
+  const assertAccessCases = async (
+    app: express.Application,
+    cases: AccessCase[],
+  ) => {
     for (const testCase of cases) {
       for (const role of allRoles) {
         setRole(role);
         const expectedStatus = testCase.allowed.includes(role) ? 200 : 403;
-        await request(app)[testCase.method](testCase.path).expect(expectedStatus);
+        await request(app)
+          [testCase.method](testCase.path)
+          .expect(expectedStatus);
       }
     }
   };

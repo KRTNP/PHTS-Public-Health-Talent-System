@@ -5,7 +5,9 @@ import {
 } from "@/shared/utils/errors.js";
 
 jest.mock("@/modules/audit/services/audit.service.js", () => ({
-  extractRequestInfo: jest.fn().mockReturnValue({ ipAddress: "127.0.0.1", userAgent: "jest" }),
+  extractRequestInfo: jest
+    .fn()
+    .mockReturnValue({ ipAddress: "127.0.0.1", userAgent: "jest" }),
 }));
 
 jest.mock("@shared/services/tokenBlacklist.js", () => ({
@@ -27,7 +29,10 @@ jest.mock("@/modules/auth/services/auth.service.js", () => ({
 }));
 
 import { AuthService } from "@/modules/auth/services/auth.service.js";
-import { getCurrentUser, updateCurrentUser } from "@/modules/auth/auth.controller.js";
+import {
+  getCurrentUser,
+  updateCurrentUser,
+} from "@/modules/auth/auth.controller.js";
 
 describe("auth controller", () => {
   test("getCurrentUser forwards AuthenticationError when not authenticated", async () => {
@@ -46,7 +51,9 @@ describe("auth controller", () => {
     const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn() };
     const next = jest.fn();
 
-    (AuthService.getUserProfile as jest.Mock).mockRejectedValue(new Error("User not found"));
+    (AuthService.getUserProfile as jest.Mock).mockRejectedValue(
+      new Error("User not found"),
+    );
 
     await getCurrentUser(req, res, next);
     await new Promise((resolve) => setImmediate(resolve));

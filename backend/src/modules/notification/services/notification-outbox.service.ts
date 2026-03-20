@@ -1,25 +1,43 @@
-import { NotificationRepository } from '@/modules/notification/repositories/notification.repository.js';
-import { NotificationOutboxRepository } from '@/modules/notification/repositories/notification-outbox.repository.js';
-import type { NotificationOutboxPayload } from '@/modules/notification/entities/notification-outbox.entity.js';
+import { NotificationRepository } from "@/modules/notification/repositories/notification.repository.js";
+import { NotificationOutboxRepository } from "@/modules/notification/repositories/notification-outbox.repository.js";
+import type { NotificationOutboxPayload } from "@/modules/notification/entities/notification-outbox.entity.js";
 import type { PoolConnection } from "mysql2/promise";
-import { NotificationType, normalizeNotificationType } from '@/modules/notification/entities/notification.entity.js';
+import {
+  NotificationType,
+  normalizeNotificationType,
+} from "@/modules/notification/entities/notification.entity.js";
 
 const DEFAULT_MAX_ATTEMPTS = 8;
 const DEFAULT_RETRY_BASE_SECONDS = 30;
 const DEFAULT_RETRY_MAX_SECONDS = 1800;
 const DEFAULT_PROCESSING_TIMEOUT_SECONDS = 300;
 
-const toSafeInt = (raw: string | undefined, fallback: number, min: number, max: number): number => {
+const toSafeInt = (
+  raw: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number => {
   const value = Number(raw);
   if (!Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(value)));
 };
 
 const getMaxAttempts = (): number =>
-  toSafeInt(process.env.NOTIFICATION_OUTBOX_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS, 1, 100);
+  toSafeInt(
+    process.env.NOTIFICATION_OUTBOX_MAX_ATTEMPTS,
+    DEFAULT_MAX_ATTEMPTS,
+    1,
+    100,
+  );
 
 const getRetryBaseSeconds = (): number =>
-  toSafeInt(process.env.NOTIFICATION_OUTBOX_RETRY_BASE_SECONDS, DEFAULT_RETRY_BASE_SECONDS, 1, 3600);
+  toSafeInt(
+    process.env.NOTIFICATION_OUTBOX_RETRY_BASE_SECONDS,
+    DEFAULT_RETRY_BASE_SECONDS,
+    1,
+    3600,
+  );
 
 const getRetryMaxSeconds = (): number => {
   const maxSeconds = toSafeInt(
@@ -111,7 +129,9 @@ export class NotificationOutboxService {
   }
 
   private static async processRow(
-    row: Awaited<ReturnType<typeof NotificationOutboxRepository.fetchPending>>[number],
+    row: Awaited<
+      ReturnType<typeof NotificationOutboxRepository.fetchPending>
+    >[number],
     conn: PoolConnection,
   ): Promise<void> {
     await NotificationOutboxRepository.markProcessing(row.outbox_id, conn);
@@ -119,10 +139,20 @@ export class NotificationOutboxService {
     const title = payload.title;
     const message = payload.message;
     const link = payload.link ?? "#";
-    const type = normalizeNotificationType(payload.type, NotificationType.SYSTEM);
+    const type = normalizeNotificationType(
+      payload.type,
+      NotificationType.SYSTEM,
+    );
 
     if (payload.kind === "USER") {
-      await this.createForUser(payload.userId, title, message, link, type, conn);
+      await this.createForUser(
+        payload.userId,
+        title,
+        message,
+        link,
+        type,
+        conn,
+      );
       return;
     }
     if (payload.kind === "ROLE") {
@@ -143,9 +173,19 @@ export class NotificationOutboxService {
     if (!userId) {
       throw new Error("Missing userId for USER notification");
     }
-    const inAppEnabled = await NotificationRepository.isInAppEnabled(userId, conn);
+    const inAppEnabled = await NotificationRepository.isInAppEnabled(
+      userId,
+      conn,
+    );
     if (!inAppEnabled) return;
-    await NotificationRepository.create(userId, title, message, link, type, conn);
+    await NotificationRepository.create(
+      userId,
+      title,
+      message,
+      link,
+      type,
+      conn,
+    );
   }
 
   private static async createForRole(
@@ -159,7 +199,10 @@ export class NotificationOutboxService {
     if (!role) {
       throw new Error("Missing role for ROLE notification");
     }
-    const userIds = await NotificationRepository.findUserIdsByRoleForInApp(role, conn);
+    const userIds = await NotificationRepository.findUserIdsByRoleForInApp(
+      role,
+      conn,
+    );
     if (userIds.length === 0) {
       return;
     }

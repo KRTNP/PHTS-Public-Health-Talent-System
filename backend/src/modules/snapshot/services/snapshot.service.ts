@@ -6,8 +6,11 @@
  * FR-12-02: Reports must reference frozen snapshots only
  */
 
-import { emitAuditEvent, AuditEventType } from '@/modules/audit/services/audit.service.js';
-import { SnapshotRepository } from '@/modules/snapshot/repositories/snapshot.repository.js';
+import {
+  emitAuditEvent,
+  AuditEventType,
+} from "@/modules/audit/services/audit.service.js";
+import { SnapshotRepository } from "@/modules/snapshot/repositories/snapshot.repository.js";
 
 /**
  * Snapshot type
@@ -29,14 +32,24 @@ const DEFAULT_SNAPSHOT_RETRY_BASE_SECONDS = 30;
 const DEFAULT_SNAPSHOT_RETRY_MAX_SECONDS = 1800;
 const DEFAULT_SNAPSHOT_PROCESSING_TIMEOUT_SECONDS = 300;
 
-const toSafeInt = (raw: string | undefined, fallback: number, min: number, max: number): number => {
+const toSafeInt = (
+  raw: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number => {
   const value = Number(raw);
   if (!Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(value)));
 };
 
 const getSnapshotMaxAttempts = (): number =>
-  toSafeInt(process.env.SNAPSHOT_OUTBOX_MAX_ATTEMPTS, DEFAULT_SNAPSHOT_MAX_ATTEMPTS, 1, 100);
+  toSafeInt(
+    process.env.SNAPSHOT_OUTBOX_MAX_ATTEMPTS,
+    DEFAULT_SNAPSHOT_MAX_ATTEMPTS,
+    1,
+    100,
+  );
 
 const getSnapshotRetryBaseSeconds = (): number =>
   toSafeInt(
@@ -156,7 +169,10 @@ export async function enqueuePeriodSnapshotGeneration(
   const connection = await SnapshotRepository.getConnection();
   try {
     await connection.beginTransaction();
-    const period = await SnapshotRepository.findPeriodByIdForUpdate(periodId, connection);
+    const period = await SnapshotRepository.findPeriodByIdForUpdate(
+      periodId,
+      connection,
+    );
     if (!period) {
       throw new Error("Period not found");
     }
@@ -164,7 +180,11 @@ export async function enqueuePeriodSnapshotGeneration(
       throw new Error("Can only enqueue snapshot for closed periods");
     }
     await SnapshotRepository.setPeriodSnapshotPending(periodId, connection);
-    await SnapshotRepository.insertSnapshotOutbox(periodId, requestedBy, connection);
+    await SnapshotRepository.insertSnapshotOutbox(
+      periodId,
+      requestedBy,
+      connection,
+    );
     await connection.commit();
   } catch (error) {
     await connection.rollback();
@@ -224,7 +244,11 @@ export async function processSnapshotOutboxBatch(limit = 50): Promise<{
       retryMaxSeconds,
       conn,
     );
-    const rows = await SnapshotRepository.findOutboxBatchForUpdate(limit, maxAttempts, conn);
+    const rows = await SnapshotRepository.findOutboxBatchForUpdate(
+      limit,
+      maxAttempts,
+      conn,
+    );
 
     for (const row of rows as any[]) {
       processed += 1;
@@ -250,17 +274,20 @@ export async function processSnapshotOutboxBatch(limit = 50): Promise<{
           conn,
         );
         await SnapshotRepository.setPeriodSnapshotFailed(periodId, conn);
-        await emitAuditEvent({
-          eventType: AuditEventType.OTHER,
-          entityType: "snapshot",
-          entityId: periodId,
-          actorId: requestedBy,
-          actionDetail: {
-            code: "SNAPSHOT_GENERATION_FAILED",
-            period_id: periodId,
-            message: error?.message ?? String(error),
+        await emitAuditEvent(
+          {
+            eventType: AuditEventType.OTHER,
+            entityType: "snapshot",
+            entityId: periodId,
+            actorId: requestedBy,
+            actionDetail: {
+              code: "SNAPSHOT_GENERATION_FAILED",
+              period_id: periodId,
+              message: error?.message ?? String(error),
+            },
           },
-        }, conn);
+          conn,
+        );
       }
     }
     await conn.commit();
@@ -278,14 +305,20 @@ async function generateSnapshotForPeriod(
   periodId: number,
   requestedBy: number | null,
 ): Promise<void> {
-  const period = await SnapshotRepository.findPeriodByIdForUpdate(periodId, connection);
+  const period = await SnapshotRepository.findPeriodByIdForUpdate(
+    periodId,
+    connection,
+  );
   if (!period) throw new Error("Period not found");
   if (String(period.status ?? "").toUpperCase() !== "CLOSED") {
     throw new Error("Can only freeze closed periods");
   }
 
   await SnapshotRepository.setPeriodSnapshotProcessing(periodId, connection);
-  const payouts = await SnapshotRepository.findPayoutsForSnapshot(periodId, connection);
+  const payouts = await SnapshotRepository.findPayoutsForSnapshot(
+    periodId,
+    connection,
+  );
 
   let totalAmount = 0;
   for (const payout of payouts as any[]) {
@@ -326,19 +359,22 @@ async function generateSnapshotForPeriod(
     conn: connection,
   });
 
-  await emitAuditEvent({
-    eventType: AuditEventType.SNAPSHOT_FREEZE,
-    entityType: "period",
-    entityId: periodId,
-    actorId: requestedBy,
-    actionDetail: {
-      period_month: period.period_month,
-      period_year: period.period_year,
-      record_count: payouts.length,
-      total_amount: totalAmount,
-      status: "READY",
+  await emitAuditEvent(
+    {
+      eventType: AuditEventType.SNAPSHOT_FREEZE,
+      entityType: "period",
+      entityId: periodId,
+      actorId: requestedBy,
+      actionDetail: {
+        period_month: period.period_month,
+        period_year: period.period_year,
+        record_count: payouts.length,
+        total_amount: totalAmount,
+        status: "READY",
+      },
     },
-  }, connection);
+    connection,
+  );
 }
 
 /**
@@ -433,7 +469,10 @@ export async function unfreezePeriod(
     await connection.beginTransaction();
 
     // Check period snapshot is currently ready
-    const period = await SnapshotRepository.findPeriodByIdForUpdate(periodId, connection);
+    const period = await SnapshotRepository.findPeriodByIdForUpdate(
+      periodId,
+      connection,
+    );
     if (!period) {
       throw new Error("Period not found");
     }

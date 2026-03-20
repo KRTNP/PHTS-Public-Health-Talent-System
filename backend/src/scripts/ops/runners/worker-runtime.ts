@@ -1,5 +1,5 @@
-import { loadEnv } from '@config/env.js';
-import { closePool, testConnection } from '@config/database.js';
+import { loadEnv } from "@config/env.js";
+import { closePool, testConnection } from "@config/database.js";
 
 type WorkerRuntimeOptions = {
   name: string;
@@ -31,12 +31,12 @@ export const runWorkerRuntime = (options: WorkerRuntimeOptions): void => {
     console.log(`[${options.name}] running`);
   };
 
-  process.on('SIGINT', () => {
-    void shutdown('SIGINT');
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
   });
 
-  process.on('SIGTERM', () => {
-    void shutdown('SIGTERM');
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
   });
 
   main().catch((error) => {
@@ -44,4 +44,3 @@ export const runWorkerRuntime = (options: WorkerRuntimeOptions): void => {
     process.exit(1);
   });
 };
-

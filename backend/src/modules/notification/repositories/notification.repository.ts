@@ -5,13 +5,13 @@
  */
 
 import { RowDataPacket, ResultSetHeader, PoolConnection } from "mysql2/promise";
-import db from '@config/database.js';
+import db from "@config/database.js";
 import {
   Notification,
   NotificationType,
   NotificationSettings,
   normalizeNotificationType,
-} from '@/modules/notification/entities/notification.entity.js';
+} from "@/modules/notification/entities/notification.entity.js";
 
 const DEFAULT_CHUNK_SIZE = 200;
 
@@ -58,12 +58,28 @@ export class NotificationRepository {
     for (let i = 0; i < notifications.length; i += DEFAULT_CHUNK_SIZE) {
       const batch = notifications.slice(i, i + DEFAULT_CHUNK_SIZE);
       const uniqueBatch = Array.from(
-        new Map(batch.map((notification) => [buildNotificationKey(notification), notification])).values(),
+        new Map(
+          batch.map((notification) => [
+            buildNotificationKey(notification),
+            notification,
+          ]),
+        ).values(),
       );
       if (uniqueBatch.length === 0) continue;
 
-      const duplicateWhere = uniqueBatch.map(() => "(user_id = ? AND title = ? AND message = ? AND link = ? AND type = ?)").join(" OR ");
-      const duplicateValues = uniqueBatch.flatMap((n) => [n.userId, n.title, n.message, n.link, n.type]);
+      const duplicateWhere = uniqueBatch
+        .map(
+          () =>
+            "(user_id = ? AND title = ? AND message = ? AND link = ? AND type = ?)",
+        )
+        .join(" OR ");
+      const duplicateValues = uniqueBatch.flatMap((n) => [
+        n.userId,
+        n.title,
+        n.message,
+        n.link,
+        n.type,
+      ]);
       const [existingRows] = await executor.query<RowDataPacket[]>(
         `SELECT user_id, title, message, link, type
          FROM ntf_messages
@@ -88,7 +104,9 @@ export class NotificationRepository {
       );
       if (filteredBatch.length === 0) continue;
 
-      const placeholders = filteredBatch.map(() => "(?, ?, ?, ?, ?)").join(", ");
+      const placeholders = filteredBatch
+        .map(() => "(?, ?, ?, ?, ?)")
+        .join(", ");
       const values = filteredBatch.flatMap((n) => [
         n.userId,
         n.title,

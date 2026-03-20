@@ -1,4 +1,7 @@
-import { runBackupJob, shouldRunScheduledBackup } from '@/modules/backup/services/backup.service.js';
+import {
+  runBackupJob,
+  shouldRunScheduledBackup,
+} from "@/modules/backup/services/backup.service.js";
 
 const DEFAULT_POLL_MS = 30000;
 
@@ -32,11 +35,11 @@ const workerLoop = async (): Promise<void> => {
     try {
       const shouldRun = await shouldRunScheduledBackup();
       if (shouldRun) {
-        const result = await runBackupJob({ triggerSource: 'SCHEDULED' });
-        console.log('[BackupWorker] scheduled backup:', result);
+        const result = await runBackupJob({ triggerSource: "SCHEDULED" });
+        console.log("[BackupWorker] scheduled backup:", result);
       }
     } catch (error) {
-      console.error('[BackupWorker] worker error:', error);
+      console.error("[BackupWorker] worker error:", error);
     }
 
     if (!workerRunning) break;
@@ -45,14 +48,14 @@ const workerLoop = async (): Promise<void> => {
 };
 
 export const startBackupWorker = (): void => {
-  if (process.env.BACKUP_WORKER_ENABLED === 'false') {
-    console.log('[BackupWorker] disabled by BACKUP_WORKER_ENABLED=false');
+  if (process.env.BACKUP_WORKER_ENABLED === "false") {
+    console.log("[BackupWorker] disabled by BACKUP_WORKER_ENABLED=false");
     return;
   }
   if (workerRunning) return;
   workerRunning = true;
   workerPromise = workerLoop();
-  console.log('[BackupWorker] started');
+  console.log("[BackupWorker] started");
 };
 
 export const stopBackupWorker = async (): Promise<void> => {
@@ -62,6 +65,5 @@ export const stopBackupWorker = async (): Promise<void> => {
     await workerPromise;
     workerPromise = null;
   }
-  console.log('[BackupWorker] stopped');
+  console.log("[BackupWorker] stopped");
 };
-

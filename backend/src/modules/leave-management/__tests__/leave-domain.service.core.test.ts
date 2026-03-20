@@ -1,6 +1,6 @@
-import { expect, test } from '@jest/globals';
-import { calculateLeaveQuotaStatus } from '../services/leave-domain.service';
-import { baseQuota, baseRules } from './leave-domain.service.shared.js';
+import { expect, test } from "@jest/globals";
+import { calculateLeaveQuotaStatus } from "../services/leave-domain.service";
+import { baseQuota, baseRules } from "./leave-domain.service.shared.js";
 test("business days exclude weekend and holiday", () => {
   const result = calculateLeaveQuotaStatus({
     leaveRows: [
@@ -250,4 +250,3 @@ test("wife_help is per_event: two separate events under 15 days should not becom
   expect(result.perLeave[21].overQuota).toBe(false);
   expect(result.perType.wife_help.overQuota).toBe(false);
 });
-

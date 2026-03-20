@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UserRole } from '@/types/auth.js';
+import { UserRole } from "@/types/auth.js";
 
 const priorityEnum = z.enum(["LOW", "NORMAL", "HIGH"]);
 

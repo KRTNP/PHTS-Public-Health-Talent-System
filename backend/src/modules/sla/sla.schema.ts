@@ -35,16 +35,12 @@ export type UpdateSLAConfigBody = z.infer<typeof updateSLAConfigSchema>["body"];
 // GET /sla/calculate-days?start=&end=
 export const calculateBusinessDaysSchema = z.object({
   query: z.object({
-    start: z
-      .string()
-      .refine((d) => isValidDate(d), {
-        message: "start ต้องเป็นรูปแบบวันที่ที่ถูกต้อง",
-      }),
-    end: z
-      .string()
-      .refine((d) => isValidDate(d), {
-        message: "end ต้องเป็นรูปแบบวันที่ที่ถูกต้อง",
-      }),
+    start: z.string().refine((d) => isValidDate(d), {
+      message: "start ต้องเป็นรูปแบบวันที่ที่ถูกต้อง",
+    }),
+    end: z.string().refine((d) => isValidDate(d), {
+      message: "end ต้องเป็นรูปแบบวันที่ที่ถูกต้อง",
+    }),
   }),
 });
 

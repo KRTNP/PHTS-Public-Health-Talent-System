@@ -1,14 +1,14 @@
 import ExcelJS from "exceljs";
-import { getPayoutDataForReport } from '@/modules/snapshot/services/snapshot.service.js';
-import { ReportRepository } from '@/modules/report/repositories/report.repository.js';
+import { getPayoutDataForReport } from "@/modules/snapshot/services/snapshot.service.js";
+import { ReportRepository } from "@/modules/report/repositories/report.repository.js";
 import {
   ReportParams,
   PayoutRow,
   PROFESSION_NAME_MAP,
-} from '@/modules/report/entities/report.entity.js';
+} from "@/modules/report/entities/report.entity.js";
 
 // Re-export entities for backward compatibility
-export * from '@/modules/report/entities/report.entity.js';
+export * from "@/modules/report/entities/report.entity.js";
 
 const BORDER_STYLE: Partial<ExcelJS.Borders> = {
   top: { style: "thin" },
@@ -77,16 +77,20 @@ export async function generateDetailReport(
   const periodId = await ReportRepository.getPeriodId(year, month);
   const payoutData = await getPayoutDataForReport(periodId);
   const payouts = payoutData.data as PayoutRow[];
-  const citizenIds = Array.from(new Set(
-    payouts
-      .map((row) => row.citizen_id)
-      .filter((citizenId): citizenId is string => Boolean(citizenId)),
-  ));
+  const citizenIds = Array.from(
+    new Set(
+      payouts
+        .map((row) => row.citizen_id)
+        .filter((citizenId): citizenId is string => Boolean(citizenId)),
+    ),
+  );
 
   const rateIds = payouts
     .map((row) => row.master_rate_id)
     .filter((id): id is number => typeof id === "number");
-  const rateMap = await ReportRepository.getMasterRateMap(Array.from(new Set(rateIds)));
+  const rateMap = await ReportRepository.getMasterRateMap(
+    Array.from(new Set(rateIds)),
+  );
   const profileMap = await ReportRepository.getPersonProfileMap(citizenIds);
   const periodLabel = formatThaiReportMonth(month, year);
 
@@ -115,7 +119,10 @@ export async function generateDetailReport(
       };
     })
     .filter((row) => !professionCode || row.profession_code === professionCode)
-    .filter((row) => groupNo === undefined || Number(row.group_no) === Number(groupNo))
+    .filter(
+      (row) =>
+        groupNo === undefined || Number(row.group_no) === Number(groupNo),
+    )
     .sort((a, b) => a.first_name.localeCompare(b.first_name, "th"));
 
   worksheet.pageSetup = { paperSize: 9, orientation: "landscape" };
@@ -256,7 +263,9 @@ export async function generateSummaryReport(
   const rateIds = payouts
     .map((row) => row.master_rate_id)
     .filter((id): id is number => typeof id === "number");
-  const rateMap = await ReportRepository.getMasterRateMap(Array.from(new Set(rateIds)));
+  const rateMap = await ReportRepository.getMasterRateMap(
+    Array.from(new Set(rateIds)),
+  );
 
   const summaryMap = new Map<
     string,
@@ -377,7 +386,9 @@ export async function generateDetailReportCsv(
   const rateIds = payouts
     .map((row) => row.master_rate_id)
     .filter((id): id is number => typeof id === "number");
-  const rateMap = await ReportRepository.getMasterRateMap(Array.from(new Set(rateIds)));
+  const rateMap = await ReportRepository.getMasterRateMap(
+    Array.from(new Set(rateIds)),
+  );
 
   const rows = payouts
     .map((row) => {
@@ -402,7 +413,10 @@ export async function generateDetailReportCsv(
       };
     })
     .filter((row) => !professionCode || row.profession_code === professionCode)
-    .filter((row) => groupNo === undefined || Number(row.group_no) === Number(groupNo))
+    .filter(
+      (row) =>
+        groupNo === undefined || Number(row.group_no) === Number(groupNo),
+    )
     .sort((a, b) => a.first_name.localeCompare(b.first_name, "th"));
 
   return buildCsv(
@@ -446,7 +460,9 @@ export async function generateSummaryReportCsv(
   const rateIds = payouts
     .map((row) => row.master_rate_id)
     .filter((id): id is number => typeof id === "number");
-  const rateMap = await ReportRepository.getMasterRateMap(Array.from(new Set(rateIds)));
+  const rateMap = await ReportRepository.getMasterRateMap(
+    Array.from(new Set(rateIds)),
+  );
 
   const summaryMap = new Map<
     string,

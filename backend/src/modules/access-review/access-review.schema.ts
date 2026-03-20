@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { ReviewResult } from '@/modules/access-review/services/access-review.service.js';
-import { AccessReviewQueueStatus } from '@/modules/access-review/entities/access-review.entity.js';
-import { UserRole } from '@/types/auth.js';
+import { ReviewResult } from "@/modules/access-review/services/access-review.service.js";
+import { AccessReviewQueueStatus } from "@/modules/access-review/entities/access-review.entity.js";
+import { UserRole } from "@/types/auth.js";
 
 const isValidDate = (value: string) => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -21,7 +21,9 @@ const isValidDate = (value: string) => {
 const dateStringSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((value) => isValidDate(value), { message: "date ต้องถูกต้องตามปฏิทิน" });
+  .refine((value) => isValidDate(value), {
+    message: "date ต้องถูกต้องตามปฏิทิน",
+  });
 
 // GET /access-review/cycles?year=
 export const getCyclesSchema = z.object({
@@ -71,10 +73,12 @@ export const completeCycleSchema = z.object({
   params: z.object({
     id: z.string().regex(/^\d+$/, "id ต้องเป็นตัวเลข"),
   }),
-  body: z.object({
-    autoKeepPending: z.boolean().optional(),
-    note: z.string().max(500).optional(),
-  }).optional(),
+  body: z
+    .object({
+      autoKeepPending: z.boolean().optional(),
+      note: z.string().max(500).optional(),
+    })
+    .optional(),
 });
 
 export type CompleteCycleParams = z.infer<typeof completeCycleSchema>["params"];
@@ -92,7 +96,9 @@ export const autoReviewCycleSchema = z.object({
     .optional(),
 });
 
-export type AutoReviewCycleParams = z.infer<typeof autoReviewCycleSchema>["params"];
+export type AutoReviewCycleParams = z.infer<
+  typeof autoReviewCycleSchema
+>["params"];
 export type AutoReviewCycleBody = z.infer<typeof autoReviewCycleSchema>["body"];
 
 // GET /access-review/queue
@@ -141,8 +147,16 @@ export const bulkResolveQueueItemsSchema = z.object({
 });
 
 export type GetQueueQuery = z.infer<typeof getQueueSchema>["query"];
-export type GetQueueEventsParams = z.infer<typeof getQueueEventsSchema>["params"];
+export type GetQueueEventsParams = z.infer<
+  typeof getQueueEventsSchema
+>["params"];
 export type GetQueueEventsQuery = z.infer<typeof getQueueEventsSchema>["query"];
-export type ResolveQueueItemParams = z.infer<typeof resolveQueueItemSchema>["params"];
-export type ResolveQueueItemBody = z.infer<typeof resolveQueueItemSchema>["body"];
-export type BulkResolveQueueItemsBody = z.infer<typeof bulkResolveQueueItemsSchema>["body"];
+export type ResolveQueueItemParams = z.infer<
+  typeof resolveQueueItemSchema
+>["params"];
+export type ResolveQueueItemBody = z.infer<
+  typeof resolveQueueItemSchema
+>["body"];
+export type BulkResolveQueueItemsBody = z.infer<
+  typeof bulkResolveQueueItemsSchema
+>["body"];

@@ -1,4 +1,4 @@
-import { SyncService } from '@/modules/sync/services/sync.service.js';
+import { SyncService } from "@/modules/sync/services/sync.service.js";
 
 async function main() {
   console.log("[SyncScript] Starting smart sync via SyncService...");

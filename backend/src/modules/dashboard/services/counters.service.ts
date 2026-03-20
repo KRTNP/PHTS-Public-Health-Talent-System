@@ -55,7 +55,9 @@ export const getPendingRequestCount = async (params: {
   return 0;
 };
 
-export const getPendingPayrollCount = async (role: UserRole): Promise<number> => {
+export const getPendingPayrollCount = async (
+  role: UserRole,
+): Promise<number> => {
   if (role === UserRole.FINANCE_OFFICER) {
     const financeSummary = await FinanceRepository.findFinanceSummary(
       undefined,
@@ -72,7 +74,10 @@ export const getPendingPayrollCount = async (role: UserRole): Promise<number> =>
   const payrollStatus = resolvePayrollStatus(role);
   if (!payrollStatus) return 0;
 
-  const periods = await PayrollRepository.findPeriodsByStatus(payrollStatus, 50);
+  const periods = await PayrollRepository.findPeriodsByStatus(
+    payrollStatus,
+    50,
+  );
   return periods.length;
 };
 

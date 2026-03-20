@@ -3,7 +3,10 @@ import { announcementRepository } from "../repositories/announcement.repository.
 import { NotificationService } from "../../notification/services/notification.service.js";
 import { NotificationType } from "../../notification/entities/notification.entity.js";
 
-const priorityToNotificationType: Record<AnnouncementPriority, NotificationType> = {
+const priorityToNotificationType: Record<
+  AnnouncementPriority,
+  NotificationType
+> = {
   LOW: NotificationType.SYSTEM,
   NORMAL: NotificationType.SYSTEM,
   HIGH: NotificationType.REMINDER,
@@ -56,7 +59,10 @@ export class AnnouncementService {
             ),
           ),
         ).catch((error) => {
-          console.error('[Notification] enqueue failed after announcement create:', error);
+          console.error(
+            "[Notification] enqueue failed after announcement create:",
+            error,
+          );
         });
       }
 
@@ -127,10 +133,19 @@ export class AnnouncementService {
         : NotificationType.SYSTEM;
       await Promise.all(
         roles.map((role) =>
-          NotificationService.notifyRole(role, "ประกาศใหม่", "มีประกาศใหม่ในระบบ", "/dashboard", type),
+          NotificationService.notifyRole(
+            role,
+            "ประกาศใหม่",
+            "มีประกาศใหม่ในระบบ",
+            "/dashboard",
+            type,
+          ),
         ),
       ).catch((error) => {
-        console.error('[Notification] enqueue failed after announcement activation:', error);
+        console.error(
+          "[Notification] enqueue failed after announcement activation:",
+          error,
+        );
       });
     }
   }

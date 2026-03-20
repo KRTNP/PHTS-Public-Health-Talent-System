@@ -1,12 +1,11 @@
 import {
   startNotificationOutboxWorker,
   stopNotificationOutboxWorker,
-} from '@/modules/notification/services/notification-outbox-worker.service.js';
-import { runWorkerRuntime } from '@/scripts/ops/runners/worker-runtime.js';
+} from "@/modules/notification/services/notification-outbox-worker.service.js";
+import { runWorkerRuntime } from "@/scripts/ops/runners/worker-runtime.js";
 
 runWorkerRuntime({
-  name: 'NotificationOutboxWorkerRunner',
+  name: "NotificationOutboxWorkerRunner",
   start: () => startNotificationOutboxWorker(),
   stop: () => stopNotificationOutboxWorker(),
 });
-

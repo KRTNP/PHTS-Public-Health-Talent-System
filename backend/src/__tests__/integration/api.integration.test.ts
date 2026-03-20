@@ -5,7 +5,8 @@ describe("API Integration Tests", () => {
   let app: Application;
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || "integration-test-secret";
+    process.env.JWT_SECRET =
+      process.env.JWT_SECRET || "integration-test-secret";
     ({ default: app } = await import("@/index.js"));
   });
 

@@ -1,5 +1,5 @@
-import { RowDataPacket } from 'mysql2/promise';
-import db from '@config/database.js';
+import { RowDataPacket } from "mysql2/promise";
+import db from "@config/database.js";
 
 export class OpsStatusRepository {
   static async countNotificationOutboxByStatus(): Promise<
@@ -80,7 +80,9 @@ export class OpsStatusRepository {
     }>;
   }
 
-  static async findOldestNotificationBacklogAt(maxAttempts: number): Promise<Date | null> {
+  static async findOldestNotificationBacklogAt(
+    maxAttempts: number,
+  ): Promise<Date | null> {
     const safeMaxAttempts = Math.max(1, Math.floor(maxAttempts));
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT MIN(created_at) AS oldest_created_at
@@ -89,8 +91,9 @@ export class OpsStatusRepository {
           OR (status = 'FAILED' AND attempts < ?)`,
       [safeMaxAttempts],
     );
-    const raw = (rows[0] as { oldest_created_at?: Date | string | null } | undefined)
-      ?.oldest_created_at;
+    const raw = (
+      rows[0] as { oldest_created_at?: Date | string | null } | undefined
+    )?.oldest_created_at;
     if (!raw) return null;
     const date = raw instanceof Date ? raw : new Date(raw);
     return Number.isNaN(date.getTime()) ? null : date;
@@ -112,7 +115,9 @@ export class OpsStatusRepository {
     }));
   }
 
-  static async countNotificationOutboxDeadLetters(maxAttempts: number): Promise<number> {
+  static async countNotificationOutboxDeadLetters(
+    maxAttempts: number,
+  ): Promise<number> {
     const safeMaxAttempts = Math.max(1, Math.floor(maxAttempts));
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT COUNT(*) as count
@@ -171,7 +176,9 @@ export class OpsStatusRepository {
     }>;
   }
 
-  static async findOldestSnapshotBacklogAt(maxAttempts: number): Promise<Date | null> {
+  static async findOldestSnapshotBacklogAt(
+    maxAttempts: number,
+  ): Promise<Date | null> {
     const safeMaxAttempts = Math.max(1, Math.floor(maxAttempts));
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT MIN(created_at) AS oldest_created_at
@@ -180,8 +187,9 @@ export class OpsStatusRepository {
           OR (status = 'FAILED' AND attempts < ?)`,
       [safeMaxAttempts],
     );
-    const raw = (rows[0] as { oldest_created_at?: Date | string | null } | undefined)
-      ?.oldest_created_at;
+    const raw = (
+      rows[0] as { oldest_created_at?: Date | string | null } | undefined
+    )?.oldest_created_at;
     if (!raw) return null;
     const date = raw instanceof Date ? raw : new Date(raw);
     return Number.isNaN(date.getTime()) ? null : date;
@@ -203,7 +211,9 @@ export class OpsStatusRepository {
     }));
   }
 
-  static async countSnapshotOutboxDeadLetters(maxAttempts: number): Promise<number> {
+  static async countSnapshotOutboxDeadLetters(
+    maxAttempts: number,
+  ): Promise<number> {
     const safeMaxAttempts = Math.max(1, Math.floor(maxAttempts));
     const [rows] = await db.query<RowDataPacket[]>(
       `SELECT COUNT(*) as count

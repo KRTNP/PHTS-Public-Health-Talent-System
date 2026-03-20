@@ -52,10 +52,7 @@ export class AppError extends Error {
  * 400 Bad Request - Invalid input data
  */
 export class ValidationError extends AppError {
-  constructor(
-    message = "ข้อมูลไม่ถูกต้อง",
-    details?: Record<string, unknown>,
-  ) {
+  constructor(message = "ข้อมูลไม่ถูกต้อง", details?: Record<string, unknown>) {
     super(message, 400, "VALIDATION_ERROR", details);
   }
 }
@@ -83,11 +80,15 @@ export class AuthorizationError extends AppError {
  */
 export class NotFoundError extends AppError {
   constructor(resource = "ข้อมูล", identifier?: string | number) {
-    const normalizedResource = resource.replace(/^ไม่พบ\s*/, "").trim() || "ข้อมูล";
+    const normalizedResource =
+      resource.replace(/^ไม่พบ\s*/, "").trim() || "ข้อมูล";
     const message = identifier
       ? `ไม่พบ${normalizedResource} (${identifier})`
       : `ไม่พบ${normalizedResource}`;
-    super(message, 404, "NOT_FOUND", { resource: normalizedResource, identifier });
+    super(message, 404, "NOT_FOUND", {
+      resource: normalizedResource,
+      identifier,
+    });
   }
 }
 

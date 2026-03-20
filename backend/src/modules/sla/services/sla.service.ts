@@ -4,7 +4,7 @@
  * Service layer for SLA tracking and management
  */
 
-import { SLARepository } from '@/modules/sla/repositories/sla.repository.js';
+import { SLARepository } from "@/modules/sla/repositories/sla.repository.js";
 import {
   SLAConfig,
   SLAKpiAgingBucket,
@@ -17,10 +17,10 @@ import {
   SLAReport,
   SLAReminderResult,
   RequestSLAInfo,
-} from '@/modules/sla/entities/sla.entity.js';
-import { NotificationService } from '@/modules/notification/services/notification.service.js';
-import { STEP_ROLE_MAP } from '@shared/policy/request.policy.js';
-import { formatDateOnly } from '@/shared/utils/date-only.js';
+} from "@/modules/sla/entities/sla.entity.js";
+import { NotificationService } from "@/modules/notification/services/notification.service.js";
+import { STEP_ROLE_MAP } from "@shared/policy/request.policy.js";
+import { formatDateOnly } from "@/shared/utils/date-only.js";
 
 // ─── SLA Config Functions ─────────────────────────────────────────────────────
 
@@ -277,7 +277,11 @@ async function processApprovalTimelineRows(
       continue;
     }
 
-    const duration = await calculateBusinessDaysFast(lastEventTime, createdAt, holidays);
+    const duration = await calculateBusinessDaysFast(
+      lastEventTime,
+      createdAt,
+      holidays,
+    );
     let durations = state.durationsByStep.get(step);
     if (!durations) {
       durations = [];
@@ -318,7 +322,10 @@ async function buildStepStats(
   to: Date,
 ): Promise<{
   stepRows: SLAKpiByStepRow[];
-  quality: Pick<SLAKpiDataQuality, "step_missing_enter" | "step_negative_duration">;
+  quality: Pick<
+    SLAKpiDataQuality,
+    "step_missing_enter" | "step_negative_duration"
+  >;
 }> {
   const approvals = await SLARepository.findApprovalsInRangeForKPI(from, to);
   const configs = await SLARepository.findAllConfigs();
@@ -336,13 +343,19 @@ async function buildStepStats(
     timeline.push(row);
   });
 
-  const state = await aggregateStepDurations(timelineByRequest, holidays, configMap);
+  const state = await aggregateStepDurations(
+    timelineByRequest,
+    holidays,
+    configMap,
+  );
 
   const stepRows: SLAKpiByStepRow[] = Array.from(configMap.values())
     .sort((a, b) => a.step_no - b.step_no)
     .map((config) => {
       const step = config.step_no;
-      const list = [...(state.durationsByStep.get(step) ?? [])].sort((a, b) => a - b);
+      const list = [...(state.durationsByStep.get(step) ?? [])].sort(
+        (a, b) => a - b,
+      );
       const total = state.totalsByStep.get(step) ?? 0;
       const median = total > 0 ? percentile(list, 0.5) : 0;
       const p90 = total > 0 ? percentile(list, 0.9) : 0;
@@ -373,9 +386,15 @@ export async function getSLAKpiOverview(params?: {
 }): Promise<SLAKpiOverview> {
   const { from, to, fromText, toText } = resolveDateRange(params);
   const closed = await SLARepository.findClosedRequestsForKPI(from, to);
-  const pending = await getPendingRequestsWithSLA({ startDate: from, endDate: to });
+  const pending = await getPendingRequestsWithSLA({
+    startDate: from,
+    endDate: to,
+  });
   const configs = await SLARepository.findAllConfigs();
-  const totalSlaDays = configs.reduce((sum, item) => sum + Number(item.sla_days || 0), 0);
+  const totalSlaDays = configs.reduce(
+    (sum, item) => sum + Number(item.sla_days || 0),
+    0,
+  );
 
   const holidays = await SLARepository.findHolidaysInRange(from, to);
   const leadTimes: number[] = [];
@@ -384,14 +403,20 @@ export async function getSLAKpiOverview(params?: {
 
   const approvals = await SLARepository.findApprovalsInRangeForKPI(from, to);
   const returnedSet = new Set<number>(
-    approvals.filter((row) => String(row.action) === "RETURN").map((row) => Number(row.request_id)),
+    approvals
+      .filter((row) => String(row.action) === "RETURN")
+      .map((row) => Number(row.request_id)),
   );
 
   for (const row of closed) {
     const submittedAt = row.submitted_at ? new Date(row.submitted_at) : null;
     const completedAt = row.completed_at ? new Date(row.completed_at) : null;
     if (!submittedAt || !completedAt) continue;
-    const duration = await calculateBusinessDaysFast(submittedAt, completedAt, holidays);
+    const duration = await calculateBusinessDaysFast(
+      submittedAt,
+      completedAt,
+      holidays,
+    );
     leadTimes.push(duration);
     if (duration <= totalSlaDays) onTime += 1;
     if (returnedSet.has(Number(row.request_id))) rework += 1;
@@ -405,7 +430,8 @@ export async function getSLAKpiOverview(params?: {
     from: fromText,
     to: toText,
     total_closed: totalClosed,
-    on_time_completion_rate: totalClosed > 0 ? Math.round((onTime / totalClosed) * 100) : 0,
+    on_time_completion_rate:
+      totalClosed > 0 ? Math.round((onTime / totalClosed) * 100) : 0,
     median_lead_time_days: Number(medianLead.toFixed(2)),
     throughput_closed: totalClosed,
     rework_rate: totalClosed > 0 ? Math.round((rework / totalClosed) * 100) : 0,
@@ -463,7 +489,10 @@ export async function getSLAKpiDataQuality(params?: {
   const approvalByRequest = new Map<number, number>();
   approvals.forEach((row) => {
     const requestId = Number(row.request_id);
-    approvalByRequest.set(requestId, (approvalByRequest.get(requestId) ?? 0) + 1);
+    approvalByRequest.set(
+      requestId,
+      (approvalByRequest.get(requestId) ?? 0) + 1,
+    );
   });
   const closedWithoutSubmit = closed.filter((row) => !row.submitted_at).length;
   const closedWithoutActions = closed.filter(
@@ -483,11 +512,24 @@ export async function getSLAKpiDataQuality(params?: {
 function classifyErrorCategory(comment?: string | null): string {
   const text = (comment ?? "").toLowerCase();
   if (!text) return "OTHER";
-  if (text.includes("เอกสาร") || text.includes("แนบ") || text.includes("ไฟล์")) return "ATTACHMENT_ISSUE";
-  if (text.includes("สิทธิ") || text.includes("เกณฑ์") || text.includes("คุณสมบัติ")) return "POLICY_MISMATCH";
-  if (text.includes("ข้อมูล") || text.includes("กรอก") || text.includes("ไม่ครบ")) return "DATA_MISSING";
-  if (text.includes("รูปแบบ") || text.includes("ไม่ถูกต้อง")) return "DATA_INVALID";
-  if (text.includes("ขั้นตอน") || text.includes("อนุมัติ")) return "WORKFLOW_ERROR";
+  if (text.includes("เอกสาร") || text.includes("แนบ") || text.includes("ไฟล์"))
+    return "ATTACHMENT_ISSUE";
+  if (
+    text.includes("สิทธิ") ||
+    text.includes("เกณฑ์") ||
+    text.includes("คุณสมบัติ")
+  )
+    return "POLICY_MISMATCH";
+  if (
+    text.includes("ข้อมูล") ||
+    text.includes("กรอก") ||
+    text.includes("ไม่ครบ")
+  )
+    return "DATA_MISSING";
+  if (text.includes("รูปแบบ") || text.includes("ไม่ถูกต้อง"))
+    return "DATA_INVALID";
+  if (text.includes("ขั้นตอน") || text.includes("อนุมัติ"))
+    return "WORKFLOW_ERROR";
   return "OTHER";
 }
 
@@ -547,13 +589,18 @@ export async function getSLAKpiErrorOverview(params?: {
     return status === "APPROVED" && !returnedIds.has(id);
   }).length;
 
-  const topCategories: SLAKpiErrorCategoryRow[] = Array.from(categoryCount.entries())
+  const topCategories: SLAKpiErrorCategoryRow[] = Array.from(
+    categoryCount.entries(),
+  )
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([category, count]) => ({
       category,
       count,
-      ratio: totalErrorRequests > 0 ? Math.round((count / totalErrorRequests) * 100) : 0,
+      ratio:
+        totalErrorRequests > 0
+          ? Math.round((count / totalErrorRequests) * 100)
+          : 0,
     }));
 
   const byStep: SLAKpiErrorByStepRow[] = Array.from(stepCount.entries())
@@ -569,10 +616,22 @@ export async function getSLAKpiErrorOverview(params?: {
     to: toText,
     total_submitted: totalSubmitted,
     total_error_requests: totalErrorRequests,
-    error_rate: totalSubmitted > 0 ? Math.round((totalErrorRequests / totalSubmitted) * 100) : 0,
-    first_pass_yield: totalSubmitted > 0 ? Math.round((approvedNoReturnCount / totalSubmitted) * 100) : 0,
-    return_rate: totalSubmitted > 0 ? Math.round((returnedIds.size / totalSubmitted) * 100) : 0,
-    rejection_rate: totalSubmitted > 0 ? Math.round((rejectedIds.size / totalSubmitted) * 100) : 0,
+    error_rate:
+      totalSubmitted > 0
+        ? Math.round((totalErrorRequests / totalSubmitted) * 100)
+        : 0,
+    first_pass_yield:
+      totalSubmitted > 0
+        ? Math.round((approvedNoReturnCount / totalSubmitted) * 100)
+        : 0,
+    return_rate:
+      totalSubmitted > 0
+        ? Math.round((returnedIds.size / totalSubmitted) * 100)
+        : 0,
+    rejection_rate:
+      totalSubmitted > 0
+        ? Math.round((rejectedIds.size / totalSubmitted) * 100)
+        : 0,
     top_categories: topCategories,
     by_step: byStep,
   };
@@ -615,8 +674,19 @@ async function notifyApproverWithReminder(
   );
   if (alreadySent) return false;
 
-  await NotificationService.notifyUser(userId, title, message, "#", "SLA_REMINDER");
-  await SLARepository.logReminderSent(req.request_id, req.current_step, userId, reminderType);
+  await NotificationService.notifyUser(
+    userId,
+    title,
+    message,
+    "#",
+    "SLA_REMINDER",
+  );
+  await SLARepository.logReminderSent(
+    req.request_id,
+    req.current_step,
+    userId,
+    reminderType,
+  );
   return true;
 }
 

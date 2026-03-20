@@ -4,7 +4,8 @@ import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
-const SQL_CALL_RE = /\b(?:query|execute)\s*(?:<[^>]*>)?\s*\(\s*`([\s\S]*?)`\s*(?:,|\))/g;
+const SQL_CALL_RE =
+  /\b(?:query|execute)\s*(?:<[^>]*>)?\s*\(\s*`([\s\S]*?)`\s*(?:,|\))/g;
 const SQL_CALL_DOUBLE_QUOTE_RE =
   /\b(?:query|execute)\s*(?:<[^>]*>)?\s*\(\s*"([\s\S]*?)"\s*(?:,|\))/g;
 
@@ -49,7 +50,9 @@ const normalizeSql = (sql: string): string =>
 
 const resolveValue = (row: Record<string, unknown>, key: string): string => {
   if (row[key] !== undefined && row[key] !== null) return String(row[key]);
-  const matchedKey = Object.keys(row).find((k) => k.toLowerCase() === key.toLowerCase());
+  const matchedKey = Object.keys(row).find(
+    (k) => k.toLowerCase() === key.toLowerCase(),
+  );
   return matchedKey ? String(row[matchedKey]) : "";
 };
 
@@ -116,12 +119,16 @@ async function main(): Promise<void> {
         if (dbTables.has(table)) {
           aliasToTable.set(table, table);
           if (alias) aliasToTable.set(alias, table);
-        } else if (!full.startsWith("information_schema.") && !IGNORE_EXTERNAL_TABLE_REFS.has(full)) {
+        } else if (
+          !full.startsWith("information_schema.") &&
+          !IGNORE_EXTERNAL_TABLE_REFS.has(full)
+        ) {
           // ignore unresolved refs for this audit
         }
       }
 
-      const insertRe = /\bINSERT\s+INTO\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]+)\)/gi;
+      const insertRe =
+        /\bINSERT\s+INTO\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]+)\)/gi;
       while ((match = insertRe.exec(sql))) {
         const table = match[1].toLowerCase();
         if (!dbTables.has(table)) continue;
@@ -131,13 +138,16 @@ async function main(): Promise<void> {
         }
       }
 
-      const updateRe = /\bUPDATE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+SET\s+([\s\S]*?)(?:\bWHERE\b|$)/gi;
+      const updateRe =
+        /\bUPDATE\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+SET\s+([\s\S]*?)(?:\bWHERE\b|$)/gi;
       while ((match = updateRe.exec(sql))) {
         const table = match[1].toLowerCase();
         if (!dbTables.has(table)) continue;
         const setPart = match[2];
         for (const assignment of setPart.split(",")) {
-          const assignMatch = assignment.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*=/);
+          const assignMatch = assignment.match(
+            /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*=/,
+          );
           if (!assignMatch) continue;
           markColumn(table, assignMatch[1].toLowerCase());
         }
@@ -147,7 +157,8 @@ async function main(): Promise<void> {
       while ((match = refRe.exec(sql))) {
         const prefix = match[1].toLowerCase();
         const column = match[2].toLowerCase();
-        const table = aliasToTable.get(prefix) ?? (dbTables.has(prefix) ? prefix : null);
+        const table =
+          aliasToTable.get(prefix) ?? (dbTables.has(prefix) ? prefix : null);
         if (!table) continue;
         markColumn(table, column);
       }

@@ -56,7 +56,11 @@ export const formatDateOnly = (
 
   const timezone = options?.timezone?.trim() || "";
   if (timezone) {
-    if (/^[+-]\d{2}:?\d{2}$/.test(timezone) || timezone.toUpperCase() === "UTC" || timezone === "Z") {
+    if (
+      /^[+-]\d{2}:?\d{2}$/.test(timezone) ||
+      timezone.toUpperCase() === "UTC" ||
+      timezone === "Z"
+    ) {
       return formatByOffset(parsed, timezone);
     }
     return formatByIanaTimezone(parsed, timezone);

@@ -37,12 +37,13 @@ export const getNavigationPayload = async (params: {
 }): Promise<NavigationPayload> => {
   const { userId, citizenId, role } = params;
 
-  const [unreadCount, profile, pendingRequests, pendingPayroll] = await Promise.all([
-    NotificationService.getUnreadCount(userId),
-    AuthRepository.findEmployeeProfileByCitizenId(citizenId),
-    getPendingRequestCount({ role, userId }),
-    getPendingPayrollCount(role),
-  ]);
+  const [unreadCount, profile, pendingRequests, pendingPayroll] =
+    await Promise.all([
+      NotificationService.getUnreadCount(userId),
+      AuthRepository.findEmployeeProfileByCitizenId(citizenId),
+      getPendingRequestCount({ role, userId }),
+      getPendingPayrollCount(role),
+    ]);
 
   const name = [profile?.first_name, profile?.last_name]
     .filter(Boolean)

@@ -85,7 +85,6 @@ const documentStorage = multer.diskStorage({
   },
 });
 
-
 /**
  * File filter function to validate file types
  * Only allows PDF, JPEG, and PNG files

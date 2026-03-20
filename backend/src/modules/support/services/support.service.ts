@@ -27,16 +27,26 @@ export class SupportService {
     let ticketId = 0;
     try {
       await connection.beginTransaction();
-      ticketId = await supportRepository.createTicket({
-        user_id: input.userId,
-        citizen_id: input.citizenId ?? null,
-        subject: input.subject,
-        description: input.description,
-        status: "OPEN",
-        page_url: input.pageUrl ?? null,
-        user_agent: input.userAgent ?? null,
-        metadata: input.metadata ?? null,
-      } as Omit<SupportTicket, "ticket_id" | "created_at" | "updated_at" | "resolved_at" | "closed_at">, connection);
+      ticketId = await supportRepository.createTicket(
+        {
+          user_id: input.userId,
+          citizen_id: input.citizenId ?? null,
+          subject: input.subject,
+          description: input.description,
+          status: "OPEN",
+          page_url: input.pageUrl ?? null,
+          user_agent: input.userAgent ?? null,
+          metadata: input.metadata ?? null,
+        } as Omit<
+          SupportTicket,
+          | "ticket_id"
+          | "created_at"
+          | "updated_at"
+          | "resolved_at"
+          | "closed_at"
+        >,
+        connection,
+      );
 
       if (input.attachments?.length) {
         await supportRepository.createAttachments(
@@ -154,12 +164,15 @@ export class SupportService {
     const connection = await supportRepository.getConnection();
     try {
       await connection.beginTransaction();
-      const messageId = await supportRepository.createMessage({
-        ticket_id: payload.ticketId,
-        sender_user_id: payload.senderUserId,
-        sender_role: payload.senderRole,
-        message: payload.message,
-      }, connection);
+      const messageId = await supportRepository.createMessage(
+        {
+          ticket_id: payload.ticketId,
+          sender_user_id: payload.senderUserId,
+          sender_role: payload.senderRole,
+          message: payload.message,
+        },
+        connection,
+      );
       if (payload.attachments?.length) {
         await supportRepository.createAttachments(
           payload.attachments.map((att) => ({

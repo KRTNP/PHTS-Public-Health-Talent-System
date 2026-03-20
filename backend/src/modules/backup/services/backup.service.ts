@@ -4,18 +4,20 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { stat } from "node:fs/promises";
-import { BackupRepository } from '@/modules/backup/repositories/backup.repository.js';
-import redis from '@config/redis.js';
+import { BackupRepository } from "@/modules/backup/repositories/backup.repository.js";
+import redis from "@config/redis.js";
 
 const execFileAsync = promisify(execFile);
-const BACKUP_LOCK_KEY = 'system:backup:lock';
-const BACKUP_SCHEDULE_KEY = 'system:backup:schedule';
-const BACKUP_LAST_RUN_PREFIX = 'system:backup:last-run:';
+const BACKUP_LOCK_KEY = "system:backup:lock";
+const BACKUP_SCHEDULE_KEY = "system:backup:schedule";
+const BACKUP_LAST_RUN_PREFIX = "system:backup:last-run:";
 const DEFAULT_BACKUP_HOUR = 2;
 const DEFAULT_BACKUP_MINUTE = 0;
-const DEFAULT_BACKUP_TIMEZONE = process.env.BACKUP_JOB_TIMEZONE || 'Asia/Bangkok';
-const CURRENT_BACKUP_SCRIPT_REL_BASH = 'src/scripts/ops/backup/backup.sh';
-const CURRENT_BACKUP_SCRIPT_REL_POWERSHELL = 'src/scripts/ops/backup/backup.ps1';
+const DEFAULT_BACKUP_TIMEZONE =
+  process.env.BACKUP_JOB_TIMEZONE || "Asia/Bangkok";
+const CURRENT_BACKUP_SCRIPT_REL_BASH = "src/scripts/ops/backup/backup.sh";
+const CURRENT_BACKUP_SCRIPT_REL_POWERSHELL =
+  "src/scripts/ops/backup/backup.ps1";
 
 type BackupConfig = {
   enabled: boolean;
@@ -39,9 +41,11 @@ const getBackupConfig = (): BackupConfig => ({
   timeoutMs: Number(process.env.BACKUP_TIMEOUT_MS || 300000),
 });
 
-const toTwoDigits = (value: number): string => String(value).padStart(2, '0');
+const toTwoDigits = (value: number): string => String(value).padStart(2, "0");
 
-const parseSchedule = (raw: string | null): { hour: number; minute: number } => {
+const parseSchedule = (
+  raw: string | null,
+): { hour: number; minute: number } => {
   if (!raw) {
     return { hour: DEFAULT_BACKUP_HOUR, minute: DEFAULT_BACKUP_MINUTE };
   }
@@ -65,24 +69,24 @@ const parseSchedule = (raw: string | null): { hour: number; minute: number } => 
 };
 
 const getZonedDateParts = (date: Date, timezone: string) => {
-  const formatter = new Intl.DateTimeFormat('en-GB', {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
     timeZone: timezone,
     hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
   const parts = formatter.formatToParts(date);
   const getPart = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? '';
+    parts.find((part) => part.type === type)?.value ?? "";
   return {
-    year: Number(getPart('year')),
-    month: Number(getPart('month')),
-    day: Number(getPart('day')),
-    hour: Number(getPart('hour')),
-    minute: Number(getPart('minute')),
+    year: Number(getPart("year")),
+    month: Number(getPart("month")),
+    day: Number(getPart("day")),
+    hour: Number(getPart("hour")),
+    minute: Number(getPart("minute")),
   };
 };
 
@@ -105,7 +109,10 @@ export async function setBackupScheduleConfig(input: {
 }): Promise<BackupScheduleConfig> {
   const hour = Math.max(0, Math.min(23, Math.floor(Number(input.hour))));
   const minute = Math.max(0, Math.min(59, Math.floor(Number(input.minute))));
-  await redis.set(BACKUP_SCHEDULE_KEY, `${toTwoDigits(hour)}:${toTwoDigits(minute)}`);
+  await redis.set(
+    BACKUP_SCHEDULE_KEY,
+    `${toTwoDigits(hour)}:${toTwoDigits(minute)}`,
+  );
   return {
     hour,
     minute,
@@ -113,7 +120,9 @@ export async function setBackupScheduleConfig(input: {
   };
 }
 
-export async function shouldRunScheduledBackup(at: Date = new Date()): Promise<boolean> {
+export async function shouldRunScheduledBackup(
+  at: Date = new Date(),
+): Promise<boolean> {
   const schedule = await getBackupScheduleConfig();
   const parts = getZonedDateParts(at, schedule.timezone);
   const currentMinuteOfDay = parts.hour * 60 + parts.minute;
@@ -124,7 +133,7 @@ export async function shouldRunScheduledBackup(at: Date = new Date()): Promise<b
 
   const dateKey = buildDateKey(parts);
   const lockKey = `${BACKUP_LAST_RUN_PREFIX}${dateKey}`;
-  const marked = await redis.set(lockKey, '1', 'EX', 60 * 60 * 48, 'NX');
+  const marked = await redis.set(lockKey, "1", "EX", 60 * 60 * 48, "NX");
   return Boolean(marked);
 }
 
@@ -141,7 +150,10 @@ function validateBackupCommand(command: string): void {
 function parseBackupArgs(raw: string): string[] {
   if (!raw) return [];
   const parsed = JSON.parse(raw);
-  if (!Array.isArray(parsed) || !parsed.every((arg) => typeof arg === "string")) {
+  if (
+    !Array.isArray(parsed) ||
+    !parsed.every((arg) => typeof arg === "string")
+  ) {
     throw new Error("BACKUP_ARGS must be a JSON array of strings");
   }
   return parsed;
@@ -155,18 +167,32 @@ function resolveExistingPath(candidates: string[]): string | null {
 }
 
 function getExecutableName(command: string): string {
-  return command.replace(/\\/g, '/').split('/').pop()?.toLowerCase() ?? '';
+  return command.replace(/\\/g, "/").split("/").pop()?.toLowerCase() ?? "";
 }
 
 function isShellInterpreter(executable: string): boolean {
-  return ['bash', 'sh', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe'].includes(executable);
+  return [
+    "bash",
+    "sh",
+    "powershell",
+    "powershell.exe",
+    "pwsh",
+    "pwsh.exe",
+  ].includes(executable);
 }
 
-function resolveManagedScriptPath(scriptArg: string, workdir: string): string | null {
-  const normalizedArg = scriptArg.replace(/\\/g, '/');
-  const managedRelPaths = [CURRENT_BACKUP_SCRIPT_REL_BASH, CURRENT_BACKUP_SCRIPT_REL_POWERSHELL];
+function resolveManagedScriptPath(
+  scriptArg: string,
+  workdir: string,
+): string | null {
+  const normalizedArg = scriptArg.replace(/\\/g, "/");
+  const managedRelPaths = [
+    CURRENT_BACKUP_SCRIPT_REL_BASH,
+    CURRENT_BACKUP_SCRIPT_REL_POWERSHELL,
+  ];
   const matchedRelPath = managedRelPaths.find(
-    (relPath) => normalizedArg === relPath || normalizedArg.endsWith(`/${relPath}`),
+    (relPath) =>
+      normalizedArg === relPath || normalizedArg.endsWith(`/${relPath}`),
   );
   if (!matchedRelPath) return null;
 
@@ -176,7 +202,11 @@ function resolveManagedScriptPath(scriptArg: string, workdir: string): string | 
   ]);
 }
 
-function normalizeBackupArgs(command: string, args: string[], workdir: string): string[] {
+function normalizeBackupArgs(
+  command: string,
+  args: string[],
+  workdir: string,
+): string[] {
   const executable = getExecutableName(command);
   if (!isShellInterpreter(executable) || args.length === 0) return args;
 
@@ -216,10 +246,7 @@ export async function runBackupJob(options?: {
   }
 
   const lockValue = `backup:${Date.now()}:${crypto.randomUUID()}`;
-  const lockTtlSeconds = Math.max(
-    60,
-    Math.ceil(config.timeoutMs / 1000) + 60,
-  );
+  const lockTtlSeconds = Math.max(60, Math.ceil(config.timeoutMs / 1000) + 60);
   const locked = await redis.set(
     BACKUP_LOCK_KEY,
     lockValue,
@@ -234,7 +261,10 @@ export async function runBackupJob(options?: {
   const startedAt = Date.now();
   const triggerSource = options?.triggerSource ?? "MANUAL";
   const triggeredBy = options?.triggeredBy ?? null;
-  const jobId = await BackupRepository.createBackupJob(triggerSource, triggeredBy);
+  const jobId = await BackupRepository.createBackupJob(
+    triggerSource,
+    triggeredBy,
+  );
 
   try {
     validateBackupCommand(config.command);
@@ -275,8 +305,7 @@ export async function runBackupJob(options?: {
     return { enabled: true, jobId, status: "SUCCESS", output };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     const normalizedErrorMessage = errorMessage;
     await BackupRepository.finishBackupJob(jobId, {
       status: "FAILED",

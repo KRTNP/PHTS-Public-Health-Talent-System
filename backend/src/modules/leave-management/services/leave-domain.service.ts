@@ -1,6 +1,14 @@
-import { countBusinessDays, countCalendarDays, formatLocalDate, isHoliday } from "@/modules/payroll/core/utils/date.utils.js";
+import {
+  countBusinessDays,
+  countCalendarDays,
+  formatLocalDate,
+  isHoliday,
+} from "@/modules/payroll/core/utils/date.utils.js";
 import { LEAVE_RULES } from "@/modules/payroll/payroll.constants.js";
-import type { LeaveUnit, LeaveRuleType } from "@/modules/payroll/payroll.constants.js";
+import type {
+  LeaveUnit,
+  LeaveRuleType,
+} from "@/modules/payroll/payroll.constants.js";
 import { LeaveManagementRepository } from "../repositories/leave-management.repository.js";
 
 export type LeaveRule = {
@@ -52,18 +60,24 @@ export type LeaveQuotaStatusByType = {
 
 export type LeaveQuotaStatus = {
   perType: Record<string, LeaveQuotaStatusByType>;
-  perLeave: Record<number, {
-    leaveType: string;
-    duration: number;
-    limit: number | null;
-    overQuota: boolean;
-    exceedDate: string | null;
-  }>;
+  perLeave: Record<
+    number,
+    {
+      leaveType: string;
+      duration: number;
+      limit: number | null;
+      overQuota: boolean;
+      exceedDate: string | null;
+    }
+  >;
 };
 
 const isWeekend = (date: Date) => date.getDay() === 0 || date.getDay() === 6;
 const CACHE_TTL_MS = 60 * 1000;
-const quotaCache = new Map<string, { expiresAt: number; value: LeaveQuotaStatus }>();
+const quotaCache = new Map<
+  string,
+  { expiresAt: number; value: LeaveQuotaStatus }
+>();
 const repository = new LeaveManagementRepository();
 
 const getFiscalYear = (date: Date): number => {
@@ -101,8 +115,10 @@ const calculateDuration = (
   ruleUnit: LeaveUnit,
   holidays: string[],
 ): { duration: number; isHalfDay: boolean } => {
-  const durationOverride = leave.document_duration_days ?? leave.duration_days ?? null;
-  const isHalfDay = durationOverride !== null && durationOverride > 0 && durationOverride < 1;
+  const durationOverride =
+    leave.document_duration_days ?? leave.duration_days ?? null;
+  const isHalfDay =
+    durationOverride !== null && durationOverride > 0 && durationOverride < 1;
   if (isHalfDay) {
     const dateStr = formatLocalDate(start);
     if (!isHoliday(dateStr, holidays) && !isWeekend(start)) {
@@ -112,7 +128,10 @@ const calculateDuration = (
   }
 
   if (ruleUnit === "business_days") {
-    return { duration: countBusinessDays(start, end, holidays), isHalfDay: false };
+    return {
+      duration: countBusinessDays(start, end, holidays),
+      isHalfDay: false,
+    };
   }
   return { duration: countCalendarDays(start, end), isHalfDay: false };
 };
@@ -164,11 +183,15 @@ const resolveEffectiveDate = (
 ) => (primary ? new Date(primary) : new Date(fallback));
 
 const normalizeLeaveTypeForPolicy = (leaveType: string): string => {
-  return String(leaveType ?? "").trim().toLowerCase();
+  return String(leaveType ?? "")
+    .trim()
+    .toLowerCase();
 };
 
 const normalizeTextKey = (value: unknown): string =>
-  String(value ?? "").trim().toLowerCase();
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
 
 const buildLeaveSeriesKey = (row: LeavePolicyInputRow): string | null => {
   const leaveType = normalizeLeaveTypeForPolicy(String(row.leave_type ?? ""));
@@ -231,8 +254,11 @@ const normalizeLeavesInRange = (
     end: Date,
     events: LeavePolicyInputRow["return_report_events"],
     baseSeriesContext: NormalizedLeaveEntry["seriesContext"],
-  ): Array<LeaveInterval & { seriesContext: NormalizedLeaveEntry["seriesContext"] }> => {
-    if (!events || events.length === 0) return [{ start, end, seriesContext: baseSeriesContext }];
+  ): Array<
+    LeaveInterval & { seriesContext: NormalizedLeaveEntry["seriesContext"] }
+  > => {
+    if (!events || events.length === 0)
+      return [{ start, end, seriesContext: baseSeriesContext }];
     const sorted = [...events]
       .map((event) => {
         const reportDate = new Date(event.report_date);
@@ -250,18 +276,26 @@ const normalizeLeavesInRange = (
           resume_study_major: event.resume_study_major ?? null,
         };
       })
-      .filter((event): event is {
-        reportDate: Date;
-        resumeDate: Date | null;
-        resume_study_institution: string | null;
-        resume_study_program: string | null;
-        resume_study_major: string | null;
-      } => Boolean(event))
+      .filter(
+        (
+          event,
+        ): event is {
+          reportDate: Date;
+          resumeDate: Date | null;
+          resume_study_institution: string | null;
+          resume_study_program: string | null;
+          resume_study_major: string | null;
+        } => Boolean(event),
+      )
       .sort((a, b) => a.reportDate.getTime() - b.reportDate.getTime());
 
-    const intervals: Array<LeaveInterval & { seriesContext: NormalizedLeaveEntry["seriesContext"] }> = [];
+    const intervals: Array<
+      LeaveInterval & { seriesContext: NormalizedLeaveEntry["seriesContext"] }
+    > = [];
     let cursor = new Date(start);
-    let currentSeriesContext: NormalizedLeaveEntry["seriesContext"] = { ...baseSeriesContext };
+    let currentSeriesContext: NormalizedLeaveEntry["seriesContext"] = {
+      ...baseSeriesContext,
+    };
     for (const event of sorted) {
       if (event.reportDate > end) break;
 
@@ -300,9 +334,13 @@ const normalizeLeavesInRange = (
       }
       currentSeriesContext = {
         study_institution:
-          event.resume_study_institution ?? currentSeriesContext.study_institution ?? null,
+          event.resume_study_institution ??
+          currentSeriesContext.study_institution ??
+          null,
         study_program:
-          event.resume_study_program ?? currentSeriesContext.study_program ?? null,
+          event.resume_study_program ??
+          currentSeriesContext.study_program ??
+          null,
         study_major:
           event.resume_study_major ?? currentSeriesContext.study_major ?? null,
       };
@@ -321,17 +359,29 @@ const normalizeLeavesInRange = (
 
   return leaveRows
     .flatMap((row) => {
-      if (Number(row.is_no_pay ?? 0) === 1 || Number(row.pay_exception ?? 0) === 1) {
+      if (
+        Number(row.is_no_pay ?? 0) === 1 ||
+        Number(row.pay_exception ?? 0) === 1
+      ) {
         return [];
       }
-      const start = resolveEffectiveDate(row.document_start_date, row.start_date);
+      const start = resolveEffectiveDate(
+        row.document_start_date,
+        row.start_date,
+      );
       const end = resolveEffectiveDate(row.document_end_date, row.end_date);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime()) ||
+        end < start
+      ) {
         return [];
       }
 
       const clampedStart =
-        rangeStartDate && start < rangeStartDate ? new Date(rangeStartDate) : start;
+        rangeStartDate && start < rangeStartDate
+          ? new Date(rangeStartDate)
+          : start;
       const clampedEnd =
         rangeEndDate && end > rangeEndDate ? new Date(rangeEndDate) : end;
       if (clampedEnd < clampedStart) return [];
@@ -365,7 +415,8 @@ const applyDynamicLimitOverrides = (
 ): number | null => {
   if (leaveType === "ordain" && serviceStartDate) {
     const serviceDays = Math.floor(
-      (leaveStart.getTime() - serviceStartDate.getTime()) / (1000 * 60 * 60 * 24),
+      (leaveStart.getTime() - serviceStartDate.getTime()) /
+        (1000 * 60 * 60 * 24),
     );
     if (serviceDays < 365) return 0;
   }
@@ -418,13 +469,29 @@ const evaluateLeaveQuota = (
 ): QuotaEvaluation => {
   const leaveType = normalizeLeaveTypeForPolicy(entry.row.leave_type);
   const baseLimit = resolveLeaveLimit(leaveType, rule.limit, quota);
-  const limit = applyDynamicLimitOverrides(leaveType, baseLimit, entry.start, serviceStartDate);
-  const { duration, isHalfDay } = calculateDuration(entry.row, entry.start, entry.end, rule.unit, holidays);
+  const limit = applyDynamicLimitOverrides(
+    leaveType,
+    baseLimit,
+    entry.start,
+    serviceStartDate,
+  );
+  const { duration, isHalfDay } = calculateDuration(
+    entry.row,
+    entry.start,
+    entry.end,
+    rule.unit,
+    holidays,
+  );
   const seriesRow: LeavePolicyInputRow = {
     ...entry.row,
-    study_institution: entry.seriesContext.study_institution ?? entry.row.study_institution ?? null,
-    study_program: entry.seriesContext.study_program ?? entry.row.study_program ?? null,
-    study_major: entry.seriesContext.study_major ?? entry.row.study_major ?? null,
+    study_institution:
+      entry.seriesContext.study_institution ??
+      entry.row.study_institution ??
+      null,
+    study_program:
+      entry.seriesContext.study_program ?? entry.row.study_program ?? null,
+    study_major:
+      entry.seriesContext.study_major ?? entry.row.study_major ?? null,
   };
   const seriesKey = buildLeaveSeriesKey(seriesRow);
   const useSeriesCumulative = Boolean(seriesKey);
@@ -438,7 +505,14 @@ const evaluateLeaveQuota = (
     isCumulativeRule,
   );
   const nextUsage = useCumulativeQuota ? currentUsage + duration : currentUsage;
-  updateUsage(usageState, leaveType, seriesKey, useSeriesCumulative, isCumulativeRule, nextUsage);
+  updateUsage(
+    usageState,
+    leaveType,
+    seriesKey,
+    useSeriesCumulative,
+    isCumulativeRule,
+    nextUsage,
+  );
 
   let overQuota = false;
   let exceedDate: Date | null = null;
@@ -524,7 +598,10 @@ const updatePerType = (
     perType[leaveType] = {
       limit: evaluation.limit,
       used: 0,
-      remaining: evaluation.useCumulativeQuota && evaluation.limit !== null ? evaluation.limit : null,
+      remaining:
+        evaluation.useCumulativeQuota && evaluation.limit !== null
+          ? evaluation.limit
+          : null,
       overQuota: false,
       exceedDate: null,
     };
@@ -568,7 +645,11 @@ export function calculateLeaveQuotaStatus({
 }): LeaveQuotaStatus {
   const rangeStartDate = rangeStart ? new Date(rangeStart) : null;
   const rangeEndDate = rangeEnd ? new Date(rangeEnd) : null;
-  const normalizedLeaves = normalizeLeavesInRange(leaveRows, rangeStartDate, rangeEndDate);
+  const normalizedLeaves = normalizeLeavesInRange(
+    leaveRows,
+    rangeStartDate,
+    rangeEndDate,
+  );
   const usageState: LeaveUsageState = { byType: {}, bySeries: {} };
   const perType: Record<string, LeaveQuotaStatusByType> = {};
   const perLeave: LeaveQuotaStatus["perLeave"] = {};
@@ -594,7 +675,10 @@ export function calculateLeaveQuotaStatus({
   return { perType, perLeave };
 }
 
-export async function getLeaveQuotaStatus(citizenId: string, fiscalYear: number): Promise<LeaveQuotaStatus> {
+export async function getLeaveQuotaStatus(
+  citizenId: string,
+  fiscalYear: number,
+): Promise<LeaveQuotaStatus> {
   const cacheKey = `${citizenId}:${fiscalYear}`;
   const cached = quotaCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -610,14 +694,18 @@ export async function getLeaveQuotaStatus(citizenId: string, fiscalYear: number)
   const leaveIds = (leaveRows ?? [])
     .map((row: any) => Number(row.id))
     .filter((id: number) => Number.isFinite(id) && id > 0);
-  const returnEvents = await repository.listLeaveReturnReportEventsByLeaveIds(leaveIds);
-  const eventMap = new Map<number, Array<{
-    report_date: string;
-    resume_date: string | null;
-    resume_study_institution: string | null;
-    resume_study_program: string | null;
-    resume_study_major: string | null;
-  }>>();
+  const returnEvents =
+    await repository.listLeaveReturnReportEventsByLeaveIds(leaveIds);
+  const eventMap = new Map<
+    number,
+    Array<{
+      report_date: string;
+      resume_date: string | null;
+      resume_study_institution: string | null;
+      resume_study_program: string | null;
+      resume_study_major: string | null;
+    }>
+  >();
   for (const event of returnEvents) {
     const leaveId = Number((event as any).leave_record_id);
     if (!Number.isFinite(leaveId)) continue;
@@ -629,19 +717,23 @@ export async function getLeaveQuotaStatus(citizenId: string, fiscalYear: number)
     leaveEvents.push({
       report_date: String((event as any).report_date),
       resume_date:
-        (event as any).resume_date === null || (event as any).resume_date === undefined
+        (event as any).resume_date === null ||
+        (event as any).resume_date === undefined
           ? null
           : String((event as any).resume_date),
       resume_study_institution:
-        (event as any).resume_study_institution === null || (event as any).resume_study_institution === undefined
+        (event as any).resume_study_institution === null ||
+        (event as any).resume_study_institution === undefined
           ? null
           : String((event as any).resume_study_institution),
       resume_study_program:
-        (event as any).resume_study_program === null || (event as any).resume_study_program === undefined
+        (event as any).resume_study_program === null ||
+        (event as any).resume_study_program === undefined
           ? null
           : String((event as any).resume_study_program),
       resume_study_major:
-        (event as any).resume_study_major === null || (event as any).resume_study_major === undefined
+        (event as any).resume_study_major === null ||
+        (event as any).resume_study_major === undefined
           ? null
           : String((event as any).resume_study_major),
     });
@@ -666,6 +758,9 @@ export async function getLeaveQuotaStatus(citizenId: string, fiscalYear: number)
     serviceStartDate,
   });
 
-  quotaCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, value: result });
+  quotaCache.set(cacheKey, {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    value: result,
+  });
   return result;
 }

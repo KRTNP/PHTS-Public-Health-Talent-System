@@ -1,14 +1,14 @@
 import crypto from "node:crypto";
-import { NotificationService } from '@/modules/notification/services/notification.service.js';
-import { AlertLogsRepository } from '@/modules/workforce-compliance/repositories/alert-logs.repository.js';
-import { WorkforceComplianceRepository } from '@/modules/workforce-compliance/repositories/workforce-compliance.repository.js';
-import { LicenseComplianceRepository } from '@/modules/workforce-compliance/repositories/license-compliance.repository.js';
-import { formatOpsDate } from '@/modules/workforce-compliance/services/jobs/shared/job-date.js';
+import { NotificationService } from "@/modules/notification/services/notification.service.js";
+import { AlertLogsRepository } from "@/modules/workforce-compliance/repositories/alert-logs.repository.js";
+import { WorkforceComplianceRepository } from "@/modules/workforce-compliance/repositories/workforce-compliance.repository.js";
+import { LicenseComplianceRepository } from "@/modules/workforce-compliance/repositories/license-compliance.repository.js";
+import { formatOpsDate } from "@/modules/workforce-compliance/services/jobs/shared/job-date.js";
 import type {
   AlertBucket,
   LicenseComplianceRow,
   LicenseComplianceSummary,
-} from '@/modules/workforce-compliance/entities/license-compliance.entity.js';
+} from "@/modules/workforce-compliance/entities/license-compliance.entity.js";
 
 export async function getLicenseComplianceSummary(
   asOf: Date = new Date(),
@@ -35,7 +35,8 @@ export async function getLicenseComplianceList(
   const refs = normalizedRows.map((row) => `${row.citizen_id}:${row.bucket}`);
   if (refs.length === 0) return normalizedRows;
 
-  const logs = await AlertLogsRepository.findLatestLicenseLogsByReferenceIds(refs);
+  const logs =
+    await AlertLogsRepository.findLatestLicenseLogsByReferenceIds(refs);
   const notifiedMap = new Map<string, string>();
   logs.forEach((row) => {
     if (row.reference_id) {
@@ -45,14 +46,19 @@ export async function getLicenseComplianceList(
 
   return normalizedRows.map((row) => ({
     ...row,
-    last_notified_at: notifiedMap.get(`${row.citizen_id}:${row.bucket}`) ?? null,
+    last_notified_at:
+      notifiedMap.get(`${row.citizen_id}:${row.bucket}`) ?? null,
   }));
 }
 
 const hashKey = (value: string) =>
   crypto.createHash("sha256").update(value).digest("hex");
 
-async function hasDailyNotification(citizenId: string, bucket: AlertBucket, date: Date): Promise<boolean> {
+async function hasDailyNotification(
+  citizenId: string,
+  bucket: AlertBucket,
+  date: Date,
+): Promise<boolean> {
   const key = `LICENSE_EXPIRING:citizen:${citizenId}:${bucket}:${formatOpsDate(date)}`;
   return AlertLogsRepository.hasPayloadHash(hashKey(key));
 }
@@ -73,9 +79,13 @@ export async function notifyLicenseCompliance(
       continue;
     }
 
-    const userId = await WorkforceComplianceRepository.findUserIdByCitizenId(citizenId);
+    const userId =
+      await WorkforceComplianceRepository.findUserIdByCitizenId(citizenId);
     if (userId) {
-      const prefix = item.bucket === "expired" ? "ใบอนุญาตหมดอายุแล้ว" : "ใบอนุญาตใกล้หมดอายุ";
+      const prefix =
+        item.bucket === "expired"
+          ? "ใบอนุญาตหมดอายุแล้ว"
+          : "ใบอนุญาตใกล้หมดอายุ";
       await NotificationService.notifyUserByTemplate(
         userId,
         "WORKFORCE_LICENSE_EXPIRING_USER",

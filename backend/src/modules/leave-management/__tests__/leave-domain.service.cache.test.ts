@@ -32,9 +32,16 @@ describe("getLeaveQuotaStatus", () => {
   test("uses repository data and caches results", async () => {
     mockRepo.listLeaveManagementRowsForQuota.mockResolvedValue(baseLeaveRows);
     mockRepo.listLeaveReturnReportEventsByLeaveIds.mockResolvedValue([]);
-    mockRepo.findQuotaRow.mockResolvedValue({ quota_vacation: 10, quota_personal: 45, quota_sick: 60 });
+    mockRepo.findQuotaRow.mockResolvedValue({
+      quota_vacation: 10,
+      quota_personal: 45,
+      quota_sick: 60,
+    });
     mockRepo.findHolidaysForFiscalYear.mockResolvedValue([]);
-    mockRepo.findEmployeeServiceDates.mockResolvedValue({ start_work_date: "2026-10-10", first_entry_date: null });
+    mockRepo.findEmployeeServiceDates.mockResolvedValue({
+      start_work_date: "2026-10-10",
+      first_entry_date: null,
+    });
 
     const result1 = await getLeaveQuotaStatus("123", 2027);
     const result2 = await getLeaveQuotaStatus("123", 2027);
@@ -44,7 +51,9 @@ describe("getLeaveQuotaStatus", () => {
     expect(result2.perType.personal.overQuota).toBe(true);
 
     expect(mockRepo.listLeaveManagementRowsForQuota).toHaveBeenCalledTimes(1);
-    expect(mockRepo.listLeaveReturnReportEventsByLeaveIds).toHaveBeenCalledTimes(1);
+    expect(
+      mockRepo.listLeaveReturnReportEventsByLeaveIds,
+    ).toHaveBeenCalledTimes(1);
     expect(mockRepo.findQuotaRow).toHaveBeenCalledTimes(1);
     expect(mockRepo.findHolidaysForFiscalYear).toHaveBeenCalledTimes(1);
     expect(mockRepo.findEmployeeServiceDates).toHaveBeenCalledTimes(1);

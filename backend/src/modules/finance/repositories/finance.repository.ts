@@ -5,13 +5,13 @@
  */
 
 import { RowDataPacket, PoolConnection } from "mysql2/promise";
-import db, { getConnection } from '@config/database.js';
+import db, { getConnection } from "@config/database.js";
 import {
   PaymentStatus,
   PayoutWithDetails,
   FinanceSummary,
   YearlySummary,
-} from '@/modules/finance/entities/finance.entity.js';
+} from "@/modules/finance/entities/finance.entity.js";
 
 export class FinanceRepository {
   // ── Payout queries ──────────────────────────────────────────────────────────
@@ -19,7 +19,11 @@ export class FinanceRepository {
   static async findPeriodWorkflowContextById(
     periodId: number,
     conn?: PoolConnection,
-  ): Promise<{ period_id: number; status: string; snapshot_status: string } | null> {
+  ): Promise<{
+    period_id: number;
+    status: string;
+    snapshot_status: string;
+  } | null> {
     const executor = conn ?? db;
     const [rows] = await executor.query<RowDataPacket[]>(
       "SELECT period_id, status, snapshot_status FROM pay_periods WHERE period_id = ?",
@@ -181,7 +185,10 @@ export class FinanceRepository {
       employee_name: `${row.first_name} ${row.last_name}`.trim(),
       department: row.department,
       profession_code: row.profession_code ?? null,
-      group_no: row.group_no !== null && row.group_no !== undefined ? Number(row.group_no) : null,
+      group_no:
+        row.group_no !== null && row.group_no !== undefined
+          ? Number(row.group_no)
+          : null,
       pts_rate_snapshot: Number(row.pts_rate_snapshot),
       calculated_amount: Number(row.calculated_amount),
       retroactive_amount: Number(row.retroactive_amount),

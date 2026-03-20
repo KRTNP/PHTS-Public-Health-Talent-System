@@ -173,14 +173,19 @@ const resolveApproverRole = (role: UserRole): UserRole => {
 export const getApproverDashboard = async (userId: number, role: UserRole) => {
   const approverRole = resolveApproverRole(role);
   const pendingPayrollStatus = getPendingPayrollStatusForApprover(approverRole);
-  const [pendingRequests, pendingPayrolls, pendingPayrollCount, slaReport, slaPending] =
-    await Promise.all([
-      requestQueryService.getPendingForApprover(approverRole, userId),
-      PayrollRepository.findPeriodsByStatus(pendingPayrollStatus, 4),
-      getPendingPayrollCount(approverRole),
-      getSLAReport(),
-      getPendingRequestsWithSLA(),
-    ]);
+  const [
+    pendingRequests,
+    pendingPayrolls,
+    pendingPayrollCount,
+    slaReport,
+    slaPending,
+  ] = await Promise.all([
+    requestQueryService.getPendingForApprover(approverRole, userId),
+    PayrollRepository.findPeriodsByStatus(pendingPayrollStatus, 4),
+    getPendingPayrollCount(approverRole),
+    getSLAReport(),
+    getPendingRequestsWithSLA(),
+  ]);
 
   const slaInfoByRequest = new Map<
     number,
@@ -195,10 +200,11 @@ export const getApproverDashboard = async (userId: number, role: UserRole) => {
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
-  const approvedMonthCount = await DashboardRepository.countApprovedRequestsByMonth({
-    month,
-    year,
-  });
+  const approvedMonthCount =
+    await DashboardRepository.countApprovedRequestsByMonth({
+      month,
+      year,
+    });
 
   const payload = buildApproverDashboard({
     pendingRequests,

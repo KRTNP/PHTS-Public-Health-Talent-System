@@ -7,11 +7,11 @@
 
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { tokenBlacklist } from '@shared/services/tokenBlacklist.js';
-import Logger from '@shared/utils/logger.js';
-import { AppError } from '@shared/utils/errors.js';
-import { getJwtSecret } from '@config/jwt.js';
-import { extractAuthToken } from '@shared/utils/authToken.js';
+import { tokenBlacklist } from "@shared/services/tokenBlacklist.js";
+import Logger from "@shared/utils/logger.js";
+import { AppError } from "@shared/utils/errors.js";
+import { getJwtSecret } from "@config/jwt.js";
+import { extractAuthToken } from "@shared/utils/authToken.js";
 
 const log = Logger.create("TokenBlacklistMiddleware");
 
@@ -39,9 +39,7 @@ export const tokenBlacklistMiddleware = async (
       log.warn("Attempt to use blacklisted token", {
         requestId: (req as any).requestId,
       });
-      return next(
-        new AppError("Token has been revoked", 401, "TOKEN_REVOKED"),
-      );
+      return next(new AppError("Token has been revoked", 401, "TOKEN_REVOKED"));
     }
 
     // Extract user ID from token to check user-level blacklist
@@ -56,10 +54,9 @@ export const tokenBlacklistMiddleware = async (
         const allUserTokensBlacklisted =
           await tokenBlacklist.areAllUserTokensBlacklisted(userId);
         if (allUserTokensBlacklisted) {
-          log.warn(
-            `Attempt to use token for blacklisted user ${userId}`,
-            { requestId: (req as any).requestId },
-          );
+          log.warn(`Attempt to use token for blacklisted user ${userId}`, {
+            requestId: (req as any).requestId,
+          });
           return next(
             new AppError(
               "User account has been deactivated. Please contact administrator.",
@@ -85,13 +82,9 @@ export const tokenBlacklistMiddleware = async (
     next();
   } catch (error) {
     // On error, let request continue - Passport will handle auth
-    log.error(
-      "Error in token blacklist middleware",
-      error as Error,
-      {
-        requestId: (req as any).requestId,
-      },
-    );
+    log.error("Error in token blacklist middleware", error as Error, {
+      requestId: (req as any).requestId,
+    });
     next();
   }
 };

@@ -38,7 +38,9 @@ describe("snapshot controller", () => {
     const res: any = { json: jest.fn() };
     const next = jest.fn();
 
-    (snapshotService.getPeriodWithSnapshot as jest.Mock).mockResolvedValue(null);
+    (snapshotService.getPeriodWithSnapshot as jest.Mock).mockResolvedValue(
+      null,
+    );
 
     await getPeriodWithSnapshot(req, res, next);
     await new Promise((resolve) => setImmediate(resolve));

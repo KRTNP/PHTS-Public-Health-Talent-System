@@ -81,7 +81,7 @@ export interface UserProfile {
   license_name?: string | null;
   license_valid_from?: Date | string | null;
   license_valid_until?: Date | string | null;
-  license_status?: 'ACTIVE' | 'EXPIRED' | 'INACTIVE' | 'UNKNOWN' | null;
+  license_status?: "ACTIVE" | "EXPIRED" | "INACTIVE" | "UNKNOWN" | null;
 }
 
 /**

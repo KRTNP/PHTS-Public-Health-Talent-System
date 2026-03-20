@@ -85,9 +85,7 @@ export function validateFieldLengths(
 
   if (errors.length > 0) {
     const details = errors.map((e) => `  - ${e}`).join("\n");
-    throw new Error(
-      `Input validation failed:\n${details}`,
-    );
+    throw new Error(`Input validation failed:\n${details}`);
   }
 }
 
@@ -147,7 +145,12 @@ export function validateEmail(email: string): void {
   const local = hasSingleAt ? value.slice(0, atIndex) : "";
   const dotIndex = domain.indexOf(".");
   const hasValidDomainDot = dotIndex > 0 && dotIndex < domain.length - 1;
-  if (!hasSingleAt || !hasNoWhitespace || local.length === 0 || !hasValidDomainDot) {
+  if (
+    !hasSingleAt ||
+    !hasNoWhitespace ||
+    local.length === 0 ||
+    !hasValidDomainDot
+  ) {
     throw new Error("Invalid email format");
   }
 }

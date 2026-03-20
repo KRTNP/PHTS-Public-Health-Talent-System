@@ -5,13 +5,17 @@
  */
 
 import { RowDataPacket, PoolConnection } from "mysql2/promise";
-import db from '@config/database.js';
-import { User, EmployeeProfile, LicenseProfile } from '@/modules/auth/entities/auth.entity.js';
+import db from "@config/database.js";
+import {
+  User,
+  EmployeeProfile,
+  LicenseProfile,
+} from "@/modules/auth/entities/auth.entity.js";
 import {
   DB_HEAD_SCOPE_ROLE_SQL_LIST,
   DB_HEAD_SCOPE_ROLE_SQL_ORDER,
   toHeadScopeCategoryList,
-} from '@/shared/utils/head-scope-category.js';
+} from "@/shared/utils/head-scope-category.js";
 
 export class AuthRepository {
   // ── User queries ────────────────────────────────────────────────────────────
@@ -67,9 +71,10 @@ export class AuthRepository {
     conn?: PoolConnection,
   ): Promise<void> {
     const executor = conn ?? db;
-    await executor.execute("UPDATE users SET last_login_at = NOW() WHERE id = ?", [
-      userId,
-    ]);
+    await executor.execute(
+      "UPDATE users SET last_login_at = NOW() WHERE id = ?",
+      [userId],
+    );
   }
 
   // ── Employee profile queries ────────────────────────────────────────────────
@@ -159,7 +164,7 @@ export class AuthRepository {
     userId: number,
     citizenId: string,
     conn?: PoolConnection,
-  ): Promise<Array<'WARD_SCOPE' | 'DEPT_SCOPE'>> {
+  ): Promise<Array<"WARD_SCOPE" | "DEPT_SCOPE">> {
     const executor = conn ?? db;
     const [rows] = await executor.query<RowDataPacket[]>(
       `SELECT DISTINCT role
@@ -173,7 +178,7 @@ export class AuthRepository {
     return rows
       .map((row) => String(row.role))
       .map((role) => toHeadScopeCategoryList([role])[0])
-      .filter((role): role is 'WARD_SCOPE' | 'DEPT_SCOPE' => Boolean(role));
+      .filter((role): role is "WARD_SCOPE" | "DEPT_SCOPE" => Boolean(role));
   }
 
   // ── Password operations ─────────────────────────────────────────────────────
@@ -192,7 +197,12 @@ export class AuthRepository {
 
   static async updateEmployeeProfileByCitizenId(
     citizenId: string,
-    payload: { first_name: string; last_name: string; email: string | null; phone: string | null },
+    payload: {
+      first_name: string;
+      last_name: string;
+      email: string | null;
+      phone: string | null;
+    },
     conn?: PoolConnection,
   ): Promise<boolean> {
     const executor = conn ?? db;
@@ -200,9 +210,17 @@ export class AuthRepository {
       `UPDATE emp_profiles
        SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = NOW()
        WHERE citizen_id = ?`,
-      [payload.first_name, payload.last_name, payload.email, payload.phone, citizenId],
+      [
+        payload.first_name,
+        payload.last_name,
+        payload.email,
+        payload.phone,
+        citizenId,
+      ],
     );
-    const affectedRows = Number((result as { affectedRows?: number }).affectedRows ?? 0);
+    const affectedRows = Number(
+      (result as { affectedRows?: number }).affectedRows ?? 0,
+    );
     return affectedRows > 0;
   }
 

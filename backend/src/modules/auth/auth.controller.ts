@@ -13,21 +13,17 @@ import {
   AuthenticationError as HttpAuthenticationError,
   NotFoundError,
 } from "@shared/utils/errors.js";
-import {
-  LoginResponse,
-  ApiResponse,
-  UserProfile,
-} from '@/types/auth.js';
-import { extractRequestInfo } from '@/modules/audit/services/audit.service.js';
-import { LoginSchema } from '@/modules/auth/auth.schema.js';
-import type { UpdateProfileSchema } from '@/modules/auth/auth.schema.js';
+import { LoginResponse, ApiResponse, UserProfile } from "@/types/auth.js";
+import { extractRequestInfo } from "@/modules/audit/services/audit.service.js";
+import { LoginSchema } from "@/modules/auth/auth.schema.js";
+import type { UpdateProfileSchema } from "@/modules/auth/auth.schema.js";
 import {
   AuthService,
   AuthenticationError,
   AccountDisabledError,
   InvalidCitizenIdError,
-} from '@/modules/auth/services/auth.service.js';
-import { tokenBlacklist } from '@shared/services/tokenBlacklist.js';
+} from "@/modules/auth/services/auth.service.js";
+import { tokenBlacklist } from "@shared/services/tokenBlacklist.js";
 
 /**
  * Login Handler
@@ -94,62 +90,66 @@ export async function login(
  * @route GET /api/auth/me
  * @access Protected
  */
-export const getCurrentUser = asyncHandler(async (
-  req: Request,
-  res: Response<ApiResponse<UserProfile>>,
-): Promise<void> => {
-  if (!req.user) {
-    throw new HttpAuthenticationError("Not authenticated");
-  }
-
-  try {
-    const { userId } = req.user;
-    const userProfile = await AuthService.getUserProfile(userId);
-
-    res.status(200).json({
-      success: true,
-      data: userProfile,
-    });
-  } catch (error: any) {
-    if (error.message === "User not found") {
-      throw new NotFoundError("user");
-    }
-    throw error;
-  }
-});
-
-export const updateCurrentUser = asyncHandler(async (
-  req: Request<object, object, UpdateProfileSchema>,
-  res: Response<ApiResponse<UserProfile>>,
-): Promise<void> => {
-  if (!req.user) {
-    throw new HttpAuthenticationError("Not authenticated");
-  }
-
-  try {
-    const requestInfo = extractRequestInfo(req);
-    const userProfile = await AuthService.updateUserProfile(
-      req.user.userId,
-      req.body,
-      requestInfo,
-    );
-
-    res.status(200).json({
-      success: true,
-      data: userProfile,
-      message: "Profile updated successfully",
-    });
-  } catch (error: any) {
-    if (error.message === "User not found") {
-      throw new NotFoundError("user");
+export const getCurrentUser = asyncHandler(
+  async (
+    req: Request,
+    res: Response<ApiResponse<UserProfile>>,
+  ): Promise<void> => {
+    if (!req.user) {
+      throw new HttpAuthenticationError("Not authenticated");
     }
 
-    if (error.message === "Employee profile not found") {
-      throw new NotFoundError("employee profile");
+    try {
+      const { userId } = req.user;
+      const userProfile = await AuthService.getUserProfile(userId);
+
+      res.status(200).json({
+        success: true,
+        data: userProfile,
+      });
+    } catch (error: any) {
+      if (error.message === "User not found") {
+        throw new NotFoundError("user");
+      }
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);
+
+export const updateCurrentUser = asyncHandler(
+  async (
+    req: Request<object, object, UpdateProfileSchema>,
+    res: Response<ApiResponse<UserProfile>>,
+  ): Promise<void> => {
+    if (!req.user) {
+      throw new HttpAuthenticationError("Not authenticated");
+    }
+
+    try {
+      const requestInfo = extractRequestInfo(req);
+      const userProfile = await AuthService.updateUserProfile(
+        req.user.userId,
+        req.body,
+        requestInfo,
+      );
+
+      res.status(200).json({
+        success: true,
+        data: userProfile,
+        message: "Profile updated successfully",
+      });
+    } catch (error: any) {
+      if (error.message === "User not found") {
+        throw new NotFoundError("user");
+      }
+
+      if (error.message === "Employee profile not found") {
+        throw new NotFoundError("employee profile");
+      }
+      throw error;
+    }
+  },
+);
 
 /**
  * Logout Handler
@@ -160,30 +160,32 @@ export const updateCurrentUser = asyncHandler(async (
  * @route POST /api/auth/logout
  * @access Protected
  */
-export const logout = asyncHandler(async (
-  req: Request,
-  res: Response<ApiResponse>,
-): Promise<void> => {
-  const authHeader = req.headers.authorization;
-  const token =
-    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-      ? authHeader.slice("Bearer ".length)
-      : null;
+export const logout = asyncHandler(
+  async (req: Request, res: Response<ApiResponse>): Promise<void> => {
+    const authHeader = req.headers.authorization;
+    const token =
+      typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+        ? authHeader.slice("Bearer ".length)
+        : null;
 
-  if (token) {
-    const decoded = jwt.decode(token) as { exp?: number } | null;
-    const nowSec = Math.floor(Date.now() / 1000);
-    const expiresIn = Math.max(1, Number(decoded?.exp ?? nowSec + 60) - nowSec);
-    await tokenBlacklist.blacklistToken(token, expiresIn, "logout");
-  }
+    if (token) {
+      const decoded = jwt.decode(token) as { exp?: number } | null;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const expiresIn = Math.max(
+        1,
+        Number(decoded?.exp ?? nowSec + 60) - nowSec,
+      );
+      await tokenBlacklist.blacklistToken(token, expiresIn, "logout");
+    }
 
-  if (req.user) {
-    const requestInfo = extractRequestInfo(req);
-    await AuthService.logout(req.user.userId, req.user.role, requestInfo);
-  }
+    if (req.user) {
+      const requestInfo = extractRequestInfo(req);
+      await AuthService.logout(req.user.userId, req.user.role, requestInfo);
+    }
 
-  res.status(200).json({
-    success: true,
-    message: "Logged out successfully",
-  });
-});
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  },
+);

@@ -11,7 +11,10 @@ jest.mock("@/modules/access-review/services/access-review.service.js", () => ({
 }));
 
 import * as accessReviewService from "@/modules/access-review/services/access-review.service.js";
-import { getCycle, updateItem } from "@/modules/access-review/access-review.controller.js";
+import {
+  getCycle,
+  updateItem,
+} from "@/modules/access-review/access-review.controller.js";
 
 describe("access-review controller", () => {
   test("getCycle forwards NotFoundError when cycle does not exist", async () => {

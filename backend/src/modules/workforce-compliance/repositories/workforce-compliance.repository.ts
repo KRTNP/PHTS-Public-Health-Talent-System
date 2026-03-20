@@ -1,7 +1,7 @@
 import { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import db from '@config/database.js';
-import type { PersonnelMovementRecord } from '@/modules/workforce-compliance/entities/workforce-compliance.entity.js';
-import { MOVEMENT_RETURN_TYPES } from '@/modules/workforce-compliance/constants/workforce-compliance-policy.js';
+import db from "@config/database.js";
+import type { PersonnelMovementRecord } from "@/modules/workforce-compliance/entities/workforce-compliance.entity.js";
+import { MOVEMENT_RETURN_TYPES } from "@/modules/workforce-compliance/constants/workforce-compliance-policy.js";
 
 const MOVEMENT_PROFILE_JOIN_CONDITION =
   "e.citizen_id COLLATE utf8mb4_unicode_ci = m.citizen_id COLLATE utf8mb4_unicode_ci";
@@ -127,8 +127,7 @@ export class WorkforceComplianceRepository {
        WHERE citizen_id = ?
          AND is_active = 1
          AND effective_date <= ?
-         AND (expiry_date IS NULL OR expiry_date > ?)`
-      ,
+         AND (expiry_date IS NULL OR expiry_date > ?)`,
       [expiryDate, citizenId, expiryDate, expiryDate],
     );
     return result.affectedRows;
@@ -166,7 +165,9 @@ export class WorkforceComplianceRepository {
     conn?: PoolConnection,
   ): Promise<MovementOutRow[]> {
     const executor = conn ?? db;
-    const returnTypePlaceholders = MOVEMENT_RETURN_TYPES.map(() => "?").join(",");
+    const returnTypePlaceholders = MOVEMENT_RETURN_TYPES.map(() => "?").join(
+      ",",
+    );
     const [rows] = await executor.query<RowDataPacket[]>(
       `SELECT m.citizen_id, m.movement_type, m.effective_date
        FROM emp_movements m
@@ -192,7 +193,9 @@ export class WorkforceComplianceRepository {
     const executor = conn ?? db;
     if (!leaveTypes.length) return [];
     const placeholders = leaveTypes.map(() => "?").join(",");
-    const returnTypePlaceholders = MOVEMENT_RETURN_TYPES.map(() => "?").join(",");
+    const returnTypePlaceholders = MOVEMENT_RETURN_TYPES.map(() => "?").join(
+      ",",
+    );
     const [rows] = await executor.query<RowDataPacket[]>(
       `SELECT lr.id as leave_record_id,
               lr.citizen_id,

@@ -1,11 +1,11 @@
 import type { PoolConnection } from "mysql2/promise";
-import db from '@config/database.js';
-import { clearScopeCache } from '@/modules/request/scope/application/scope.service.js';
+import db from "@config/database.js";
+import { clearScopeCache } from "@/modules/request/scope/application/scope.service.js";
 import {
   IdentityRolePolicyRepository,
   type IdentityHrUserRow as HrUserRow,
-} from '@/modules/identity/repositories/identity-role-policy.repository.js';
-import { UserRole } from '@/types/auth.js';
+} from "@/modules/identity/repositories/identity-role-policy.repository.js";
+import { UserRole } from "@/types/auth.js";
 
 const ALL_SYSTEM_ROLES = Object.freeze([
   UserRole.USER,
@@ -18,9 +18,7 @@ const ALL_SYSTEM_ROLES = Object.freeze([
   UserRole.ADMIN,
 ] as const);
 
-const HR_MANAGED_ROLES = new Set<string>([
-  UserRole.HEAD_SCOPE,
-]);
+const HR_MANAGED_ROLES = new Set<string>([UserRole.HEAD_SCOPE]);
 
 const MANUAL_ASSIGNABLE_ROLES = new Set<string>([
   UserRole.USER,
@@ -32,10 +30,7 @@ const MANUAL_ASSIGNABLE_ROLES = new Set<string>([
   UserRole.ADMIN,
 ]);
 
-const PROTECTED_ROLES = new Set<string>([
-  UserRole.ADMIN,
-  UserRole.PTS_OFFICER,
-]);
+const PROTECTED_ROLES = new Set<string>([UserRole.ADMIN, UserRole.PTS_OFFICER]);
 
 const AUTO_ASSIGNABLE_ROLES = HR_MANAGED_ROLES;
 const ASSISTANT_TOKENS = [
@@ -143,12 +138,11 @@ export async function assignRoles(
 
       const derivedRole = deriveRole(hrRow);
       const nextRole =
-        (derivedRole === UserRole.WARD_SCOPE || derivedRole === UserRole.DEPT_SCOPE)
-          ? (
-              scopedHeadRoleSet.has(`${user.citizen_id}|${derivedRole}`)
-                ? UserRole.HEAD_SCOPE
-                : UserRole.USER
-            )
+        derivedRole === UserRole.WARD_SCOPE ||
+        derivedRole === UserRole.DEPT_SCOPE
+          ? scopedHeadRoleSet.has(`${user.citizen_id}|${derivedRole}`)
+            ? UserRole.HEAD_SCOPE
+            : UserRole.USER
           : derivedRole;
       if (
         nextRole === UserRole.USER &&

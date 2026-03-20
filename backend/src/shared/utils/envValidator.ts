@@ -59,10 +59,8 @@ const ENV_CONFIG: EnvConfig = {
   NODE_ENV: {
     required: false,
     defaultValue: "development",
-    validator: (val) =>
-      ["development", "production", "test"].includes(val),
-    errorMessage:
-      "NODE_ENV must be one of: development, production, test",
+    validator: (val) => ["development", "production", "test"].includes(val),
+    errorMessage: "NODE_ENV must be one of: development, production, test",
   },
 
   // Frontend URL (optional, but good to validate format if provided)
@@ -70,19 +68,16 @@ const ENV_CONFIG: EnvConfig = {
     required: false,
     validator: (val) => {
       if (!val) return true;
-      return val
-        .split(",")
-        .every((url) => {
-          try {
-            new URL(url.trim());
-            return true;
-          } catch {
-            return false;
-          }
-        });
+      return val.split(",").every((url) => {
+        try {
+          new URL(url.trim());
+          return true;
+        } catch {
+          return false;
+        }
+      });
     },
-    errorMessage:
-      "FRONTEND_URL must be a valid comma-separated list of URLs",
+    errorMessage: "FRONTEND_URL must be a valid comma-separated list of URLs",
   },
 
   // Redis Configuration (optional)
@@ -116,8 +111,7 @@ const ENV_CONFIG: EnvConfig = {
     required: false,
     defaultValue: "900000", // 15 minutes
     validator: (val) => /^\d+$/.test(val),
-    errorMessage:
-      "AUTH_RATE_LIMIT_WINDOW_MS must be a number in milliseconds",
+    errorMessage: "AUTH_RATE_LIMIT_WINDOW_MS must be a number in milliseconds",
   },
   AUTH_RATE_LIMIT_MAX: {
     required: false,
@@ -140,8 +134,7 @@ export function validateEnvironment(): void {
     // Check if required variable is missing
     if (!value && config.required) {
       errors.push(
-        config.errorMessage ||
-          `${key} environment variable is required`,
+        config.errorMessage || `${key} environment variable is required`,
       );
       continue;
     }
@@ -154,8 +147,7 @@ export function validateEnvironment(): void {
     // Validate value format if validator provided
     if (value && config.validator && !config.validator(value)) {
       errors.push(
-        config.errorMessage ||
-          `${key} has an invalid value: ${value}`,
+        config.errorMessage || `${key} has an invalid value: ${value}`,
       );
     }
   }
@@ -176,10 +168,7 @@ export function validateEnvironment(): void {
  * Get environment variable with optional default
  * Ensures variable is validated and returns proper type
  */
-export function getEnvVariable(
-  key: string,
-  defaultValue?: string,
-): string {
+export function getEnvVariable(key: string, defaultValue?: string): string {
   const value = process.env[key] || defaultValue;
   if (!value) {
     throw new Error(
@@ -192,12 +181,10 @@ export function getEnvVariable(
 /**
  * Get environment variable as a number
  */
-export function getEnvNumber(
-  key: string,
-  defaultValue?: number,
-): number {
+export function getEnvNumber(key: string, defaultValue?: number): number {
   const value =
-    process.env[key] || (defaultValue !== undefined ? defaultValue.toString() : undefined);
+    process.env[key] ||
+    (defaultValue !== undefined ? defaultValue.toString() : undefined);
   if (!value) {
     throw new Error(
       `Environment variable ${key} is not set and no default value provided`,
@@ -215,10 +202,7 @@ export function getEnvNumber(
 /**
  * Get environment variable as a boolean
  */
-export function getEnvBoolean(
-  key: string,
-  defaultValue = false,
-): boolean {
+export function getEnvBoolean(key: string, defaultValue = false): boolean {
   const value = process.env[key];
   if (!value) return defaultValue;
   return ["true", "1", "yes", "on"].includes(value.toLowerCase());

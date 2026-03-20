@@ -1,4 +1,4 @@
-import { resetAuthSchema, getTestConnection } from '@/test/test-db.js';
+import { resetAuthSchema, getTestConnection } from "@/test/test-db.js";
 
 jest.setTimeout(30000);
 
@@ -8,7 +8,8 @@ describe("AuthRepository (integration)", () => {
   beforeAll(async () => {
     process.env.NODE_ENV = "test";
     jest.resetModules();
-    ({ AuthRepository } = await import("../../repositories/auth.repository.js"));
+    ({ AuthRepository } =
+      await import("../../repositories/auth.repository.js"));
     await resetAuthSchema();
   });
 
@@ -53,8 +54,7 @@ describe("AuthRepository (integration)", () => {
     expect(profile?.first_name).toBe("A");
     expect(profile?.position).toBe("Doctor");
 
-    const fallback =
-      await AuthRepository.findEmployeeProfileByCitizenId("333");
+    const fallback = await AuthRepository.findEmployeeProfileByCitizenId("333");
     expect(fallback?.position).toBe("Support");
   });
 });

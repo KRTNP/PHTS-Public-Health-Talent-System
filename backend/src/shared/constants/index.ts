@@ -17,7 +17,8 @@ export const RequestStatus = {
   RETURNED: "RETURNED",
 } as const;
 
-export type RequestStatusType = typeof RequestStatus[keyof typeof RequestStatus];
+export type RequestStatusType =
+  (typeof RequestStatus)[keyof typeof RequestStatus];
 
 // ============================================================================
 // Approval Workflow
@@ -67,7 +68,7 @@ export const UserRole = {
   ADMIN: "ADMIN",
 } as const;
 
-export type UserRoleType = typeof UserRole[keyof typeof UserRole];
+export type UserRoleType = (typeof UserRole)[keyof typeof UserRole];
 
 // ============================================================================
 // Notification Status
@@ -232,9 +233,9 @@ export const Messages = {
 // ============================================================================
 
 export const TimeoutMs = {
-  SHORT: 5000,      // 5 seconds
-  MEDIUM: 30000,    // 30 seconds
-  LONG: 60000,      // 1 minute
+  SHORT: 5000, // 5 seconds
+  MEDIUM: 30000, // 30 seconds
+  LONG: 60000, // 1 minute
   VERY_LONG: 300000, // 5 minutes
 } as const;
 

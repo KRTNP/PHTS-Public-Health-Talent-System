@@ -8,7 +8,9 @@ let workerPromise: Promise<void> | null = null;
 let wakeWorker: (() => void) | null = null;
 
 const getPollMs = (): number => {
-  const fromEnv = Number(process.env.SNAPSHOT_WORKER_POLL_MS ?? DEFAULT_POLL_MS);
+  const fromEnv = Number(
+    process.env.SNAPSHOT_WORKER_POLL_MS ?? DEFAULT_POLL_MS,
+  );
   if (!Number.isFinite(fromEnv) || fromEnv < 250) return DEFAULT_POLL_MS;
   return Math.floor(fromEnv);
 };
@@ -59,7 +61,9 @@ const workerLoop = async (): Promise<void> => {
 
 export const startSnapshotWorker = (): void => {
   if (process.env.SNAPSHOT_WORKER_ENABLED === "false") {
-    console.log("[SnapshotQueue] worker disabled by SNAPSHOT_WORKER_ENABLED=false");
+    console.log(
+      "[SnapshotQueue] worker disabled by SNAPSHOT_WORKER_ENABLED=false",
+    );
     return;
   }
   if (workerRunning) return;

@@ -1,4 +1,4 @@
-import { signatureRepository } from '@/modules/signature/repositories/signature.repository.js';
+import { signatureRepository } from "@/modules/signature/repositories/signature.repository.js";
 
 export const getSignatureBase64 = async (citizenId: string) => {
   const signature = await signatureRepository.findByCitizenId(citizenId);

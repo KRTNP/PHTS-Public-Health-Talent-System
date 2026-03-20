@@ -1,4 +1,8 @@
-export type NotificationOutboxStatus = "PENDING" | "PROCESSING" | "SENT" | "FAILED";
+export type NotificationOutboxStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "SENT"
+  | "FAILED";
 
 export type NotificationOutboxPayload = {
   kind: "USER" | "ROLE";

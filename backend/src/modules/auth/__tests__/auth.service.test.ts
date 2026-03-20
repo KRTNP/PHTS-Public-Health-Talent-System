@@ -67,9 +67,15 @@ describe("AuthService.login token expiry", () => {
       is_active: true,
       last_login_at: null,
     });
-    (AuthRepository.findEmployeeProfileByCitizenId as jest.Mock).mockResolvedValue(null);
-    (AuthRepository.findLatestLicenseByCitizenId as jest.Mock).mockResolvedValue(null);
-    (AuthRepository.findHeadScopeRolesByUser as jest.Mock).mockResolvedValue([]);
+    (
+      AuthRepository.findEmployeeProfileByCitizenId as jest.Mock
+    ).mockResolvedValue(null);
+    (
+      AuthRepository.findLatestLicenseByCitizenId as jest.Mock
+    ).mockResolvedValue(null);
+    (AuthRepository.findHeadScopeRolesByUser as jest.Mock).mockResolvedValue(
+      [],
+    );
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
     (jwt.sign as jest.Mock).mockReturnValue("signed-token");
   });
@@ -87,7 +93,9 @@ describe("AuthService.login token expiry", () => {
       { expiresIn: "7d" },
     );
 
-    const twoArgCall = (jwt.sign as jest.Mock).mock.calls.find((call) => call.length === 2);
+    const twoArgCall = (jwt.sign as jest.Mock).mock.calls.find(
+      (call) => call.length === 2,
+    );
     expect(twoArgCall).toBeUndefined();
   });
 });

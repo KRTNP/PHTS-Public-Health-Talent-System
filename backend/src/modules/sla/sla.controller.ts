@@ -7,9 +7,9 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "@middlewares/errorHandler.js";
 import { ValidationError } from "@shared/utils/errors.js";
-import { ApiResponse } from '@/types/auth.js';
-import * as slaService from '@/modules/sla/services/sla.service.js';
-import { formatDateOnly } from '@/shared/utils/date-only.js';
+import { ApiResponse } from "@/types/auth.js";
+import * as slaService from "@/modules/sla/services/sla.service.js";
+import { formatDateOnly } from "@/shared/utils/date-only.js";
 
 /**
  * Get all SLA configurations
@@ -204,7 +204,11 @@ export const getSLAKpiOverviewHandler = asyncHandler(getSLAKpiOverview);
 export const getSLAKpiByStepHandler = asyncHandler(getSLAKpiByStep);
 export const getSLAKpiBacklogAgingHandler = asyncHandler(getSLAKpiBacklogAging);
 export const getSLAKpiDataQualityHandler = asyncHandler(getSLAKpiDataQuality);
-export const getSLAKpiErrorOverviewHandler = asyncHandler(getSLAKpiErrorOverview);
-export const getPendingRequestsWithSLAHandler = asyncHandler(getPendingRequestsWithSLA);
+export const getSLAKpiErrorOverviewHandler = asyncHandler(
+  getSLAKpiErrorOverview,
+);
+export const getPendingRequestsWithSLAHandler = asyncHandler(
+  getPendingRequestsWithSLA,
+);
 export const sendRemindersHandler = asyncHandler(sendReminders);
 export const calculateBusinessDaysHandler = asyncHandler(calculateBusinessDays);

@@ -2,56 +2,58 @@
  * Backup Service Tests
  */
 
-jest.mock('@/modules/backup/repositories/backup.repository.js', () => ({
+jest.mock("@/modules/backup/repositories/backup.repository.js", () => ({
   BackupRepository: {
     createBackupJob: jest.fn().mockResolvedValue(99),
     finishBackupJob: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
-jest.mock('@config/redis.js', () => ({
+jest.mock("@config/redis.js", () => ({
   __esModule: true,
   default: {
-    set: jest.fn().mockResolvedValue('OK'),
-    get: jest.fn().mockResolvedValue(''),
+    set: jest.fn().mockResolvedValue("OK"),
+    get: jest.fn().mockResolvedValue(""),
     del: jest.fn().mockResolvedValue(1),
   },
 }));
 
-jest.mock('node:child_process', () => ({
+jest.mock("node:child_process", () => ({
   execFile: jest.fn((cmd, args, opts, cb) =>
-    cb(null, { stdout: 'Backup written to /tmp/phts.sql.gz', stderr: '' }),
+    cb(null, { stdout: "Backup written to /tmp/phts.sql.gz", stderr: "" }),
   ),
 }));
 
-jest.mock('node:fs', () => ({
+jest.mock("node:fs", () => ({
   __esModule: true,
   default: {
     existsSync: jest.fn().mockReturnValue(false),
   },
 }));
 
-jest.mock('node:fs/promises', () => ({
+jest.mock("node:fs/promises", () => ({
   stat: jest.fn().mockResolvedValue({ size: 1024 }),
 }));
 
-describe('Backup Service Configuration', () => {
+describe("Backup Service Configuration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('validates backup service can be imported', async () => {
-    const { runBackupJob } = await import('@/modules/backup/services/backup.service.js');
+  it("validates backup service can be imported", async () => {
+    const { runBackupJob } =
+      await import("@/modules/backup/services/backup.service.js");
     expect(runBackupJob).toBeDefined();
-    expect(typeof runBackupJob).toBe('function');
+    expect(typeof runBackupJob).toBe("function");
   });
 
-  it('returns disabled when BACKUP_ENABLED is not set', async () => {
+  it("returns disabled when BACKUP_ENABLED is not set", async () => {
     const originalEnv = process.env.BACKUP_ENABLED;
     delete process.env.BACKUP_ENABLED;
 
     jest.resetModules();
-    const { runBackupJob } = await import('@/modules/backup/services/backup.service.js');
+    const { runBackupJob } =
+      await import("@/modules/backup/services/backup.service.js");
     const result = await runBackupJob();
 
     expect(result.enabled).toBe(false);
@@ -62,19 +64,20 @@ describe('Backup Service Configuration', () => {
     }
   });
 
-  it('returns jobId when backup runs successfully', async () => {
+  it("returns jobId when backup runs successfully", async () => {
     const oldEnabled = process.env.BACKUP_ENABLED;
     const oldCmd = process.env.BACKUP_COMMAND;
     const oldArgs = process.env.BACKUP_ARGS;
     const oldWorkdir = process.env.BACKUP_WORKDIR;
 
-    process.env.BACKUP_ENABLED = 'true';
-    process.env.BACKUP_COMMAND = '/usr/bin/true';
-    process.env.BACKUP_ARGS = '[]';
-    process.env.BACKUP_WORKDIR = '/tmp';
+    process.env.BACKUP_ENABLED = "true";
+    process.env.BACKUP_COMMAND = "/usr/bin/true";
+    process.env.BACKUP_ARGS = "[]";
+    process.env.BACKUP_WORKDIR = "/tmp";
 
     jest.resetModules();
-    const { runBackupJob } = await import('@/modules/backup/services/backup.service.js');
+    const { runBackupJob } =
+      await import("@/modules/backup/services/backup.service.js");
     const result = await runBackupJob();
 
     expect(result.enabled).toBe(true);
@@ -90,60 +93,66 @@ describe('Backup Service Configuration', () => {
     else delete process.env.BACKUP_WORKDIR;
   });
 
-  it('uses default schedule (02:00) when no config is set', async () => {
-    const redis = (await import('@config/redis.js')).default as unknown as {
+  it("uses default schedule (02:00) when no config is set", async () => {
+    const redis = (await import("@config/redis.js")).default as unknown as {
       get: jest.Mock;
     };
     redis.get.mockResolvedValueOnce(null);
 
     jest.resetModules();
-    const { getBackupScheduleConfig } = await import('@/modules/backup/services/backup.service.js');
+    const { getBackupScheduleConfig } =
+      await import("@/modules/backup/services/backup.service.js");
     const schedule = await getBackupScheduleConfig();
 
     expect(schedule.hour).toBe(2);
     expect(schedule.minute).toBe(0);
   });
 
-  it('persists schedule and returns normalized values', async () => {
+  it("persists schedule and returns normalized values", async () => {
     jest.resetModules();
-    const { setBackupScheduleConfig } = await import('@/modules/backup/services/backup.service.js');
+    const { setBackupScheduleConfig } =
+      await import("@/modules/backup/services/backup.service.js");
     const schedule = await setBackupScheduleConfig({ hour: 3, minute: 15 });
 
     expect(schedule.hour).toBe(3);
     expect(schedule.minute).toBe(15);
   });
 
-  it('normalizes backup.ps1 path for powershell command', async () => {
+  it("normalizes backup.ps1 path for powershell command", async () => {
     const oldEnabled = process.env.BACKUP_ENABLED;
     const oldCmd = process.env.BACKUP_COMMAND;
     const oldArgs = process.env.BACKUP_ARGS;
     const oldWorkdir = process.env.BACKUP_WORKDIR;
-    process.env.BACKUP_ENABLED = 'true';
-    process.env.BACKUP_COMMAND = '/windows/System32/WindowsPowerShell/v1.0/powershell.exe';
+    process.env.BACKUP_ENABLED = "true";
+    process.env.BACKUP_COMMAND =
+      "/windows/System32/WindowsPowerShell/v1.0/powershell.exe";
     process.env.BACKUP_ARGS = JSON.stringify([
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      'src/scripts/ops/backup/backup.ps1',
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "src/scripts/ops/backup/backup.ps1",
     ]);
-    process.env.BACKUP_WORKDIR = '/app/backend';
+    process.env.BACKUP_WORKDIR = "/app/backend";
 
     jest.resetModules();
-    const fsModule = (await import('node:fs')).default as unknown as {
+    const fsModule = (await import("node:fs")).default as unknown as {
       existsSync: jest.Mock;
     };
     fsModule.existsSync.mockImplementation((candidate: string) =>
-      candidate.endsWith('/src/scripts/ops/backup/backup.ps1'),
+      candidate.endsWith("/src/scripts/ops/backup/backup.ps1"),
     );
-    const { runBackupJob } = await import('@/modules/backup/services/backup.service.js');
+    const { runBackupJob } =
+      await import("@/modules/backup/services/backup.service.js");
     await runBackupJob();
 
-    const childProcess = await import('node:child_process');
+    const childProcess = await import("node:child_process");
     const execFileMock = childProcess.execFile as unknown as jest.Mock;
     const execArgs = execFileMock.mock.calls[0]?.[1] as string[];
-    expect(execArgs).toContain('/app/backend/src/scripts/ops/backup/backup.ps1');
-    expect(execArgs).not.toContain('src/scripts/ops/backup/backup.ps1');
+    expect(execArgs).toContain(
+      "/app/backend/src/scripts/ops/backup/backup.ps1",
+    );
+    expect(execArgs).not.toContain("src/scripts/ops/backup/backup.ps1");
 
     if (oldEnabled !== undefined) process.env.BACKUP_ENABLED = oldEnabled;
     else delete process.env.BACKUP_ENABLED;

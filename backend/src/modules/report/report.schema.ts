@@ -22,5 +22,9 @@ export const downloadSummaryReportSchema = z.object({
   query: reportQuery.omit({ profession: true, groupNo: true }),
 });
 
-export type DownloadDetailReportQuery = z.infer<typeof downloadDetailReportSchema>["query"];
-export type DownloadSummaryReportQuery = z.infer<typeof downloadSummaryReportSchema>["query"];
+export type DownloadDetailReportQuery = z.infer<
+  typeof downloadDetailReportSchema
+>["query"];
+export type DownloadSummaryReportQuery = z.infer<
+  typeof downloadSummaryReportSchema
+>["query"];

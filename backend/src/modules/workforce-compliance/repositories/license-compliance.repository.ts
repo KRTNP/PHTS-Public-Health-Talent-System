@@ -5,14 +5,14 @@
  */
 
 import { RowDataPacket, PoolConnection } from "mysql2/promise";
-import db from '@config/database.js';
+import db from "@config/database.js";
 import {
   AlertBucket,
   LicenseComplianceRow,
   LicenseComplianceSummary,
   LicenseExpiryRow,
-} from '@/modules/workforce-compliance/entities/license-compliance.entity.js';
-import { positionProfessionCaseSql } from '@/modules/workforce-compliance/constants/profession.constants.js';
+} from "@/modules/workforce-compliance/entities/license-compliance.entity.js";
+import { positionProfessionCaseSql } from "@/modules/workforce-compliance/constants/profession.constants.js";
 
 // SQL fragments for license compliance queries
 const bucketCaseSql = `
@@ -85,7 +85,10 @@ export class LicenseComplianceRepository {
     `;
 
     const params = [
-      asOf, asOf, asOf, asOf, // bucketCase
+      asOf,
+      asOf,
+      asOf,
+      asOf, // bucketCase
     ];
 
     const [rows] = await executor.query<RowDataPacket[]>(sql, params);
@@ -131,8 +134,14 @@ export class LicenseComplianceRepository {
 
     const params = [
       asOf,
-      asOf, asOf, asOf, asOf, // first bucketCase
-      asOf, asOf, asOf, asOf, // where bucketCase
+      asOf,
+      asOf,
+      asOf,
+      asOf, // first bucketCase
+      asOf,
+      asOf,
+      asOf,
+      asOf, // where bucketCase
       bucket,
     ];
 
@@ -167,9 +176,7 @@ export class LicenseComplianceRepository {
       ORDER BY citizen_id ASC
     `;
 
-    const params = [
-      asOf,
-    ];
+    const params = [asOf];
 
     const [rows] = await executor.query<RowDataPacket[]>(sql, params);
 
@@ -177,7 +184,9 @@ export class LicenseComplianceRepository {
       citizen_id: row.citizen_id,
       full_name: row.full_name?.trim() ? row.full_name.trim() : row.citizen_id,
       position_name: row.position_name,
-      effective_expiry: row.effective_expiry ? String(row.effective_expiry) : null,
+      effective_expiry: row.effective_expiry
+        ? String(row.effective_expiry)
+        : null,
       days_left: row.days_left !== null ? Number(row.days_left) : null,
     }));
   }

@@ -1,6 +1,10 @@
 export const OPS_JOB_TIMEZONE = process.env.OPS_JOB_TIMEZONE || "Asia/Bangkok";
 
-export const MOVEMENT_RETURN_TYPES = ["ENTRY", "TRANSFER_IN", "REINSTATE"] as const;
+export const MOVEMENT_RETURN_TYPES = [
+  "ENTRY",
+  "TRANSFER_IN",
+  "REINSTATE",
+] as const;
 
 export const LEAVE_REPORT_POLICY = {
   ordain: {

@@ -1,20 +1,20 @@
 import { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import db from '@config/database.js';
+import db from "@config/database.js";
 import type {
   NotificationOutboxPayload,
   NotificationOutboxRecord,
   NotificationOutboxStatus,
-} from '@/modules/notification/entities/notification-outbox.entity.js';
+} from "@/modules/notification/entities/notification-outbox.entity.js";
 
 export class NotificationOutboxRepository {
   private static parsePayload(raw: unknown): NotificationOutboxPayload {
-    if (typeof raw === 'string') {
+    if (typeof raw === "string") {
       return JSON.parse(raw) as NotificationOutboxPayload;
     }
-    if (raw && typeof raw === 'object') {
+    if (raw && typeof raw === "object") {
       return raw as NotificationOutboxPayload;
     }
-    throw new Error('Invalid outbox payload');
+    throw new Error("Invalid outbox payload");
   }
 
   static async enqueue(
@@ -71,10 +71,7 @@ export class NotificationOutboxRepository {
     );
   }
 
-  static async markSent(
-    outboxId: number,
-    conn: PoolConnection,
-  ): Promise<void> {
+  static async markSent(outboxId: number, conn: PoolConnection): Promise<void> {
     await conn.execute(
       `UPDATE ntf_outbox
        SET status = 'SENT', processed_at = NOW()
@@ -93,7 +90,10 @@ export class NotificationOutboxRepository {
   ): Promise<void> {
     const safeMaxAttempts = Math.max(1, Math.floor(maxAttempts));
     const safeRetryBaseSeconds = Math.max(1, Math.floor(retryBaseSeconds));
-    const safeRetryMaxSeconds = Math.max(safeRetryBaseSeconds, Math.floor(retryMaxSeconds));
+    const safeRetryMaxSeconds = Math.max(
+      safeRetryBaseSeconds,
+      Math.floor(retryMaxSeconds),
+    );
     await conn.execute(
       `UPDATE ntf_outbox
        SET status = 'FAILED',
@@ -124,10 +124,16 @@ export class NotificationOutboxRepository {
     retryMaxSeconds: number,
     conn: PoolConnection,
   ): Promise<number> {
-    const safeTimeoutSeconds = Math.max(10, Math.floor(processingTimeoutSeconds));
+    const safeTimeoutSeconds = Math.max(
+      10,
+      Math.floor(processingTimeoutSeconds),
+    );
     const safeMaxAttempts = Math.max(1, Math.floor(maxAttempts));
     const safeRetryBaseSeconds = Math.max(1, Math.floor(retryBaseSeconds));
-    const safeRetryMaxSeconds = Math.max(safeRetryBaseSeconds, Math.floor(retryMaxSeconds));
+    const safeRetryMaxSeconds = Math.max(
+      safeRetryBaseSeconds,
+      Math.floor(retryMaxSeconds),
+    );
     const [result] = await conn.execute<ResultSetHeader>(
       `UPDATE ntf_outbox
        SET status = 'FAILED',
@@ -164,9 +170,17 @@ export class NotificationOutboxRepository {
     limit: number;
     status?: "PENDING" | "PROCESSING" | "FAILED" | "SENT" | "DEAD_LETTER";
     maxAttempts: number;
-  }): Promise<{ rows: NotificationOutboxRecord[]; total: number; page: number; limit: number }> {
+  }): Promise<{
+    rows: NotificationOutboxRecord[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const safePage = Math.max(1, Math.floor(params.page || 1));
-    const safeLimit = Math.max(1, Math.min(Math.floor(params.limit || 10), 100));
+    const safeLimit = Math.max(
+      1,
+      Math.min(Math.floor(params.limit || 10), 100),
+    );
     const safeOffset = (safePage - 1) * safeLimit;
     const safeMaxAttempts = Math.max(1, Math.floor(params.maxAttempts));
 

@@ -1,8 +1,5 @@
-import { NotificationRepository } from '@/modules/notification/repositories/notification.repository.js';
-import {
-  resetNotificationSchema,
-  getTestConnection,
-} from '@/test/test-db.js';
+import { NotificationRepository } from "@/modules/notification/repositories/notification.repository.js";
+import { resetNotificationSchema, getTestConnection } from "@/test/test-db.js";
 
 jest.setTimeout(30000);
 
@@ -24,9 +21,8 @@ describe("NotificationRepository (integration)", () => {
       await conn.end();
     }
 
-    const userIds = await NotificationRepository.findUserIdsByRole(
-      "PTS_OFFICER",
-    );
+    const userIds =
+      await NotificationRepository.findUserIdsByRole("PTS_OFFICER");
     expect(userIds.length).toBe(1);
     const userId = userIds[0];
 
@@ -156,10 +152,15 @@ describe("NotificationRepository (integration)", () => {
       email: false,
     });
 
-    expect(await NotificationRepository.isInAppEnabled(userEnabledId)).toBe(true);
-    expect(await NotificationRepository.isInAppEnabled(userDisabledId)).toBe(false);
+    expect(await NotificationRepository.isInAppEnabled(userEnabledId)).toBe(
+      true,
+    );
+    expect(await NotificationRepository.isInAppEnabled(userDisabledId)).toBe(
+      false,
+    );
 
-    const recipients = await NotificationRepository.findUserIdsByRoleForInApp("PTS_OFFICER");
+    const recipients =
+      await NotificationRepository.findUserIdsByRoleForInApp("PTS_OFFICER");
     expect(recipients).toContain(userEnabledId);
     expect(recipients).not.toContain(userDisabledId);
   });

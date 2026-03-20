@@ -1,6 +1,6 @@
-import { NotificationService } from '@/modules/notification/services/notification.service.js';
-import { getLicenseComplianceSummary } from '@/modules/workforce-compliance/services/license-compliance.service.js';
-import { WorkforceComplianceRepository } from '@/modules/workforce-compliance/repositories/workforce-compliance.repository.js';
+import { NotificationService } from "@/modules/notification/services/notification.service.js";
+import { getLicenseComplianceSummary } from "@/modules/workforce-compliance/services/license-compliance.service.js";
+import { WorkforceComplianceRepository } from "@/modules/workforce-compliance/repositories/workforce-compliance.repository.js";
 
 type DigestResult = {
   sent: number;

@@ -7,11 +7,14 @@
  */
 
 import { Router } from "express";
-import * as authController from '@/modules/auth/auth.controller.js';
-import { protect } from '@middlewares/authMiddleware.js';
-import { authRateLimiter } from '@middlewares/rateLimiter.js';
-import { validate } from '@shared/validate.middleware.js';
-import { loginSchema, updateProfileSchema } from '@/modules/auth/auth.schema.js';
+import * as authController from "@/modules/auth/auth.controller.js";
+import { protect } from "@middlewares/authMiddleware.js";
+import { authRateLimiter } from "@middlewares/rateLimiter.js";
+import { validate } from "@shared/validate.middleware.js";
+import {
+  loginSchema,
+  updateProfileSchema,
+} from "@/modules/auth/auth.schema.js";
 
 const router = Router();
 
@@ -22,7 +25,12 @@ const router = Router();
  * @body    { citizen_id: string, password: string }
  * @returns { success: boolean, token: string, user: UserProfile }
  */
-router.post("/login", authRateLimiter, validate(loginSchema), authController.login);
+router.post(
+  "/login",
+  authRateLimiter,
+  validate(loginSchema),
+  authController.login,
+);
 
 /**
  * @route   GET /api/auth/me
@@ -37,7 +45,12 @@ router.get("/me", protect, authController.getCurrentUser);
  * @desc    Update current authenticated user's profile fields
  * @access  Protected
  */
-router.patch("/me", protect, validate(updateProfileSchema), authController.updateCurrentUser);
+router.patch(
+  "/me",
+  protect,
+  validate(updateProfileSchema),
+  authController.updateCurrentUser,
+);
 
 /**
  * @route   POST /api/auth/logout

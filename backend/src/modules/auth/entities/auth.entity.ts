@@ -4,7 +4,7 @@
  * TypeScript interfaces matching auth-related DB tables
  */
 
-import { UserRole } from '@/types/auth.js';
+import { UserRole } from "@/types/auth.js";
 
 // ─── users table ──────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ export interface UserProfile {
   license_name?: string | null;
   license_valid_from?: Date | string | null;
   license_valid_until?: Date | string | null;
-  license_status?: 'ACTIVE' | 'EXPIRED' | 'INACTIVE' | 'UNKNOWN' | null;
+  license_status?: "ACTIVE" | "EXPIRED" | "INACTIVE" | "UNKNOWN" | null;
 }
 
 // ─── Employee profile from emp_profiles table ─────────────────────────────────

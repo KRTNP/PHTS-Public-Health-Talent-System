@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import redis from '@config/redis.js';
+import redis from "@config/redis.js";
 
 const IDEM_HEADER = "idempotency-key";
 const DEFAULT_TTL_SECONDS = 10 * 60; // 10 minutes
@@ -35,7 +35,9 @@ export function idempotency(ttlSeconds: number = DEFAULT_TTL_SECONDS) {
 
     const key = rawKey.trim();
     if (!key || key.length > 128) {
-      res.status(400).json({ success: false, error: "Invalid Idempotency-Key" });
+      res
+        .status(400)
+        .json({ success: false, error: "Invalid Idempotency-Key" });
       return;
     }
 

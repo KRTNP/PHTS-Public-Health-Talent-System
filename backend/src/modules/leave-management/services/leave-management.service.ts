@@ -1,4 +1,4 @@
-import { LeaveManagementRepository } from '../repositories/leave-management.repository.js';
+import { LeaveManagementRepository } from "../repositories/leave-management.repository.js";
 import fs from "node:fs/promises";
 import type {
   LeaveManagementListQuery,
@@ -6,9 +6,9 @@ import type {
   LeaveManagementExtensionBody,
   CreateLeaveManagementBody,
   ReplaceLeaveReturnEventsBody,
-} from '../leave-management.schema.js';
-import { calculateLeaveQuotaStatus } from './leave-domain.service.js';
-import { LEAVE_RULES } from '@/modules/payroll/payroll.constants.js';
+} from "../leave-management.schema.js";
+import { calculateLeaveQuotaStatus } from "./leave-domain.service.js";
+import { LEAVE_RULES } from "@/modules/payroll/payroll.constants.js";
 import { NotFoundError, ValidationError } from "@shared/utils/errors.js";
 
 const repository = new LeaveManagementRepository();
@@ -35,12 +35,14 @@ const resolveReferenceQuotaLimit = (
 ): number | null => {
   if (!quotaRow) return null;
   if (leaveType === "vacation") {
-    return quotaRow.quota_vacation !== null && quotaRow.quota_vacation !== undefined
+    return quotaRow.quota_vacation !== null &&
+      quotaRow.quota_vacation !== undefined
       ? Number(quotaRow.quota_vacation)
       : null;
   }
   if (leaveType === "personal") {
-    return quotaRow.quota_personal !== null && quotaRow.quota_personal !== undefined
+    return quotaRow.quota_personal !== null &&
+      quotaRow.quota_personal !== undefined
       ? Number(quotaRow.quota_personal)
       : null;
   }
@@ -76,11 +78,18 @@ function buildReturnReportCompatSummary(
     };
   }
 
-  const latestEvent = [...events].sort((a, b) => a.report_date.localeCompare(b.report_date)).at(-1);
-  const isFinalReturn = latestEvent && !latestEvent.resume_date && !latestEvent.resume_study_program;
+  const latestEvent = [...events]
+    .sort((a, b) => a.report_date.localeCompare(b.report_date))
+    .at(-1);
+  const isFinalReturn =
+    latestEvent &&
+    !latestEvent.resume_date &&
+    !latestEvent.resume_study_program;
 
   return {
-    return_report_status: isFinalReturn ? ("DONE" as const) : ("PENDING" as const),
+    return_report_status: isFinalReturn
+      ? ("DONE" as const)
+      : ("PENDING" as const),
     return_date: isFinalReturn ? (latestEvent?.report_date ?? null) : null,
   };
 }
@@ -105,9 +114,12 @@ export async function upsertLeaveManagementExtension(
   payload: LeaveManagementExtensionBody,
   actorId?: number | null,
 ) {
-  const leaveManagementId = payload.leave_management_id ?? payload.leave_record_id;
+  const leaveManagementId =
+    payload.leave_management_id ?? payload.leave_record_id;
   if (!leaveManagementId) {
-    throw new ValidationError("leave_management_id or leave_record_id is required");
+    throw new ValidationError(
+      "leave_management_id or leave_record_id is required",
+    );
   }
   const requireReport = payload.require_return_report ?? false;
   const noPay = payload.is_no_pay ?? payload.pay_exception ?? false;
@@ -120,13 +132,12 @@ export async function upsertLeaveManagementExtension(
         resume_study_program: event.resume_study_program ?? null,
       }))
     : null;
-  const compatSummary =
-    hasEventPayload
-      ? buildReturnReportCompatSummary(normalizedEvents ?? [], requireReport)
-      : null;
+  const compatSummary = hasEventPayload
+    ? buildReturnReportCompatSummary(normalizedEvents ?? [], requireReport)
+    : null;
   const returnStatus =
-    payload.return_report_status
-    ?? (hasEventPayload
+    payload.return_report_status ??
+    (hasEventPayload
       ? compatSummary?.return_report_status
       : requireReport
         ? "PENDING"
@@ -134,7 +145,10 @@ export async function upsertLeaveManagementExtension(
   const documentDurationDays =
     payload.document_duration_days ??
     (payload.document_start_date && payload.document_end_date
-      ? calculateDurationDays(payload.document_start_date, payload.document_end_date)
+      ? calculateDurationDays(
+          payload.document_start_date,
+          payload.document_end_date,
+        )
       : undefined);
 
   await repository.upsertExtension({
@@ -145,10 +159,8 @@ export async function upsertLeaveManagementExtension(
     is_no_pay: noPay,
     return_report_status: returnStatus,
     return_date:
-      payload.return_date
-      ?? (hasEventPayload
-        ? (compatSummary?.return_date ?? undefined)
-        : undefined),
+      payload.return_date ??
+      (hasEventPayload ? (compatSummary?.return_date ?? undefined) : undefined),
     document_duration_days: documentDurationDays,
     created_by: actorId ?? null,
     updated_by: actorId ?? null,
@@ -174,13 +186,17 @@ export const calculateFiscalYear = (dateStr: string): number => {
 const calculateDurationDays = (startDate: string, endDate: string): number => {
   const start = new Date(startDate);
   const end = new Date(endDate);
-  const diff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const diff =
+    Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   return diff > 0 ? diff : 1;
 };
 
-export async function createLeaveManagement(payload: CreateLeaveManagementBody) {
+export async function createLeaveManagement(
+  payload: CreateLeaveManagementBody,
+) {
   const duration =
-    payload.duration_days ?? calculateDurationDays(payload.start_date, payload.end_date);
+    payload.duration_days ??
+    calculateDurationDays(payload.start_date, payload.end_date);
   const fiscalYear = calculateFiscalYear(payload.start_date);
   return repository.insertLeaveManagement({
     citizen_id: payload.citizen_id,
@@ -193,39 +209,49 @@ export async function createLeaveManagement(payload: CreateLeaveManagementBody) 
   });
 }
 
-
 export async function listLeaveManagementDocuments(leaveManagementId: number) {
   return repository.listDocuments(leaveManagementId);
 }
 
 export async function getLeaveManagementQuotaStatus(leaveManagementId: number) {
-  const leave = await repository.findLeaveManagementQuotaContext(leaveManagementId);
+  const leave =
+    await repository.findLeaveManagementQuotaContext(leaveManagementId);
   if (!leave) {
     throw new NotFoundError("รายการวันลา", leaveManagementId);
   }
 
   const [leaveRows, quotaRow, holidayRows, serviceDates] = await Promise.all([
-    repository.listLeaveManagementRowsForQuota(leave.citizen_id, leave.fiscal_year),
+    repository.listLeaveManagementRowsForQuota(
+      leave.citizen_id,
+      leave.fiscal_year,
+    ),
     repository.findQuotaRow(leave.citizen_id, leave.fiscal_year),
     repository.findHolidaysForFiscalYear(leave.fiscal_year),
     repository.findEmployeeServiceDates(leave.citizen_id),
   ]);
   const referenceQuotaRow = quotaRow
     ? null
-    : await repository.findLatestQuotaRowBeforeFiscalYear(leave.citizen_id, leave.fiscal_year);
+    : await repository.findLatestQuotaRowBeforeFiscalYear(
+        leave.citizen_id,
+        leave.fiscal_year,
+      );
 
   const leaveIds = (leaveRows ?? [])
     .map((row) => Number(row.id))
     .filter((id) => Number.isFinite(id) && id > 0);
-  const returnEvents = await repository.listLeaveReturnReportEventsByLeaveIds(leaveIds);
+  const returnEvents =
+    await repository.listLeaveReturnReportEventsByLeaveIds(leaveIds);
 
-  const eventMap = new Map<number, Array<{
-    report_date: string;
-    resume_date: string | null;
-    resume_study_institution: string | null;
-    resume_study_program: string | null;
-    resume_study_major: string | null;
-  }>>();
+  const eventMap = new Map<
+    number,
+    Array<{
+      report_date: string;
+      resume_date: string | null;
+      resume_study_institution: string | null;
+      resume_study_program: string | null;
+      resume_study_major: string | null;
+    }>
+  >();
 
   for (const event of returnEvents) {
     const leaveId = Number(event.leave_record_id);
@@ -273,12 +299,20 @@ export async function getLeaveManagementQuotaStatus(leaveManagementId: number) {
     rangeEnd: today,
   });
 
-  const leaveStartDate = new Date((leaveRows ?? []).find((row) => Number(row.id) === leaveManagementId)?.document_start_date
-    ?? (leaveRows ?? []).find((row) => Number(row.id) === leaveManagementId)?.start_date
-    ?? today);
-  const leaveEndDate = new Date((leaveRows ?? []).find((row) => Number(row.id) === leaveManagementId)?.document_end_date
-    ?? (leaveRows ?? []).find((row) => Number(row.id) === leaveManagementId)?.end_date
-    ?? today);
+  const leaveStartDate = new Date(
+    (leaveRows ?? []).find((row) => Number(row.id) === leaveManagementId)
+      ?.document_start_date ??
+      (leaveRows ?? []).find((row) => Number(row.id) === leaveManagementId)
+        ?.start_date ??
+      today,
+  );
+  const leaveEndDate = new Date(
+    (leaveRows ?? []).find((row) => Number(row.id) === leaveManagementId)
+      ?.document_end_date ??
+      (leaveRows ?? []).find((row) => Number(row.id) === leaveManagementId)
+        ?.end_date ??
+      today,
+  );
 
   const leaveStatus =
     today < leaveStartDate
@@ -301,7 +335,8 @@ export async function getLeaveManagementQuotaStatus(leaveManagementId: number) {
         leave_type: leaveType,
         type_name: LEAVE_TYPE_LABELS[leaveType] ?? leaveType,
         rule_type: LEAVE_RULES[leaveType]?.rule_type ?? "cumulative",
-        tracks_balance: (LEAVE_RULES[leaveType]?.rule_type ?? "cumulative") === "cumulative",
+        tracks_balance:
+          (LEAVE_RULES[leaveType]?.rule_type ?? "cumulative") === "cumulative",
         limit,
         reference_fiscal_year:
           limit === null && referenceQuotaRow?.fiscal_year
@@ -330,39 +365,52 @@ export async function getLeaveManagementQuotaStatus(leaveManagementId: number) {
     leave_id: leave.id,
     fiscal_year: leave.fiscal_year,
     as_of_date: today.toISOString().slice(0, 10),
-    current_leave: projectedCurrentQuota || currentCurrentQuota
-      ? {
-          leave_type: leave.leave_type,
-          type_name: LEAVE_TYPE_LABELS[leave.leave_type] ?? leave.leave_type,
-          duration: Number(leave.duration_days ?? 0),
-          leave_status: leaveStatus,
-          rule_type: LEAVE_RULES[leave.leave_type]?.rule_type ?? "cumulative",
-          tracks_balance:
-            (LEAVE_RULES[leave.leave_type]?.rule_type ?? "cumulative") === "cumulative",
-          limit: projectedCurrentQuota?.limit ?? currentCurrentQuota?.limit ?? null,
-          reference_fiscal_year:
-            (projectedCurrentQuota?.limit ?? currentCurrentQuota?.limit ?? null) === null
-            && referenceQuotaRow?.fiscal_year
-              ? Number(referenceQuotaRow.fiscal_year)
-              : null,
-          reference_limit:
-            (projectedCurrentQuota?.limit ?? currentCurrentQuota?.limit ?? null) === null
-              ? resolveReferenceQuotaLimit(leave.leave_type, referenceQuotaRow)
-              : null,
-          used_as_of_today: currentCurrentQuota?.used ?? 0,
-          remaining_as_of_today: currentCurrentQuota?.remaining ?? null,
-          used_after_leave:
-            projectedCurrentQuota?.used ?? currentCurrentQuota?.used ?? 0,
-          remaining_after_leave:
-            projectedCurrentQuota?.remaining
-            ?? currentCurrentQuota?.remaining
-            ?? null,
-          over_quota_after_leave: projectedCurrentQuota?.overQuota ?? false,
-          exceed_date_after_leave: projectedCurrentQuota?.exceedDate ?? null,
-          has_quota_data:
-            (projectedCurrentQuota?.limit ?? currentCurrentQuota?.limit ?? null) !== null,
-        }
-      : null,
+    current_leave:
+      projectedCurrentQuota || currentCurrentQuota
+        ? {
+            leave_type: leave.leave_type,
+            type_name: LEAVE_TYPE_LABELS[leave.leave_type] ?? leave.leave_type,
+            duration: Number(leave.duration_days ?? 0),
+            leave_status: leaveStatus,
+            rule_type: LEAVE_RULES[leave.leave_type]?.rule_type ?? "cumulative",
+            tracks_balance:
+              (LEAVE_RULES[leave.leave_type]?.rule_type ?? "cumulative") ===
+              "cumulative",
+            limit:
+              projectedCurrentQuota?.limit ??
+              currentCurrentQuota?.limit ??
+              null,
+            reference_fiscal_year:
+              (projectedCurrentQuota?.limit ??
+                currentCurrentQuota?.limit ??
+                null) === null && referenceQuotaRow?.fiscal_year
+                ? Number(referenceQuotaRow.fiscal_year)
+                : null,
+            reference_limit:
+              (projectedCurrentQuota?.limit ??
+                currentCurrentQuota?.limit ??
+                null) === null
+                ? resolveReferenceQuotaLimit(
+                    leave.leave_type,
+                    referenceQuotaRow,
+                  )
+                : null,
+            used_as_of_today: currentCurrentQuota?.used ?? 0,
+            remaining_as_of_today: currentCurrentQuota?.remaining ?? null,
+            used_after_leave:
+              projectedCurrentQuota?.used ?? currentCurrentQuota?.used ?? 0,
+            remaining_after_leave:
+              projectedCurrentQuota?.remaining ??
+              currentCurrentQuota?.remaining ??
+              null,
+            over_quota_after_leave: projectedCurrentQuota?.overQuota ?? false,
+            exceed_date_after_leave: projectedCurrentQuota?.exceedDate ?? null,
+            has_quota_data:
+              (projectedCurrentQuota?.limit ??
+                currentCurrentQuota?.limit ??
+                null) !== null,
+          }
+        : null,
     quotas,
   };
 }
@@ -398,7 +446,9 @@ export async function deleteLeaveManagementDocument(documentId: number) {
   return { deleted, filePath: null };
 }
 
-export async function deleteLeaveManagementExtension(leaveManagementId: number) {
+export async function deleteLeaveManagementExtension(
+  leaveManagementId: number,
+) {
   return repository.deleteExtension(leaveManagementId);
 }
 
@@ -423,9 +473,11 @@ export async function replaceLeaveReturnReportEvents(
   );
 
   const meta = await repository.findExtensionReturnMeta(leaveManagementId);
-  const requireReturnReport =
-    meta?.require_return_report === 0 ? 0 : 1;
-  const compatSummary = buildReturnReportCompatSummary(events, requireReturnReport !== 0);
+  const requireReturnReport = meta?.require_return_report === 0 ? 0 : 1;
+  const compatSummary = buildReturnReportCompatSummary(
+    events,
+    requireReturnReport !== 0,
+  );
 
   await repository.upsertLegacyReturnReportCompat(leaveManagementId, {
     require_return_report: requireReturnReport,

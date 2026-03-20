@@ -1,4 +1,4 @@
-import { retirementCreateSchema } from '@/modules/workforce-compliance/workforce-compliance.schema.js';
+import { retirementCreateSchema } from "@/modules/workforce-compliance/workforce-compliance.schema.js";
 
 describe("workforce-compliance schema", () => {
   test("rejects invalid retire_date", async () => {

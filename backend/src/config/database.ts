@@ -10,20 +10,23 @@ import mysql, { type PoolConnection } from "mysql2/promise";
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
-import { loadEnv } from '@config/env.js';
+import { loadEnv } from "@config/env.js";
 
 // Load environment variables
 loadEnv();
 
 const dbTimezone = process.env.DB_TIMEZONE || "+07:00";
 
-async function ensureSessionTimezone(connection: PoolConnection): Promise<void> {
+async function ensureSessionTimezone(
+  connection: PoolConnection,
+): Promise<void> {
   await connection.query("SET time_zone = ?", [dbTimezone]);
 }
 
-async function ensureSessionTimezoneOnEventConnection(
-  connection: { query: (...args: any[]) => any; promise?: () => { query: (...args: any[]) => Promise<any> } },
-): Promise<void> {
+async function ensureSessionTimezoneOnEventConnection(connection: {
+  query: (...args: any[]) => any;
+  promise?: () => { query: (...args: any[]) => Promise<any> };
+}): Promise<void> {
   // mysql2 "connection" event provides a callback-style connection.
   // Use promise wrapper when available; otherwise execute with callback.
   if (typeof connection.promise === "function") {
@@ -76,7 +79,10 @@ function resolveDbRuntimeConfig(): DbRuntimeConfig {
   if (process.env.NODE_ENV === "test") {
     const overriddenByTestEnv: DbRuntimeConfig = {
       host: process.env.TEST_DB_HOST || envConfig.host,
-      port: Number.parseInt(process.env.TEST_DB_PORT || String(envConfig.port), 10),
+      port: Number.parseInt(
+        process.env.TEST_DB_PORT || String(envConfig.port),
+        10,
+      ),
       user: process.env.TEST_DB_USER || envConfig.user,
       password: process.env.TEST_DB_PASSWORD ?? envConfig.password,
       database: process.env.TEST_DB_NAME || envConfig.database,

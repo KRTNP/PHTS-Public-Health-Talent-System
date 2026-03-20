@@ -2,15 +2,15 @@
  * Maintenance Service Tests
  */
 
-import redis from '@config/redis.js';
+import redis from "@config/redis.js";
 import {
   disableMaintenanceMode,
   enableMaintenanceMode,
   isMaintenanceModeEnabled,
-} from '@/modules/system/services/maintenance.service.js';
+} from "@/modules/system/services/maintenance.service.js";
 
 // Mock Redis
-jest.mock('@config/redis.js', () => ({
+jest.mock("@config/redis.js", () => ({
   __esModule: true,
   default: {
     set: jest.fn(),
@@ -19,38 +19,38 @@ jest.mock('@config/redis.js', () => ({
   },
 }));
 
-describe('Maintenance Service', () => {
+describe("Maintenance Service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('maintenance toggles', () => {
-    it('should set maintenance mode to enabled in Redis', async () => {
+  describe("maintenance toggles", () => {
+    it("should set maintenance mode to enabled in Redis", async () => {
       await enableMaintenanceMode();
-      expect(redis.set).toHaveBeenCalledWith('system:maintenance:enabled', '1');
+      expect(redis.set).toHaveBeenCalledWith("system:maintenance:enabled", "1");
     });
 
-    it('should delete maintenance key when disabled', async () => {
+    it("should delete maintenance key when disabled", async () => {
       await disableMaintenanceMode();
-      expect(redis.del).toHaveBeenCalledWith('system:maintenance:enabled');
+      expect(redis.del).toHaveBeenCalledWith("system:maintenance:enabled");
     });
   });
 
-  describe('isMaintenanceModeEnabled', () => {
-    it('should return true when maintenance is enabled', async () => {
-      (redis.get as jest.Mock).mockResolvedValue('1');
+  describe("isMaintenanceModeEnabled", () => {
+    it("should return true when maintenance is enabled", async () => {
+      (redis.get as jest.Mock).mockResolvedValue("1");
       const result = await isMaintenanceModeEnabled();
       expect(result).toBe(true);
     });
 
-    it('should return false when maintenance is disabled', async () => {
+    it("should return false when maintenance is disabled", async () => {
       (redis.get as jest.Mock).mockResolvedValue(null);
       const result = await isMaintenanceModeEnabled();
       expect(result).toBe(false);
     });
 
     it('should return false for any value other than "1"', async () => {
-      (redis.get as jest.Mock).mockResolvedValue('0');
+      (redis.get as jest.Mock).mockResolvedValue("0");
       const result = await isMaintenanceModeEnabled();
       expect(result).toBe(false);
     });

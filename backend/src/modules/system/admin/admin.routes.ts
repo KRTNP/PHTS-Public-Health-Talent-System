@@ -18,7 +18,7 @@ import {
   getNotificationOutboxSchema,
   retryNotificationOutboxSchema,
   retrySnapshotOutboxSchema,
-  } from "@/modules/system/admin/admin.schema.js";
+} from "@/modules/system/admin/admin.schema.js";
 
 const router = Router();
 

@@ -2,7 +2,7 @@ import mysql from "mysql2/promise";
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
-import { loadEnv } from '@config/env.js';
+import { loadEnv } from "@config/env.js";
 
 const TEST_DB_CHARSET = "utf8mb4";
 const TEST_DB_COLLATION = "utf8mb4_unicode_ci";
@@ -15,7 +15,9 @@ const ensureColumn = async (
   definition: string,
 ) => {
   try {
-    await conn.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    await conn.execute(
+      `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+    );
   } catch (error: any) {
     const message = String(error?.message || "");
     if (!message.includes("Duplicate column")) {
@@ -39,7 +41,8 @@ function buildTestDbCandidates(): TestDbConfig[] {
   loadEnv();
 
   const host = process.env.TEST_DB_HOST || process.env.DB_HOST || "127.0.0.1";
-  const database = process.env.TEST_DB_NAME || process.env.DB_NAME || "phts_test";
+  const database =
+    process.env.TEST_DB_NAME || process.env.DB_NAME || "phts_test";
   const connectTimeout = Number.parseInt(
     process.env.DB_CONNECT_TIMEOUT_MS || "5000",
     10,
@@ -49,7 +52,8 @@ function buildTestDbCandidates(): TestDbConfig[] {
     10,
   );
   const envUser = process.env.TEST_DB_USER || process.env.DB_USER || "root";
-  const envPassword = process.env.TEST_DB_PASSWORD ?? process.env.DB_PASSWORD ?? "";
+  const envPassword =
+    process.env.TEST_DB_PASSWORD ?? process.env.DB_PASSWORD ?? "";
 
   const ports: number[] = [envPort];
   const hosts: string[] = [host];
@@ -67,7 +71,8 @@ function buildTestDbCandidates(): TestDbConfig[] {
 
     if (localHost) hosts.push(localHost);
     if (Number.isFinite(localPort)) ports.push(localPort);
-    if (localUser) userPassCandidates.push({ user: localUser, password: localPassword });
+    if (localUser)
+      userPassCandidates.push({ user: localUser, password: localPassword });
   }
 
   const dedupedPorts = unique(ports).filter((p) => Number.isFinite(p));
@@ -138,9 +143,7 @@ export async function getTestConnection() {
   const candidates = buildTestDbCandidates();
   const dbName = candidates[0]?.database || "phts_test";
   if (!/test/i.test(dbName)) {
-    throw new Error(
-      `[test-db] Refusing to run on non-test DB name: ${dbName}`,
-    );
+    throw new Error(`[test-db] Refusing to run on non-test DB name: ${dbName}`);
   }
 
   let lastError: unknown;
@@ -255,14 +258,34 @@ export async function resetAuthSchema(): Promise<void> {
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    await ensureColumn(conn, "emp_profiles", "position_name", "VARCHAR(255) NULL");
+    await ensureColumn(
+      conn,
+      "emp_profiles",
+      "position_name",
+      "VARCHAR(255) NULL",
+    );
     await ensureColumn(conn, "emp_profiles", "department", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_profiles", "sub_department", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_profiles", "position_number", "VARCHAR(100) NULL");
+    await ensureColumn(
+      conn,
+      "emp_profiles",
+      "sub_department",
+      "VARCHAR(255) NULL",
+    );
+    await ensureColumn(
+      conn,
+      "emp_profiles",
+      "position_number",
+      "VARCHAR(100) NULL",
+    );
     await ensureColumn(conn, "emp_profiles", "email", "VARCHAR(255) NULL");
     await ensureColumn(conn, "emp_profiles", "phone", "VARCHAR(50) NULL");
     await ensureColumn(conn, "emp_profiles", "emp_type", "VARCHAR(50) NULL");
-    await ensureColumn(conn, "emp_profiles", "mission_group", "VARCHAR(255) NULL");
+    await ensureColumn(
+      conn,
+      "emp_profiles",
+      "mission_group",
+      "VARCHAR(255) NULL",
+    );
     await ensureColumn(conn, "emp_profiles", "start_work_date", "DATE NULL");
     await ensureColumn(
       conn,
@@ -281,12 +304,42 @@ export async function resetAuthSchema(): Promise<void> {
         emp_type VARCHAR(50) NULL
       )
     `);
-    await ensureColumn(conn, "emp_support_staff", "position_name", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_support_staff", "department", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_support_staff", "emp_type", "VARCHAR(50) NULL");
-    await ensureColumn(conn, "emp_support_staff", "original_status", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_support_staff", "is_currently_active", "TINYINT(1) NOT NULL DEFAULT 1");
-    await ensureColumn(conn, "emp_support_staff", "last_synced_at", "DATETIME NULL");
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "position_name",
+      "VARCHAR(255) NULL",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "department",
+      "VARCHAR(255) NULL",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "emp_type",
+      "VARCHAR(50) NULL",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "original_status",
+      "VARCHAR(255) NULL",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "is_currently_active",
+      "TINYINT(1) NOT NULL DEFAULT 1",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "last_synced_at",
+      "DATETIME NULL",
+    );
 
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS emp_licenses (
@@ -666,7 +719,12 @@ export async function resetSnapshotSchema(): Promise<void> {
     await ensureTableCollation(conn, "emp_profiles");
     await ensureColumn(conn, "emp_profiles", "title", "VARCHAR(20) NULL");
     await ensureColumn(conn, "emp_profiles", "department", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_profiles", "position_name", "VARCHAR(255) NULL");
+    await ensureColumn(
+      conn,
+      "emp_profiles",
+      "position_name",
+      "VARCHAR(255) NULL",
+    );
 
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS emp_support_staff (
@@ -683,11 +741,36 @@ export async function resetSnapshotSchema(): Promise<void> {
     `);
     await ensureTableCollation(conn, "emp_support_staff");
     await ensureColumn(conn, "emp_support_staff", "title", "VARCHAR(20) NULL");
-    await ensureColumn(conn, "emp_support_staff", "department", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_support_staff", "position_name", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_support_staff", "original_status", "VARCHAR(255) NULL");
-    await ensureColumn(conn, "emp_support_staff", "is_currently_active", "TINYINT(1) NOT NULL DEFAULT 1");
-    await ensureColumn(conn, "emp_support_staff", "last_synced_at", "DATETIME NULL");
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "department",
+      "VARCHAR(255) NULL",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "position_name",
+      "VARCHAR(255) NULL",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "original_status",
+      "VARCHAR(255) NULL",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "is_currently_active",
+      "TINYINT(1) NOT NULL DEFAULT 1",
+    );
+    await ensureColumn(
+      conn,
+      "emp_support_staff",
+      "last_synced_at",
+      "DATETIME NULL",
+    );
 
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS cfg_payment_rates (

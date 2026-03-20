@@ -135,7 +135,10 @@ export class AuthService {
     );
     const headScopeRoles =
       user.role === "HEAD_SCOPE"
-        ? await AuthRepository.findHeadScopeRolesByUser(user.user_id, user.citizen_id)
+        ? await AuthRepository.findHeadScopeRolesByUser(
+            user.user_id,
+            user.citizen_id,
+          )
         : [];
     const licenseStatusRaw = licenseProfile?.status?.toUpperCase() ?? null;
     const today = new Date();

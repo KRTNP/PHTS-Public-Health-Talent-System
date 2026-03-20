@@ -5,18 +5,18 @@
  */
 
 import { PoolConnection } from "mysql2/promise";
-import { NotificationRepository } from '@/modules/notification/repositories/notification.repository.js';
-import { NotificationOutboxService } from '@/modules/notification/services/notification-outbox.service.js';
+import { NotificationRepository } from "@/modules/notification/repositories/notification.repository.js";
+import { NotificationOutboxService } from "@/modules/notification/services/notification-outbox.service.js";
 import {
   NotificationType,
   NotificationWithCount,
   NotificationSettings,
   normalizeNotificationType,
-} from '@/modules/notification/entities/notification.entity.js';
+} from "@/modules/notification/entities/notification.entity.js";
 import {
   NotificationTemplateKey,
   renderNotificationTemplate,
-} from '@/modules/notification/services/notification-template.service.js';
+} from "@/modules/notification/services/notification-template.service.js";
 
 export class NotificationService {
   /**

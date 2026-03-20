@@ -42,7 +42,10 @@ export const auditSearchQuerySchema = z.object({
       .refine(
         (value) => {
           if (!value) return true;
-          const tokens = value.split(",").map((t) => t.trim()).filter(Boolean);
+          const tokens = value
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean);
           if (tokens.length === 0) return false;
           const allowed = new Set(Object.values(AuditEventType));
           return tokens.every((t) => allowed.has(t as any));

@@ -31,78 +31,76 @@ function mapReportError(error: unknown): Error {
   return error instanceof Error ? error : new Error(message);
 }
 
-export const downloadDetailReport = asyncHandler(async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  try {
-    const year = Number(req.query.year);
-    const month = Number(req.query.month);
-    const profession = req.query.profession as string | undefined;
-    const groupNo = req.query.groupNo ? Number(req.query.groupNo) : undefined;
-    const format = String(req.query.format ?? "xlsx").toLowerCase();
+export const downloadDetailReport = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const year = Number(req.query.year);
+      const month = Number(req.query.month);
+      const profession = req.query.profession as string | undefined;
+      const groupNo = req.query.groupNo ? Number(req.query.groupNo) : undefined;
+      const format = String(req.query.format ?? "xlsx").toLowerCase();
 
-    if (!year || !month) {
-      throw new ValidationError("Year and month are required");
+      if (!year || !month) {
+        throw new ValidationError("Year and month are required");
+      }
+
+      const isCsv = format === "csv";
+      const buffer = isCsv
+        ? await reportService.generateDetailReportCsv({
+            year,
+            month,
+            professionCode: profession,
+            groupNo,
+          })
+        : await reportService.generateDetailReport({
+            year,
+            month,
+            professionCode: profession,
+            groupNo,
+          });
+      const filename = `PTS_Detail_${profession || "ALL"}_${year}_${month}.${isCsv ? "csv" : "xlsx"}`;
+
+      res.setHeader(
+        "Content-Type",
+        isCsv
+          ? "text/csv; charset=utf-8"
+          : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+      res.send(buffer);
+    } catch (error) {
+      throw mapReportError(error);
     }
+  },
+);
 
-    const isCsv = format === "csv";
-    const buffer = isCsv
-      ? await reportService.generateDetailReportCsv({
-          year,
-          month,
-          professionCode: profession,
-          groupNo,
-        })
-      : await reportService.generateDetailReport({
-          year,
-          month,
-          professionCode: profession,
-          groupNo,
-        });
-    const filename = `PTS_Detail_${profession || "ALL"}_${year}_${month}.${isCsv ? "csv" : "xlsx"}`;
+export const downloadSummaryReport = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const year = Number(req.query.year);
+      const month = Number(req.query.month);
+      const format = String(req.query.format ?? "xlsx").toLowerCase();
 
-    res.setHeader(
-      "Content-Type",
-      isCsv
-        ? "text/csv; charset=utf-8"
-        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    );
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
-    res.send(buffer);
-  } catch (error) {
-    throw mapReportError(error);
-  }
-});
+      if (!year || !month) {
+        throw new ValidationError("Year and month are required");
+      }
 
-export const downloadSummaryReport = asyncHandler(async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  try {
-    const year = Number(req.query.year);
-    const month = Number(req.query.month);
-    const format = String(req.query.format ?? "xlsx").toLowerCase();
+      const isCsv = format === "csv";
+      const buffer = isCsv
+        ? await reportService.generateSummaryReportCsv(year, month)
+        : await reportService.generateSummaryReport(year, month);
+      const filename = `PTS_Summary_${year}_${month}.${isCsv ? "csv" : "xlsx"}`;
 
-    if (!year || !month) {
-      throw new ValidationError("Year and month are required");
+      res.setHeader(
+        "Content-Type",
+        isCsv
+          ? "text/csv; charset=utf-8"
+          : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+      res.send(buffer);
+    } catch (error) {
+      throw mapReportError(error);
     }
-
-    const isCsv = format === "csv";
-    const buffer = isCsv
-      ? await reportService.generateSummaryReportCsv(year, month)
-      : await reportService.generateSummaryReport(year, month);
-    const filename = `PTS_Summary_${year}_${month}.${isCsv ? "csv" : "xlsx"}`;
-
-    res.setHeader(
-      "Content-Type",
-      isCsv
-        ? "text/csv; charset=utf-8"
-        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    );
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
-    res.send(buffer);
-  } catch (error) {
-    throw mapReportError(error);
-  }
-});
+  },
+);

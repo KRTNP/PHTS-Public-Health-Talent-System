@@ -1,12 +1,12 @@
-import { getConnection } from '@config/database.js';
-import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
-import type { ResultSetHeader } from 'mysql2/promise';
-import { buildLeaveViewQuery } from '@/modules/sync/repositories/sync-query-builders.repository.js';
-import { normalizeLeaveRowWithMeta } from '@/modules/sync/services/domain/leave-normalizer.service.js';
+import { getConnection } from "@config/database.js";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import type { ResultSetHeader } from "mysql2/promise";
+import { buildLeaveViewQuery } from "@/modules/sync/repositories/sync-query-builders.repository.js";
+import { normalizeLeaveRowWithMeta } from "@/modules/sync/services/domain/leave-normalizer.service.js";
 
-const APPLY_FLAG = '--apply';
-const OLD_TYPE_FLAG = '--old-type=';
-const NEW_TYPE_FLAG = '--new-type=';
+const APPLY_FLAG = "--apply";
+const OLD_TYPE_FLAG = "--old-type=";
+const NEW_TYPE_FLAG = "--new-type=";
 
 type Row = RowDataPacket & {
   ref_id: string;
@@ -43,10 +43,12 @@ const run = async () => {
     }> = [];
 
     for (const row of rows) {
-      const oldType = String(row.existing_leave_type ?? '');
+      const oldType = String(row.existing_leave_type ?? "");
       if (!row.ref_id || !oldType) continue;
-      const normalized = normalizeLeaveRowWithMeta(row as unknown as RowDataPacket);
-      const newType = String(normalized.row.leave_type ?? '');
+      const normalized = normalizeLeaveRowWithMeta(
+        row as unknown as RowDataPacket,
+      );
+      const newType = String(normalized.row.leave_type ?? "");
       if (!newType || newType === oldType) continue;
       if (oldTypeFilter && oldType.toLowerCase() !== oldTypeFilter) continue;
       if (newTypeFilter && newType.toLowerCase() !== newTypeFilter) continue;
@@ -64,10 +66,14 @@ const run = async () => {
       return acc;
     }, {});
 
-    console.log(`[backfill-leave-types] mode=${applyMode ? 'APPLY' : 'DRY_RUN'}`);
-    console.log(`[backfill-leave-types] filters old=${oldTypeFilter ?? '-'} new=${newTypeFilter ?? '-'}`);
+    console.log(
+      `[backfill-leave-types] mode=${applyMode ? "APPLY" : "DRY_RUN"}`,
+    );
+    console.log(
+      `[backfill-leave-types] filters old=${oldTypeFilter ?? "-"} new=${newTypeFilter ?? "-"}`,
+    );
     console.log(`[backfill-leave-types] candidates=${candidates.length}`);
-    console.log('[backfill-leave-types] by_pair=', byPair);
+    console.log("[backfill-leave-types] by_pair=", byPair);
     console.table(candidates.slice(0, 40));
 
     if (!applyMode || candidates.length === 0) return;
@@ -97,7 +103,7 @@ const run = async () => {
     try {
       await conn.rollback();
     } catch (rollbackError) {
-      console.error('[backfill-leave-types] rollback failed:', rollbackError);
+      console.error("[backfill-leave-types] rollback failed:", rollbackError);
     }
     throw error;
   } finally {
@@ -108,6 +114,6 @@ const run = async () => {
 run()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error('[backfill-leave-types] failed:', error);
+    console.error("[backfill-leave-types] failed:", error);
     process.exit(1);
   });

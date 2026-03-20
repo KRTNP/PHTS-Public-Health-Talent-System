@@ -1,5 +1,5 @@
 import { PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
-import pool from '@config/database.js';
+import pool from "@config/database.js";
 import type {
   Announcement,
   AnnouncementPriority,
@@ -10,11 +10,11 @@ const toMysqlDateTime = (value: string | null | undefined): string | null => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   const yyyy = parsed.getUTCFullYear();
-  const mm = String(parsed.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(parsed.getUTCDate()).padStart(2, '0');
-  const hh = String(parsed.getUTCHours()).padStart(2, '0');
-  const mi = String(parsed.getUTCMinutes()).padStart(2, '0');
-  const ss = String(parsed.getUTCSeconds()).padStart(2, '0');
+  const mm = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(parsed.getUTCDate()).padStart(2, "0");
+  const hh = String(parsed.getUTCHours()).padStart(2, "0");
+  const mi = String(parsed.getUTCMinutes()).padStart(2, "0");
+  const ss = String(parsed.getUTCSeconds()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 };
 

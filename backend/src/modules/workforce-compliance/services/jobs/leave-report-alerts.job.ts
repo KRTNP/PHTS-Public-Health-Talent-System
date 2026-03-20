@@ -1,11 +1,14 @@
-import { NotificationService } from '@/modules/notification/services/notification.service.js';
-import { WorkforceComplianceRepository } from '@/modules/workforce-compliance/repositories/workforce-compliance.repository.js';
+import { NotificationService } from "@/modules/notification/services/notification.service.js";
+import { WorkforceComplianceRepository } from "@/modules/workforce-compliance/repositories/workforce-compliance.repository.js";
 import {
   OPS_JOB_TIMEZONE,
   LEAVE_REPORT_POLICY,
   resolveLeavePolicy,
-} from '@/modules/workforce-compliance/constants/workforce-compliance-policy.js';
-import { shouldSendAlert, logAlert } from '@/modules/workforce-compliance/services/jobs/shared/job-alert-helpers.js';
+} from "@/modules/workforce-compliance/constants/workforce-compliance-policy.js";
+import {
+  shouldSendAlert,
+  logAlert,
+} from "@/modules/workforce-compliance/services/jobs/shared/job-alert-helpers.js";
 
 export async function runLeaveReportAlerts(): Promise<{ sent: number }> {
   const asOf = new Date();
@@ -18,12 +21,12 @@ export async function runLeaveReportAlerts(): Promise<{ sent: number }> {
   };
 
   const ordain = await WorkforceComplianceRepository.getLeaveReportCandidates(
-    ['ordain'],
+    ["ordain"],
     LEAVE_REPORT_POLICY.ordain.windowDays,
     asOf,
   );
   const military = await WorkforceComplianceRepository.getLeaveReportCandidates(
-    ['military'],
+    ["military"],
     LEAVE_REPORT_POLICY.military.windowDays,
     asOf,
   );
@@ -36,20 +39,29 @@ export async function runLeaveReportAlerts(): Promise<{ sent: number }> {
     const maxDays = policy.overdueDays;
     const isOverdue = row.days_since_end > policy.overdueDays;
     const referenceId = String(row.leave_record_id);
-    if (!(await shouldSendAlert('LEAVE_REPORT', 'leave_record', referenceId, asOf))) {
+    if (
+      !(await shouldSendAlert(
+        "LEAVE_REPORT",
+        "leave_record",
+        referenceId,
+        asOf,
+      ))
+    ) {
       stats.skippedDedup += 1;
       continue;
     }
 
-    const userId = await WorkforceComplianceRepository.findUserIdByCitizenId(row.citizen_id);
+    const userId = await WorkforceComplianceRepository.findUserIdByCitizenId(
+      row.citizen_id,
+    );
     if (!userId) {
       stats.skippedNoUser += 1;
       continue;
     }
 
     const templateKey = isOverdue
-      ? 'WORKFORCE_LEAVE_REPORT_OVERDUE_USER'
-      : 'WORKFORCE_LEAVE_REPORT_DUE_USER';
+      ? "WORKFORCE_LEAVE_REPORT_OVERDUE_USER"
+      : "WORKFORCE_LEAVE_REPORT_DUE_USER";
 
     try {
       await NotificationService.notifyUserByTemplate(userId, templateKey, {
@@ -58,8 +70,8 @@ export async function runLeaveReportAlerts(): Promise<{ sent: number }> {
       });
 
       await logAlert({
-        alertType: 'LEAVE_REPORT',
-        referenceType: 'leave_record',
+        alertType: "LEAVE_REPORT",
+        referenceType: "leave_record",
         referenceId,
         targetUserId: userId,
       });
@@ -67,11 +79,11 @@ export async function runLeaveReportAlerts(): Promise<{ sent: number }> {
     } catch (error) {
       stats.failed += 1;
       await logAlert({
-        alertType: 'LEAVE_REPORT',
-        referenceType: 'leave_record',
+        alertType: "LEAVE_REPORT",
+        referenceType: "leave_record",
         referenceId,
         targetUserId: userId,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }

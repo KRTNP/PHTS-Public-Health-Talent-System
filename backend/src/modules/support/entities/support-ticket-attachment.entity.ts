@@ -9,4 +9,3 @@ export interface SupportTicketAttachment {
   file_size: number | null;
   created_at: Date;
 }
-

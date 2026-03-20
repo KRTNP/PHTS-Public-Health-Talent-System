@@ -22,12 +22,7 @@ router.get(
   getLicenseSummary,
 );
 
-router.get(
-  "/list",
-  protect,
-  restrictTo(UserRole.PTS_OFFICER),
-  getLicenseList,
-);
+router.get("/list", protect, restrictTo(UserRole.PTS_OFFICER), getLicenseList);
 
 router.post(
   "/notify",

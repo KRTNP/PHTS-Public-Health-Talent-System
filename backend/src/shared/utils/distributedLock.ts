@@ -5,7 +5,7 @@
  * Useful for preventing race conditions in approval workflows
  */
 
-import redisClient from '@config/redis.js';
+import redisClient from "@config/redis.js";
 import crypto from "node:crypto";
 
 const DEFAULT_LOCK_TTL = 5 * 60; // 5 minutes
@@ -64,7 +64,10 @@ export async function acquireLock(
  * @param lockValue The lock value to verify ownership
  * @returns true if lock was released, false if lock value didn't match
  */
-export async function releaseLock(key: string, lockValue: string): Promise<boolean> {
+export async function releaseLock(
+  key: string,
+  lockValue: string,
+): Promise<boolean> {
   const lockKey = `lock:${key}`;
   const currentValue = await redisClient.get(lockKey);
 

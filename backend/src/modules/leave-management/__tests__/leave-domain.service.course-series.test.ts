@@ -1,6 +1,6 @@
-import { expect, test } from '@jest/globals';
-import { calculateLeaveQuotaStatus } from '../services/leave-domain.service';
-import { baseQuota, baseRules } from './leave-domain.service.shared.js';
+import { expect, test } from "@jest/globals";
+import { calculateLeaveQuotaStatus } from "../services/leave-domain.service";
+import { baseQuota, baseRules } from "./leave-domain.service.shared.js";
 test("education with same course key accumulates across interruptions while different course stays separate", () => {
   const result = calculateLeaveQuotaStatus({
     leaveRows: [

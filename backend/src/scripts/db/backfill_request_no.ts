@@ -1,8 +1,12 @@
-import { getConnection } from '@config/database.js';
-import { generateRequestNoFromId } from '@/modules/request/services/helpers.js';
-import type { PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { getConnection } from "@config/database.js";
+import { generateRequestNoFromId } from "@/modules/request/services/helpers.js";
+import type {
+  PoolConnection,
+  RowDataPacket,
+  ResultSetHeader,
+} from "mysql2/promise";
 
-const APPLY_FLAG = '--apply';
+const APPLY_FLAG = "--apply";
 const MAX_GENERATE_RETRIES = 20;
 const LEGACY_REQUEST_NO_PATTERN = /^REQ-\d{4}-\d+$/i;
 
@@ -13,7 +17,7 @@ type RequestRow = RowDataPacket & {
 };
 
 const isBlank = (value: string | null | undefined): boolean => {
-  if (typeof value !== 'string') return true;
+  if (typeof value !== "string") return true;
   return value.trim().length === 0;
 };
 
@@ -35,7 +39,9 @@ const run = async () => {
     );
 
     const candidates = rows.filter((row) => shouldBackfill(row.request_no));
-    console.log(`[backfill-request-no] mode=${applyMode ? 'APPLY' : 'DRY_RUN'}`);
+    console.log(
+      `[backfill-request-no] mode=${applyMode ? "APPLY" : "DRY_RUN"}`,
+    );
     console.log(`[backfill-request-no] candidates=${candidates.length}`);
 
     if (!candidates.length) return;
@@ -48,7 +54,7 @@ const run = async () => {
     }> = [];
 
     for (const row of candidates) {
-      let nextRequestNo = '';
+      let nextRequestNo = "";
       for (let attempt = 0; attempt < MAX_GENERATE_RETRIES; attempt += 1) {
         const generated = generateRequestNoFromId(
           Number(row.request_id),
@@ -108,7 +114,7 @@ const run = async () => {
     try {
       await conn.rollback();
     } catch (rollbackError) {
-      console.error('[backfill-request-no] rollback failed:', rollbackError);
+      console.error("[backfill-request-no] rollback failed:", rollbackError);
     }
     throw error;
   } finally {
@@ -119,7 +125,6 @@ const run = async () => {
 run()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error('[backfill-request-no] failed:', error);
+    console.error("[backfill-request-no] failed:", error);
     process.exit(1);
   });
-

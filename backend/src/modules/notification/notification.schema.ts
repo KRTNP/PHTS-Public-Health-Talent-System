@@ -7,7 +7,9 @@ export const listNotificationsSchema = z.object({
   }),
 });
 
-export type ListNotificationsQuery = z.infer<typeof listNotificationsSchema>["query"];
+export type ListNotificationsQuery = z.infer<
+  typeof listNotificationsSchema
+>["query"];
 
 // PUT /notifications/:id/read
 export const markReadSchema = z.object({
@@ -45,4 +47,6 @@ export const notificationSettingsSchema = z.object({
   }),
 });
 
-export type NotificationSettingsBody = z.infer<typeof notificationSettingsSchema>["body"];
+export type NotificationSettingsBody = z.infer<
+  typeof notificationSettingsSchema
+>["body"];

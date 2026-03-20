@@ -1,6 +1,9 @@
 import { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import db from '@config/database.js';
-import type { RetirementInput, RetirementRecord } from '@/modules/workforce-compliance/entities/workforce-compliance.entity.js';
+import db from "@config/database.js";
+import type {
+  RetirementInput,
+  RetirementRecord,
+} from "@/modules/workforce-compliance/entities/workforce-compliance.entity.js";
 
 const CITIZEN_ID_JOIN_CONDITION =
   "e.citizen_id COLLATE utf8mb4_unicode_ci = r.citizen_id COLLATE utf8mb4_unicode_ci";
@@ -51,8 +54,7 @@ export class RetirementsRepository {
     const [result] = await executor.execute<ResultSetHeader>(
       `INSERT INTO emp_retirements (citizen_id, retire_date, note, created_by)
        VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE retire_date = VALUES(retire_date), note = VALUES(note), created_by = VALUES(created_by)`
-      ,
+       ON DUPLICATE KEY UPDATE retire_date = VALUES(retire_date), note = VALUES(note), created_by = VALUES(created_by)`,
       [input.citizen_id, input.retire_date, input.note ?? null, createdBy],
     );
 

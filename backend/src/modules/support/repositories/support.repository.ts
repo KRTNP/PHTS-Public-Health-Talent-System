@@ -1,5 +1,5 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
-import pool from '@config/database.js';
+import pool from "@config/database.js";
 import type {
   SupportTicket,
   SupportTicketStatus,
@@ -152,7 +152,12 @@ export class SupportRepository {
     const [result]: any = await db.execute(
       `INSERT INTO support_ticket_messages (ticket_id, sender_user_id, sender_role, message)
        VALUES (?, ?, ?, ?)`,
-      [payload.ticket_id, payload.sender_user_id, payload.sender_role, payload.message],
+      [
+        payload.ticket_id,
+        payload.sender_user_id,
+        payload.sender_role,
+        payload.message,
+      ],
     );
     return result.insertId as number;
   }
@@ -181,7 +186,9 @@ export class SupportRepository {
     }
   }
 
-  async listAttachmentsByTicket(ticketId: number): Promise<SupportTicketAttachment[]> {
+  async listAttachmentsByTicket(
+    ticketId: number,
+  ): Promise<SupportTicketAttachment[]> {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT * FROM support_ticket_attachments WHERE ticket_id = ? ORDER BY created_at ASC`,
       [ticketId],
@@ -189,11 +196,22 @@ export class SupportRepository {
     return rows as SupportTicketAttachment[];
   }
 
-  async deleteTicket(ticketId: number, connection?: PoolConnection): Promise<void> {
+  async deleteTicket(
+    ticketId: number,
+    connection?: PoolConnection,
+  ): Promise<void> {
     const db = this.getDb(connection);
-    await db.execute(`DELETE FROM support_ticket_attachments WHERE ticket_id = ?`, [ticketId]);
-    await db.execute(`DELETE FROM support_ticket_messages WHERE ticket_id = ?`, [ticketId]);
-    await db.execute(`DELETE FROM support_tickets WHERE ticket_id = ?`, [ticketId]);
+    await db.execute(
+      `DELETE FROM support_ticket_attachments WHERE ticket_id = ?`,
+      [ticketId],
+    );
+    await db.execute(
+      `DELETE FROM support_ticket_messages WHERE ticket_id = ?`,
+      [ticketId],
+    );
+    await db.execute(`DELETE FROM support_tickets WHERE ticket_id = ?`, [
+      ticketId,
+    ]);
   }
 
   async getConnection(): Promise<PoolConnection> {
