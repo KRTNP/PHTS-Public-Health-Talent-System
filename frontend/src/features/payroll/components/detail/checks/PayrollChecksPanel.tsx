@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { AlertTriangle, Info, Clock, Calculator, Edit3 } from 'lucide-react';
+import { AlertTriangle, Info, Clock, Edit3 } from 'lucide-react';
 import type { PayoutDetail } from '@/features/payroll/api';
 import { formatThaiDate, formatThaiDateTime, formatThaiNumber } from '@/shared/utils/thai-locale';
 import type { PayrollRow } from '../model/detail.types';
@@ -39,10 +39,6 @@ export function PayrollChecksPanel({
   const deductedAmount = dailyRate > 0 ? dailyRate * deductedDays : 0;
   const otherLossRaw = Number((baseRate - calculatedAmount - deductedAmount).toFixed(2));
   const otherLoss = otherLossRaw > 0 ? otherLossRaw : 0;
-  const monthlyBaseAmount = Number(
-    Math.max(calculatedAmount + deductedAmount + otherLoss, baseRate).toFixed(2),
-  );
-  const baseAmountDiff = Number((monthlyBaseAmount - baseRate).toFixed(2));
   const rateBreakdown = payoutDetail?.rateBreakdown ?? [];
   const sortedRateBreakdown = [...rateBreakdown].sort((a, b) =>
     String(a.start_date).localeCompare(String(b.start_date)),
@@ -77,6 +73,15 @@ export function PayrollChecksPanel({
     (!latestUpdatedAt ||
       new Date(String(payoutUpdatedAt)).getTime() > new Date(String(latestUpdatedAt)).getTime());
 
+  const conditionDeductedDaysRaw =
+    dailyRate > 0 && otherLoss > 0 ? Number((otherLoss / dailyRate).toFixed(2)) : 0;
+  const isFullMonthRateSplitCase =
+    sortedRateBreakdown.length > 1 &&
+    daysInMonth > 0 &&
+    Math.abs(eligibleDays - daysInMonth) < 0.01 &&
+    deductedDays < 0.01;
+  const conditionDeductedDays = isFullMonthRateSplitCase ? 0 : conditionDeductedDaysRaw;
+  const totalDeductedDays = Number((deductedDays + conditionDeductedDays).toFixed(2));
   const baseCheckImpactAmount = Number(topImpactCheck?.impact_amount ?? 0);
   const baseCheckImpactDays = Number(topImpactCheck?.impact_days ?? 0);
   const hasUpdatedByOfficer = Number(payout?.updated_by ?? 0) > 0;
@@ -84,19 +89,11 @@ export function PayrollChecksPanel({
 
   // Prefer check impact for the top summary to keep reason + amount/day consistent.
   const summaryDeductedAmount = hasTopImpact ? baseCheckImpactAmount : deductedAmount + otherLoss;
-  const summaryDeductedDays = hasTopImpact ? baseCheckImpactDays : deductedDays;
-  const hasDeductionImpact = summaryDeductedAmount > 0.01 || summaryDeductedDays > 0.01;
-  const shouldShowDeductionSummaryAlert = hasDeductionImpact && !hasTopImpact;
-
-  const conditionDeductedDays =
-    dailyRate > 0 && otherLoss > 0 ? Number((otherLoss / dailyRate).toFixed(2)) : 0;
-  const totalDeductedDays = Number((deductedDays + conditionDeductedDays).toFixed(2));
-  const looksLikeMidMonthRateChange =
-    daysInMonth > 0 &&
-    Math.abs(eligibleDays - daysInMonth) < 0.01 &&
-    totalDeductedDays < 0.01 &&
-    Math.abs(baseAmountDiff) >= 0.01;
-  const hasRateChangeAlert = looksLikeMidMonthRateChange || sortedRateBreakdown.length > 1;
+  const summaryDeductedDays = hasTopImpact ? baseCheckImpactDays : totalDeductedDays;
+  const hasSummaryDeductedDays = summaryDeductedDays > 0.01;
+  const hasDeductionImpact = summaryDeductedAmount > 0.01 || hasSummaryDeductedDays;
+  const shouldShowDeductionSummaryAlert =
+    hasDeductionImpact && !hasTopImpact && !isFullMonthRateSplitCase;
   const hasManualOverrideSignal = hasUpdatedByOfficer;
 
   // Date Range Logic
@@ -172,42 +169,6 @@ export function PayrollChecksPanel({
       {/* 0. Smart Alerts Section - ปรับโครงสร้างและเพิ่ม Animation ให้ดูสมูท */}
       <div className="flex flex-col gap-3.5">
 
-        {/* Alert: เคสเปลี่ยนกลุ่ม/อัตรากลางเดือน (สี Purple) */}
-        {hasRateChangeAlert && (
-          <div className="rounded-xl border border-purple-200 bg-purple-50 text-purple-900 shadow-sm p-4 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-start gap-3">
-              <Calculator className="h-5 w-5 text-purple-600 shrink-0 mt-0.5" />
-              <div className="flex-1 space-y-1.5">
-                <h4 className="text-sm font-bold leading-tight">
-                  เคสเปลี่ยนกลุ่ม/อัตรากลางเดือน
-                </h4>
-                <p className="text-sm text-purple-800/90 leading-relaxed">
-                  เดือนนี้มีสิทธิ{' '}
-                  <span className="font-bold text-purple-900">
-                    {formatThaiNumber(eligibleDays)}/{formatThaiNumber(daysInMonth)}
-                  </span>{' '}
-                  วัน
-                  {eligibleDateRangesLabel ? ` (${eligibleDateRangesLabel})` : ''}
-                  {totalDeductedDays > 0 && (
-                    <>
-                      {' '}และไม่มีสิทธิ <span className="font-bold text-purple-900">{formatThaiNumber(totalDeductedDays)}</span> วัน
-                    </>
-                  )}
-                </p>
-                <p className="text-xs text-purple-700/80">
-                  ยอดฐานก่อนหัก{' '}
-                  <span className="font-semibold text-purple-900">
-                    {formatThaiNumber(monthlyBaseAmount, { maximumFractionDigits: 2 })} บาท
-                  </span>{' '}
-                  {Math.abs(baseAmountDiff) < 0.01
-                    ? `เท่ากับอัตราเงินเต็มเดือนที่แสดง (${formatThaiNumber(baseRate)} บาท)`
-                    : `${baseAmountDiff > 0 ? 'สูงกว่า' : 'ต่ำกว่า'}อัตราเงินเต็มเดือนที่แสดง (${formatThaiNumber(baseRate)} บาท) อยู่ ${formatThaiNumber(Math.abs(baseAmountDiff), { maximumFractionDigits: 2 })} บาท`}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Alert: สรุปยอดหัก (สี Orange) */}
         {shouldShowDeductionSummaryAlert && (
           <div className="flex items-start gap-3 p-4 rounded-xl bg-orange-50 border border-orange-200 text-orange-900 shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -215,7 +176,7 @@ export function PayrollChecksPanel({
             <div className="flex-1">
               <h4 className="text-sm font-bold leading-tight">
                 งวดนี้ถูกหัก <span className="text-orange-700 text-base mx-1">{formatThaiNumber(summaryDeductedAmount, { maximumFractionDigits: 2 })}</span> บาท{' '}
-                ({formatThaiNumber(summaryDeductedDays)} วัน)
+                {hasSummaryDeductedDays && `(${formatThaiNumber(summaryDeductedDays)} วัน)`}
               </h4>
               <p className="text-xs text-orange-800/80 mt-1">
                 สาเหตุ: {summaryReason}
@@ -283,6 +244,7 @@ export function PayrollChecksPanel({
       {/* 1. รายการแจ้งเตือน / ข้อควรระวัง */}
       <ChecksIssuesSection
         checks={checks}
+        rateBreakdown={sortedRateBreakdown}
         fallbackIssues={fallbackRow?.issues ?? []}
         items={payoutDetail?.items ?? []}
         leaveImpactSummary={payoutDetail?.leaveImpactSummary}

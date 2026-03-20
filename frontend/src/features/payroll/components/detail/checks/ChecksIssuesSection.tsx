@@ -12,6 +12,7 @@ import { localizePayrollText } from './checks.helpers';
 
 type ChecksIssuesSectionProps = {
   checks: PayoutDetail['checks'];
+  rateBreakdown?: PayoutDetail['rateBreakdown'];
   fallbackIssues: PayrollRow['issues'];
   items?: PayoutDetail['items'];
   leaveImpactSummary?: PayoutDetail['leaveImpactSummary'];
@@ -105,6 +106,7 @@ function getSmartCheckTitle(check: PayoutDetail['checks'][number]): string {
 
 export function ChecksIssuesSection({
   checks,
+  rateBreakdown = [],
   fallbackIssues,
   items = [],
   leaveImpactSummary,
@@ -166,6 +168,46 @@ export function ChecksIssuesSection({
       return [{ ...check, _displayKey: String(check.check_id) }];
     });
 
+  const hasRateChangeFromBackend = visibleChecksBase.some((check) => {
+    const title = localizePayrollText(check.title ?? '');
+    if (title.includes('เปลี่ยนกลุ่ม') || title.includes('อัตรากลางเดือน')) return true;
+    const evidence = Array.isArray(check.evidence) ? check.evidence : [];
+    const eligibilityEvidenceCount = evidence.filter((item) => {
+      if (!item || typeof item !== 'object') return false;
+      return String((item as Record<string, unknown>).type ?? '') === 'eligibility';
+    }).length;
+    return eligibilityEvidenceCount > 1;
+  });
+
+  const syntheticRateChangeChecks: DisplayCheck[] =
+    rateBreakdown.length > 1 && !hasRateChangeFromBackend
+      ? [
+          {
+            check_id: -900003,
+            payout_id: 0,
+            code: 'RATE_CHANGE_IN_PERIOD',
+            severity: 'WARNING',
+            title: 'มีการเปลี่ยนกลุ่มหรืออัตรากลางเดือน',
+            summary: `พบการใช้อัตรา ${formatThaiNumber(rateBreakdown.length)} ช่วงเวลาในงวดนี้`,
+            impact_amount: 0,
+            impact_days: 0,
+            start_date: null,
+            end_date: null,
+            evidence: rateBreakdown.map((segment) => ({
+              type: 'eligibility',
+              effective_date: segment.start_date,
+              expiry_date: segment.end_date,
+              group_no: segment.group_no,
+              item_no: segment.item_no,
+              sub_item_no: segment.sub_item_no,
+              rate: segment.rate,
+            })),
+            created_at: null,
+            _displayKey: 'synthetic-rate-change',
+          },
+        ]
+      : [];
+
   const hasRetroDeductCheckFromBackend = visibleChecksBase.some(
     (check) => String(check.code ?? '').toUpperCase() === 'RETRO_DEDUCT',
   );
@@ -223,7 +265,11 @@ export function ChecksIssuesSection({
     });
   }
 
-  const visibleChecks: DisplayCheck[] = [...visibleChecksBase, ...syntheticRetroChecks];
+  const visibleChecks: DisplayCheck[] = [
+    ...syntheticRateChangeChecks,
+    ...visibleChecksBase,
+    ...syntheticRetroChecks,
+  ];
 
   if (visibleChecks.length === 0 && fallbackIssues.length === 0) return null;
 

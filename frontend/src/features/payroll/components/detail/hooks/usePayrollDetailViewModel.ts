@@ -154,10 +154,16 @@ export function usePayrollDetailViewModel({
       const retroactiveAmount = Number(row.retroactive_amount ?? 0)
       const totalAmount = Number(row.total_payable ?? 0)
       const leaveDays = Number(row.deducted_days ?? 0)
-      const deductionAmount =
+      const leaveBasedDeductionAmount =
         daysInMonth > 0 && baseRate > 0 && leaveDays > 0
           ? Number(((baseRate / daysInMonth) * leaveDays).toFixed(2))
           : 0
+      const monthlyAmountBeforeRetro = Number((totalAmount - retroactiveAmount).toFixed(2))
+      const calculatedDeductionAmount =
+        baseRate > 0
+          ? Number(Math.max(0, baseRate - monthlyAmountBeforeRetro).toFixed(2))
+          : 0
+      const deductionAmount = Math.max(leaveBasedDeductionAmount, calculatedDeductionAmount)
 
       const note = row.remark ?? undefined
       const groupNoFromRow =

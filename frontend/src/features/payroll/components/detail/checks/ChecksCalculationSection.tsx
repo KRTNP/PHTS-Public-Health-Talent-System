@@ -116,7 +116,7 @@ export function ChecksCalculationSection({
     <section className="space-y-4 mt-4 animate-in fade-in duration-500">
       <h3 className="flex items-center gap-2 text-base font-bold text-slate-800 tracking-tight">
         <Calculator className="h-5 w-5 text-slate-500" />
-        สรุปการคำนวณเงินเดือน
+        สรุปการคำนวณเงิน
       </h3>
 
       {/* เปลี่ยนจาก sm: เป็น md: หรือ lg: เพื่อป้องกัน Layout แตกในแท็บเล็ต */}
