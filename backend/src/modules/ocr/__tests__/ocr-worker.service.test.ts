@@ -1,16 +1,16 @@
-jest.mock('@/modules/ocr/repositories/ocr-request.repository.js', () => ({
+jest.mock("@/modules/ocr/repositories/ocr-request.repository.js", () => ({
   OcrRequestRepository: {
     findStaleProcessingRequestIds: jest.fn(),
     upsertRequestPrecheck: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
-jest.mock('@/modules/ocr/services/ocr-precheck.service.js', () => ({
+jest.mock("@/modules/ocr/services/ocr-precheck.service.js", () => ({
   processRequestOcrPrecheck: jest.fn(),
   enqueueRequestOcrPrecheck: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('@config/redis.js', () => ({
+jest.mock("@config/redis.js", () => ({
   __esModule: true,
   default: {
     duplicate: jest.fn(() => ({
@@ -21,19 +21,22 @@ jest.mock('@config/redis.js', () => ({
   },
 }));
 
-import { OcrRequestRepository } from '@/modules/ocr/repositories/ocr-request.repository.js';
-import { enqueueRequestOcrPrecheck } from '@/modules/ocr/services/ocr-precheck.service.js';
+import { OcrRequestRepository } from "@/modules/ocr/repositories/ocr-request.repository.js";
+import { enqueueRequestOcrPrecheck } from "@/modules/ocr/services/ocr-precheck.service.js";
 
-describe('ocr worker stale recovery', () => {
+describe("ocr worker stale recovery", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.OCR_STALE_PROCESSING_MINUTES;
   });
 
-  it('returns zero and does not enqueue when no stale processing requests found', async () => {
-    (OcrRequestRepository.findStaleProcessingRequestIds as jest.Mock).mockResolvedValue([]);
+  it("returns zero and does not enqueue when no stale processing requests found", async () => {
+    (
+      OcrRequestRepository.findStaleProcessingRequestIds as jest.Mock
+    ).mockResolvedValue([]);
 
-    const { recoverStaleOcrPrecheckJobs } = await import('@/modules/ocr/services/ocr-worker.service.js');
+    const { recoverStaleOcrPrecheckJobs } =
+      await import("@/modules/ocr/services/ocr-worker.service.js");
     const recovered = await recoverStaleOcrPrecheckJobs();
 
     expect(recovered).toBe(0);
@@ -41,20 +44,25 @@ describe('ocr worker stale recovery', () => {
     expect(OcrRequestRepository.upsertRequestPrecheck).not.toHaveBeenCalled();
   });
 
-  it('requeues stale processing jobs and resets precheck status to queued', async () => {
-    process.env.OCR_STALE_PROCESSING_MINUTES = '10';
-    (OcrRequestRepository.findStaleProcessingRequestIds as jest.Mock).mockResolvedValue([5, 9]);
+  it("requeues stale processing jobs and resets precheck status to queued", async () => {
+    process.env.OCR_STALE_PROCESSING_MINUTES = "10";
+    (
+      OcrRequestRepository.findStaleProcessingRequestIds as jest.Mock
+    ).mockResolvedValue([5, 9]);
 
-    const { recoverStaleOcrPrecheckJobs } = await import('@/modules/ocr/services/ocr-worker.service.js');
+    const { recoverStaleOcrPrecheckJobs } =
+      await import("@/modules/ocr/services/ocr-worker.service.js");
     const recovered = await recoverStaleOcrPrecheckJobs();
 
     expect(recovered).toBe(2);
-    expect(OcrRequestRepository.findStaleProcessingRequestIds).toHaveBeenCalledWith(10);
+    expect(
+      OcrRequestRepository.findStaleProcessingRequestIds,
+    ).toHaveBeenCalledWith(10);
     expect(OcrRequestRepository.upsertRequestPrecheck).toHaveBeenNthCalledWith(
       1,
       5,
       expect.objectContaining({
-        status: 'queued',
+        status: "queued",
         started_at: null,
         finished_at: null,
         count: 0,
@@ -66,7 +74,7 @@ describe('ocr worker stale recovery', () => {
       2,
       9,
       expect.objectContaining({
-        status: 'queued',
+        status: "queued",
         started_at: null,
         finished_at: null,
       }),

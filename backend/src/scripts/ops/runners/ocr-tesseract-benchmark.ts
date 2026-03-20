@@ -1,19 +1,21 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { performance } from 'node:perf_hooks';
-import dotenv from 'dotenv';
-import { runLocalTesseract } from '@/modules/ocr/services/ocr-local-tesseract.service.js';
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { performance } from "node:perf_hooks";
+import dotenv from "dotenv";
+import { runLocalTesseract } from "@/modules/ocr/services/ocr-local-tesseract.service.js";
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 dotenv.config();
 
-const repoRoot = path.resolve(process.cwd(), '..');
-const inputDir = process.env.OCR_BENCHMARK_INPUT_DIR || path.join(repoRoot, 'ocr', 'original_file');
+const repoRoot = path.resolve(process.cwd(), "..");
+const inputDir =
+  process.env.OCR_BENCHMARK_INPUT_DIR ||
+  path.join(repoRoot, "ocr", "original_file");
 const outputPath =
   process.env.OCR_BENCHMARK_OUTPUT_PATH ||
-  path.join(repoRoot, 'ocr', 'output_text', 'OCR_tesseract_local_tuned.txt');
+  path.join(repoRoot, "ocr", "output_text", "OCR_tesseract_local_tuned.txt");
 
-const supportedExtensions = new Set(['.pdf', '.png', '.jpg', '.jpeg']);
+const supportedExtensions = new Set([".pdf", ".png", ".jpg", ".jpeg"]);
 
 const isSupportedFile = (fileName: string): boolean =>
   supportedExtensions.has(path.extname(fileName).toLowerCase());
@@ -42,24 +44,30 @@ const run = async (): Promise<void> => {
     const elapsedMs = performance.now() - startedAt;
 
     if (!result.ok) {
-      throw new Error(`OCR failed for ${fileName}: ${result.error || 'Unknown error'}`);
+      throw new Error(
+        `OCR failed for ${fileName}: ${result.error || "Unknown error"}`,
+      );
     }
 
-    const markdown = result.markdown || '';
+    const markdown = result.markdown || "";
     blocks.push(toDocumentBlock(fileName, markdown));
     stats.push({ name: fileName, ms: elapsedMs, chars: markdown.length });
   }
 
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, `${blocks.join('\n')}\n`, 'utf8');
+  await writeFile(outputPath, `${blocks.join("\n")}\n`, "utf8");
 
   const totalMs = stats.reduce((sum, item) => sum + item.ms, 0);
   const totalChars = stats.reduce((sum, item) => sum + item.chars, 0);
   console.log(`Tesseract OCR benchmark finished: ${stats.length} files`);
   console.log(`Output: ${outputPath}`);
-  console.log(`Total time: ${Math.round(totalMs)} ms, total chars: ${totalChars}`);
+  console.log(
+    `Total time: ${Math.round(totalMs)} ms, total chars: ${totalChars}`,
+  );
   for (const item of stats) {
-    console.log(`- ${item.name}: ${Math.round(item.ms)} ms, ${item.chars} chars`);
+    console.log(
+      `- ${item.name}: ${Math.round(item.ms)} ms, ${item.chars} chars`,
+    );
   }
 };
 

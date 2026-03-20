@@ -1,17 +1,21 @@
-import { getConnection } from '@config/database.js';
-import { PoolConnection, RowDataPacket } from 'mysql2/promise';
-import { requestRepository } from '@/modules/request/data/repositories/request.repository.js';
+import { getConnection } from "@config/database.js";
+import { PoolConnection, RowDataPacket } from "mysql2/promise";
+import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
 import type {
   OcrBatchResultItem,
   OcrPrecheckHistoryItem,
   OcrPrecheckRecord,
-} from '@/modules/ocr/entities/ocr-precheck.entity.js';
+} from "@/modules/ocr/entities/ocr-precheck.entity.js";
 
 export class OcrRequestRepository {
-  static async findStaleProcessingRequestIds(staleMinutes: number): Promise<number[]> {
+  static async findStaleProcessingRequestIds(
+    staleMinutes: number,
+  ): Promise<number[]> {
     const connection = await getConnection();
     try {
-      const safeMinutes = Number.isFinite(staleMinutes) ? Math.max(1, Math.floor(staleMinutes)) : 30;
+      const safeMinutes = Number.isFinite(staleMinutes)
+        ? Math.max(1, Math.floor(staleMinutes))
+        : 30;
       const [rows] = await connection.query<RowDataPacket[]>(
         `
           SELECT request_id
@@ -40,7 +44,9 @@ export class OcrRequestRepository {
     return requestRepository.findAttachments(requestId);
   }
 
-  static async findRequestPrecheck(requestId: number): Promise<OcrPrecheckRecord | null> {
+  static async findRequestPrecheck(
+    requestId: number,
+  ): Promise<OcrPrecheckRecord | null> {
     const connection = await getConnection();
     try {
       const [rows] = await connection.query<RowDataPacket[]>(
@@ -49,7 +55,6 @@ export class OcrRequestRepository {
             request_id,
             status,
             source,
-            service_url,
             worker,
             queued_at,
             started_at,
@@ -71,23 +76,30 @@ export class OcrRequestRepository {
       if (!row) return null;
       return {
         request_id: Number(row.request_id),
-        status: String(row.status) as OcrPrecheckRecord['status'],
+        status: String(row.status) as OcrPrecheckRecord["status"],
         source: (row.source as string | null) ?? null,
-        service_url: (row.service_url as string | null) ?? null,
         worker: (row.worker as string | null) ?? null,
         queued_at: row.queued_at ? new Date(row.queued_at).toISOString() : null,
-        started_at: row.started_at ? new Date(row.started_at).toISOString() : null,
-        finished_at: row.finished_at ? new Date(row.finished_at).toISOString() : null,
+        started_at: row.started_at
+          ? new Date(row.started_at).toISOString()
+          : null,
+        finished_at: row.finished_at
+          ? new Date(row.finished_at).toISOString()
+          : null,
         count: Number(row.count ?? 0),
         success_count: Number(row.success_count ?? 0),
         failed_count: Number(row.failed_count ?? 0),
         error: (row.error as string | null) ?? null,
         results:
-          typeof row.results_json === 'string' && row.results_json.trim()
+          typeof row.results_json === "string" && row.results_json.trim()
             ? (JSON.parse(row.results_json) as OcrBatchResultItem[])
             : [],
-        created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
-        updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null,
+        created_at: row.created_at
+          ? new Date(row.created_at).toISOString()
+          : null,
+        updated_at: row.updated_at
+          ? new Date(row.updated_at).toISOString()
+          : null,
       };
     } finally {
       connection.release();
@@ -102,7 +114,10 @@ export class OcrRequestRepository {
     const db = connection ?? (await getConnection());
     const shouldRelease = !connection;
     try {
-      const existing = await this.findRequestPrecheckForWrite(requestId, connection ?? db);
+      const existing = await this.findRequestPrecheckForWrite(
+        requestId,
+        connection ?? db,
+      );
       const merged = {
         ...existing,
         ...patch,
@@ -114,7 +129,6 @@ export class OcrRequestRepository {
             request_id,
             status,
             source,
-            service_url,
             worker,
             queued_at,
             started_at,
@@ -124,11 +138,10 @@ export class OcrRequestRepository {
             failed_count,
             error,
             results_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
             status = VALUES(status),
             source = VALUES(source),
-            service_url = VALUES(service_url),
             worker = VALUES(worker),
             queued_at = VALUES(queued_at),
             started_at = VALUES(started_at),
@@ -141,9 +154,8 @@ export class OcrRequestRepository {
         `,
         [
           requestId,
-          String(merged.status ?? 'queued'),
+          String(merged.status ?? "queued"),
           (merged.source as string | null) ?? null,
-          (merged.service_url as string | null) ?? null,
           (merged.worker as string | null) ?? null,
           this.normalizeDateTimeValue(merged.queued_at),
           this.normalizeDateTimeValue(merged.started_at),
@@ -162,11 +174,14 @@ export class OcrRequestRepository {
     }
   }
 
-  static async updateRequestPrecheck(requestId: number, patch: Record<string, unknown>): Promise<void> {
+  static async updateRequestPrecheck(
+    requestId: number,
+    patch: Record<string, unknown>,
+  ): Promise<void> {
     try {
       await this.upsertRequestPrecheck(requestId, patch);
     } catch {
-      throw new Error('Failed to update OCR precheck');
+      throw new Error("Failed to update OCR precheck");
     }
   }
 
@@ -185,7 +200,7 @@ export class OcrRequestRepository {
       const values: Array<string | number> = [];
 
       if (params.status) {
-        where.push('ocr.status = ?');
+        where.push("ocr.status = ?");
         values.push(params.status);
       }
 
@@ -202,7 +217,7 @@ export class OcrRequestRepository {
         values.push(keyword, keyword, keyword, keyword);
       }
 
-      const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+      const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
 
       const [rows] = await connection.query<RowDataPacket[]>(
         `
@@ -210,7 +225,6 @@ export class OcrRequestRepository {
             ocr.request_id,
             ocr.status,
             ocr.source,
-            ocr.service_url,
             ocr.worker,
             ocr.queued_at,
             ocr.started_at,
@@ -252,46 +266,51 @@ export class OcrRequestRepository {
         items: rows.map((row) => ({
           ...(() => {
             const parsedResults =
-              typeof row.results_json === 'string' && row.results_json.trim()
+              typeof row.results_json === "string" && row.results_json.trim()
                 ? (JSON.parse(row.results_json) as OcrBatchResultItem[])
                 : [];
             const firstSuccess = parsedResults.find((item) => item.ok) ?? null;
             return {
               results: parsedResults,
-              engine_used: (firstSuccess?.engine_used as string | undefined) ?? null,
-              fallback_used:
-                typeof firstSuccess?.fallback_used === 'boolean'
-                  ? firstSuccess.fallback_used
-                  : null,
-              document_kind: (firstSuccess?.document_kind as string | undefined) ?? null,
+              document_kind:
+                (firstSuccess?.document_kind as string | undefined) ?? null,
               fields:
-                firstSuccess?.fields && typeof firstSuccess.fields === 'object'
+                firstSuccess?.fields && typeof firstSuccess.fields === "object"
                   ? firstSuccess.fields
                   : null,
               missing_fields: Array.isArray(firstSuccess?.missing_fields)
                 ? firstSuccess.missing_fields
                 : null,
-              fallback_reason: (firstSuccess?.fallback_reason as string | undefined) ?? null,
               quality:
-                firstSuccess?.quality && typeof firstSuccess.quality === 'object'
+                firstSuccess?.quality &&
+                typeof firstSuccess.quality === "object"
                   ? firstSuccess.quality
                   : null,
             };
           })(),
           request_id: Number(row.request_id),
-          status: String(row.status) as OcrPrecheckRecord['status'],
+          status: String(row.status) as OcrPrecheckRecord["status"],
           source: (row.source as string | null) ?? null,
-          service_url: (row.service_url as string | null) ?? null,
           worker: (row.worker as string | null) ?? null,
-          queued_at: row.queued_at ? new Date(row.queued_at).toISOString() : null,
-          started_at: row.started_at ? new Date(row.started_at).toISOString() : null,
-          finished_at: row.finished_at ? new Date(row.finished_at).toISOString() : null,
+          queued_at: row.queued_at
+            ? new Date(row.queued_at).toISOString()
+            : null,
+          started_at: row.started_at
+            ? new Date(row.started_at).toISOString()
+            : null,
+          finished_at: row.finished_at
+            ? new Date(row.finished_at).toISOString()
+            : null,
           count: Number(row.count ?? 0),
           success_count: Number(row.success_count ?? 0),
           failed_count: Number(row.failed_count ?? 0),
           error: (row.error as string | null) ?? null,
-          created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
-          updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null,
+          created_at: row.created_at
+            ? new Date(row.created_at).toISOString()
+            : null,
+          updated_at: row.updated_at
+            ? new Date(row.updated_at).toISOString()
+            : null,
           request_no: (row.request_no as string | null) ?? null,
           request_status: (row.request_status as string | null) ?? null,
           request_type: (row.request_type as string | null) ?? null,
@@ -315,7 +334,6 @@ export class OcrRequestRepository {
           request_id,
           status,
           source,
-          service_url,
           worker,
           queued_at,
           started_at,
@@ -337,17 +355,20 @@ export class OcrRequestRepository {
       request_id: Number(row.request_id),
       status: row.status,
       source: row.source,
-      service_url: row.service_url,
       worker: row.worker,
       queued_at: row.queued_at ? new Date(row.queued_at).toISOString() : null,
-      started_at: row.started_at ? new Date(row.started_at).toISOString() : null,
-      finished_at: row.finished_at ? new Date(row.finished_at).toISOString() : null,
+      started_at: row.started_at
+        ? new Date(row.started_at).toISOString()
+        : null,
+      finished_at: row.finished_at
+        ? new Date(row.finished_at).toISOString()
+        : null,
       count: Number(row.count ?? 0),
       success_count: Number(row.success_count ?? 0),
       failed_count: Number(row.failed_count ?? 0),
       error: row.error ?? null,
       results:
-        typeof row.results_json === 'string' && row.results_json.trim()
+        typeof row.results_json === "string" && row.results_json.trim()
           ? (JSON.parse(row.results_json) as OcrBatchResultItem[])
           : [],
     };
@@ -357,6 +378,6 @@ export class OcrRequestRepository {
     if (!value) return null;
     const date = value instanceof Date ? value : new Date(String(value));
     if (Number.isNaN(date.getTime())) return null;
-    return date.toISOString().slice(0, 19).replace('T', ' ');
+    return date.toISOString().slice(0, 19).replace("T", " ");
   }
 }

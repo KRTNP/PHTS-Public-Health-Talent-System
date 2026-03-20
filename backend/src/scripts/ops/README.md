@@ -83,10 +83,7 @@ Keep ad-hoc operational scripts in a separate maintenance branch or runbook repo
 ## OCR worker notes
 
 - App server runs built-in OCR worker by default (`OCR_WORKER_ENABLED=true`).
-- OCR engine chain is:
-  - primary: `OCR_SERVICE_URL`
-  - secondary: `OCR_PADDLE_SERVICE_URL` (or local Paddle when `OCR_PADDLE_LOCAL_ENABLED=true`)
-  - tertiary: `OCR_TYPHOON_SERVICE_URL` (when previous result quality is still insufficient)
+- OCR engine is local Tesseract (`OCR_SERVICE_URL=local-tesseract`).
 - Local Tesseract tuning env:
   - `OCR_TESSERACT_LANG` (default `tha+eng`)
   - `OCR_TESSERACT_OEM` (default `1`)
@@ -103,43 +100,15 @@ Keep ad-hoc operational scripts in a separate maintenance branch or runbook repo
   - whether the worker is enabled
 - OCR still stores per-request processing state under `submission_data.ocr_precheck`.
 
-### Local Paddle OCR setup (WSL/Linux)
-
-Use a Python virtual environment and point `OCR_PADDLE_PYTHON_BIN` to that interpreter.
-
-```bash
-cd /path/to/phts-project/backend
-python3 -m venv .venv-ocr
-source .venv-ocr/bin/activate
-pip install --upgrade pip setuptools wheel
-pip install "paddlepaddle==3.1.1" "paddleocr==3.4.0"
-```
-
-Recommended env flags for stable local run:
-- `OCR_PADDLE_LOCAL_ENABLED=true`
-- `OCR_PADDLE_PYTHON_BIN=/absolute/path/to/backend/.venv-ocr/bin/python`
-- `OCR_PADDLE_DISABLE_MODEL_SOURCE_CHECK=true`
-- `OCR_PADDLE_USE_TEXTLINE_ORIENTATION=false`
-- `OCR_PADDLE_TEXT_DET_LIMIT_SIDE_LEN=2048`
-- `OCR_PADDLE_TEXT_DET_THRESH=0.25`
-- `OCR_PADDLE_TEXT_DET_BOX_THRESH=0.45`
-- `OCR_PADDLE_TEXT_DET_UNCLIP_RATIO=1.8`
-- `OCR_PADDLE_TEXT_REC_SCORE_THRESH=0`
-- `OCR_PADDLE_PDF_DPI=300`
-
 Benchmark with local sample files:
 
 ```bash
 cd /path/to/phts-project/backend
-npm run ocr:hybrid:benchmark
 npm run ocr:tesseract:benchmark
-npm run ocr:paddle:benchmark
 ```
 
 Default benchmark output is saved to:
-- `../ocr/output_text/OCR_hybrid_local_tuned.txt`
 - `../ocr/output_text/OCR_tesseract_local_tuned.txt`
-- `../ocr/output_text/OCR_paddle_local_tuned.txt`
 
 ## Cron example
 

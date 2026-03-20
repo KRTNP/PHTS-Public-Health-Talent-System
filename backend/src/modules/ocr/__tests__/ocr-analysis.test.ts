@@ -1,12 +1,12 @@
 import {
   classifyOcrDocument,
   enrichOcrBatchResult,
-} from '@/modules/ocr/services/ocr-gateway-analysis.service.js';
+} from "@/modules/ocr/services/ocr-analysis.service.js";
 
-describe('ocr gateway analysis', () => {
-  test('classifies and enriches memo OCR result with extracted fields', () => {
+describe("ocr analysis", () => {
+  test("classifies and enriches memo OCR result with extracted fields", () => {
     const enriched = enrichOcrBatchResult({
-      name: 'memo.pdf',
+      name: "memo.pdf",
       ok: true,
       markdown: `
 บันทึกข้อความ
@@ -21,7 +21,7 @@ describe('ocr gateway analysis', () => {
     expect(enriched).toEqual(
       expect.objectContaining({
         ok: true,
-        document_kind: 'memo',
+        document_kind: "memo",
         missing_fields: [],
         quality: {
           required_fields: 3,
@@ -29,18 +29,18 @@ describe('ocr gateway analysis', () => {
           passed: true,
         },
         fields: expect.objectContaining({
-          document_no: 'อต 0033.104/000953',
-          document_date: '15 มกราคม 2569',
+          document_no: "อต 0033.104/000953",
+          document_date: "15 มกราคม 2569",
           subject:
-            'ขอส่งสำเนาใบอนุญาตประกอบวิชาชีพการพยาบาลและการผดุงครรภ์ ชั้นหนึ่ง',
+            "ขอส่งสำเนาใบอนุญาตประกอบวิชาชีพการพยาบาลและการผดุงครรภ์ ชั้นหนึ่ง",
         }),
       }),
     );
   });
 
-  test('falls back logically when assignment order misses required fields', () => {
+  test("marks assignment order as incomplete when required fields are missing", () => {
     const enriched = enrichOcrBatchResult({
-      name: 'order.pdf',
+      name: "order.pdf",
       ok: true,
       markdown: `
 คำสั่งกลุ่มงานเภสัชกรรม
@@ -49,10 +49,9 @@ describe('ocr gateway analysis', () => {
       `,
     });
 
-    expect(enriched.document_kind).toBe('assignment_order');
-    expect(enriched.fallback_reason).toBe('missing_required_fields');
+    expect(enriched.document_kind).toBe("assignment_order");
     expect(enriched.missing_fields).toEqual(
-      expect.arrayContaining(['order_no', 'person_name']),
+      expect.arrayContaining(["order_no", "person_name"]),
     );
     expect(enriched.quality).toEqual({
       required_fields: 4,
@@ -61,9 +60,9 @@ describe('ocr gateway analysis', () => {
     });
   });
 
-  test('flags assignment order with skipped duty ordinal as low quality', () => {
+  test("flags assignment order with skipped duty ordinal as low quality", () => {
     const enriched = enrichOcrBatchResult({
-      name: 'page-5-6.pdf',
+      name: "page-5-6.pdf",
       ok: true,
       markdown: `
 คำสั่งกลุ่มงานเภสัชกรรม
@@ -80,16 +79,17 @@ describe('ocr gateway analysis', () => {
       `,
     });
 
-    expect(enriched.document_kind).toBe('assignment_order');
-    expect(enriched.missing_fields).toEqual(expect.arrayContaining(['duty_sequence']));
-    expect(enriched.fallback_reason).toBe('missing_required_fields');
+    expect(enriched.document_kind).toBe("assignment_order");
+    expect(enriched.missing_fields).toEqual(
+      expect.arrayContaining(["duty_sequence"]),
+    );
     expect(enriched.quality?.passed).toBe(false);
   });
 
-  test('classifies license documents from OCR text', () => {
+  test("classifies license documents from OCR text", () => {
     expect(
       classifyOcrDocument({
-        name: 'license.pdf',
+        name: "license.pdf",
         ok: true,
         markdown: `
 ใบอนุญาตประกอบวิชาชีพการพยาบาลและการผดุงครรภ์
@@ -97,12 +97,12 @@ describe('ocr gateway analysis', () => {
 หมดอายุ วันที่ 28 มีนาคม 2569
         `,
       }),
-    ).toBe('license');
+    ).toBe("license");
   });
 
-  test('classifies noisy scanned license OCR as license and extracts key fields', () => {
+  test("classifies noisy scanned license OCR as license and extracts key fields", () => {
     const enriched = enrichOcrBatchResult({
-      name: 'page-2.pdf',
+      name: "page-2.pdf",
       ok: true,
       markdown: `
 ง 1 เร
@@ -115,12 +115,12 @@ describe('ocr gateway analysis', () => {
       `,
     });
 
-    expect(enriched.document_kind).toBe('license');
+    expect(enriched.document_kind).toBe("license");
     expect(enriched.fields).toEqual(
       expect.objectContaining({
-        license_no: '2511315051',
-        person_name: expect.stringContaining('แดงไฟ'),
-        license_valid_until: expect.stringContaining('มีนาคม'),
+        license_no: "2511315051",
+        person_name: expect.stringContaining("แดงไฟ"),
+        license_valid_until: expect.stringContaining("มีนาคม"),
       }),
     );
     expect(enriched.quality).toEqual({
@@ -130,9 +130,9 @@ describe('ocr gateway analysis', () => {
     });
   });
 
-  test('extracts license fields from split-name noisy OCR lines', () => {
+  test("extracts license fields from split-name noisy OCR lines", () => {
     const enriched = enrichOcrBatchResult({
-      name: 'page-3.pdf',
+      name: "page-3.pdf",
       ok: true,
       markdown: `
 ใบอนุญาตที่ 4๙๑1๑9๔๔๓๖
@@ -143,12 +143,12 @@ describe('ocr gateway analysis', () => {
       `,
     });
 
-    expect(enriched.document_kind).toBe('license');
+    expect(enriched.document_kind).toBe("license");
     expect(enriched.fields).toEqual(
       expect.objectContaining({
-        license_no: '4911194436',
-        person_name: 'ธรรมสุทธิ์ นางนิสยา',
-        license_valid_until: expect.stringContaining('19 เดือน มีนาคม'),
+        license_no: "4911194436",
+        person_name: "ธรรมสุทธิ์ นางนิสยา",
+        license_valid_until: expect.stringContaining("19 เดือน มีนาคม"),
       }),
     );
     expect(enriched.quality).toEqual({
@@ -158,9 +158,9 @@ describe('ocr gateway analysis', () => {
     });
   });
 
-  test('classifies noisy memo OCR before license keywords and extracts key fields', () => {
+  test("classifies noisy memo OCR before license keywords and extracts key fields", () => {
     const enriched = enrichOcrBatchResult({
-      name: '20260213-004 3.pdf',
+      name: "20260213-004 3.pdf",
       ok: true,
       markdown: `
 บนทกขอความ
@@ -171,12 +171,13 @@ fl อต ๐๐๓๓๑๐๕/๐๐๐6                  วันที่ �
       `,
     });
 
-    expect(enriched.document_kind).toBe('memo');
+    expect(enriched.document_kind).toBe("memo");
     expect(enriched.fields).toEqual(
       expect.objectContaining({
-        document_no: 'อต 0033105/0006',
-        document_date: '15 มกราคม 2569',
-        subject: 'ขอส่งสำเนาใบอนุญาตประกอบวิชาชีพการพยาบาลและการผดุงครรภ์ ชั้นหนึ่ง',
+        document_no: "อต 0033105/0006",
+        document_date: "15 มกราคม 2569",
+        subject:
+          "ขอส่งสำเนาใบอนุญาตประกอบวิชาชีพการพยาบาลและการผดุงครรภ์ ชั้นหนึ่ง",
       }),
     );
     expect(enriched.quality).toEqual({

@@ -1,14 +1,14 @@
-import redis from '@config/redis.js';
+import redis from "@config/redis.js";
 import {
   OCR_QUEUE_KEY,
   OCR_WORKER_BRPOP_TIMEOUT_SEC,
   type OcrQueueJob,
-} from '@/modules/ocr/entities/ocr-precheck.entity.js';
+} from "@/modules/ocr/entities/ocr-precheck.entity.js";
 import {
   enqueueRequestOcrPrecheck,
   processRequestOcrPrecheck,
-} from '@/modules/ocr/services/ocr-precheck.service.js';
-import { OcrRequestRepository } from '@/modules/ocr/repositories/ocr-request.repository.js';
+} from "@/modules/ocr/services/ocr-precheck.service.js";
+import { OcrRequestRepository } from "@/modules/ocr/repositories/ocr-request.repository.js";
 
 let workerRunning = false;
 let workerPromise: Promise<void> | null = null;
@@ -16,22 +16,27 @@ let workerRedisClient: typeof redis | null = null;
 
 const DEFAULT_STALE_PROCESSING_MINUTES = 30;
 
-const isWorkerEnabled = (): boolean => process.env.OCR_WORKER_ENABLED !== 'false';
+const isWorkerEnabled = (): boolean =>
+  process.env.OCR_WORKER_ENABLED !== "false";
 const getStaleProcessingMinutes = (): number => {
-  const raw = Number(process.env.OCR_STALE_PROCESSING_MINUTES || DEFAULT_STALE_PROCESSING_MINUTES);
+  const raw = Number(
+    process.env.OCR_STALE_PROCESSING_MINUTES ||
+      DEFAULT_STALE_PROCESSING_MINUTES,
+  );
   if (!Number.isFinite(raw) || raw < 1) return DEFAULT_STALE_PROCESSING_MINUTES;
   return Math.floor(raw);
 };
 
 export const recoverStaleOcrPrecheckJobs = async (): Promise<number> => {
   const staleMinutes = getStaleProcessingMinutes();
-  const staleRequestIds = await OcrRequestRepository.findStaleProcessingRequestIds(staleMinutes);
+  const staleRequestIds =
+    await OcrRequestRepository.findStaleProcessingRequestIds(staleMinutes);
   if (staleRequestIds.length === 0) return 0;
 
   const nowIso = new Date().toISOString();
   for (const requestId of staleRequestIds) {
     await OcrRequestRepository.upsertRequestPrecheck(requestId, {
-      status: 'queued',
+      status: "queued",
       queued_at: nowIso,
       started_at: null,
       finished_at: null,
@@ -54,7 +59,7 @@ const workerLoop = async (): Promise<void> => {
   try {
     await recoverStaleOcrPrecheckJobs();
   } catch (error) {
-    console.error('[OCRQueue] stale recovery error:', error);
+    console.error("[OCRQueue] stale recovery error:", error);
   }
 
   while (workerRunning) {
@@ -71,7 +76,7 @@ const workerLoop = async (): Promise<void> => {
 
       await processRequestOcrPrecheck(Number(job.requestId));
     } catch (error) {
-      console.error('[OCRQueue] worker error:', error);
+      console.error("[OCRQueue] worker error:", error);
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
@@ -79,14 +84,14 @@ const workerLoop = async (): Promise<void> => {
 
 export const startOcrPrecheckWorker = (): void => {
   if (!isWorkerEnabled()) {
-    console.log('[OCRQueue] worker disabled by OCR_WORKER_ENABLED=false');
+    console.log("[OCRQueue] worker disabled by OCR_WORKER_ENABLED=false");
     return;
   }
   if (workerRunning) return;
   workerRedisClient = redis.duplicate();
   workerRunning = true;
   workerPromise = workerLoop();
-  console.log('[OCRQueue] worker started');
+  console.log("[OCRQueue] worker started");
 };
 
 export const stopOcrPrecheckWorker = async (): Promise<void> => {
@@ -99,7 +104,7 @@ export const stopOcrPrecheckWorker = async (): Promise<void> => {
     await workerRedisClient.quit().catch(() => workerRedisClient?.disconnect());
     workerRedisClient = null;
   }
-  console.log('[OCRQueue] worker stopped');
+  console.log("[OCRQueue] worker stopped");
 };
 
 export const getOcrWorkerEnabled = (): boolean => isWorkerEnabled();
