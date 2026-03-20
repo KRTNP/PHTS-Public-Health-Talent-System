@@ -327,7 +327,6 @@ export function usePersistManualOcrPrecheck() {
     }: {
       id: number | string;
       payload: {
-        service_url?: string;
         worker?: string;
         count?: number;
         success_count?: number;
@@ -394,7 +393,6 @@ export function usePersistEligibilityManualOcrPrecheck() {
     }: {
       id: number | string;
       payload: {
-        service_url?: string;
         worker?: string;
         count?: number;
         success_count?: number;
@@ -405,12 +403,9 @@ export function usePersistEligibilityManualOcrPrecheck() {
           ok?: boolean;
           markdown?: string;
           error?: string;
-          engine_used?: string;
-          fallback_used?: boolean;
           document_kind?: string;
           fields?: Record<string, unknown>;
           missing_fields?: string[];
-          fallback_reason?: string;
           quality?: {
             required_fields?: number;
             captured_fields?: number;

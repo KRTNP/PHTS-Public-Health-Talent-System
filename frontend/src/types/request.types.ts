@@ -82,7 +82,6 @@ export interface RequestWithDetails extends PTSRequest {
     request_id: number;
     status: "queued" | "processing" | "completed" | "failed" | "skipped";
     source?: string | null;
-    service_url?: string | null;
     worker?: string | null;
     queued_at?: string | null;
     started_at?: string | null;
@@ -96,12 +95,9 @@ export interface RequestWithDetails extends PTSRequest {
       ok?: boolean;
       markdown?: string;
       error?: string;
-      engine_used?: string;
-      fallback_used?: boolean;
       document_kind?: string;
       fields?: Record<string, unknown>;
       missing_fields?: string[];
-      fallback_reason?: string;
       quality?: {
         required_fields?: number;
         captured_fields?: number;

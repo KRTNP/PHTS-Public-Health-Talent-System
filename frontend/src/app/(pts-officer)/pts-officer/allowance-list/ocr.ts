@@ -7,12 +7,9 @@ export type AllowanceOcrBatchSummary = {
     ok?: boolean;
     markdown?: string;
     error?: string;
-    engine_used?: string;
-    fallback_used?: boolean;
     document_kind?: string;
     fields?: Record<string, unknown>;
     missing_fields?: string[];
-    fallback_reason?: string;
     quality?: {
       required_fields?: number;
       captured_fields?: number;
@@ -60,12 +57,9 @@ export async function runAllowanceAttachmentOcr(
       ok?: boolean;
       markdown?: string;
       error?: string;
-      engine_used?: string;
-      fallback_used?: boolean;
       document_kind?: string;
       fields?: Record<string, unknown>;
       missing_fields?: string[];
-      fallback_reason?: string;
       quality?: {
         required_fields?: number;
         captured_fields?: number;

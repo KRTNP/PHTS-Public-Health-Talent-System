@@ -113,7 +113,6 @@ export interface EligibilityRecord {
     eligibility_id: number;
     status: "queued" | "processing" | "completed" | "failed" | "skipped";
     source?: string | null;
-    service_url?: string | null;
     worker?: string | null;
     started_at?: string | null;
     finished_at?: string | null;
@@ -126,12 +125,9 @@ export interface EligibilityRecord {
       ok?: boolean;
       markdown?: string;
       error?: string;
-      engine_used?: string;
-      fallback_used?: boolean;
       document_kind?: string;
       fields?: Record<string, unknown>;
       missing_fields?: string[];
-      fallback_reason?: string;
       quality?: {
         required_fields?: number;
         captured_fields?: number;
@@ -473,7 +469,6 @@ export async function getApprovalHistory(params?: {
 export async function persistManualOcrPrecheck(
   id: number | string,
   payload: {
-    service_url?: string;
     worker?: string;
     count?: number;
     success_count?: number;
@@ -513,12 +508,9 @@ export async function runRequestAttachmentsOcr(
         ok?: boolean;
         markdown?: string;
         error?: string;
-        engine_used?: string;
-        fallback_used?: boolean;
         document_kind?: string;
         fields?: Record<string, unknown>;
         missing_fields?: string[];
-        fallback_reason?: string;
         quality?: {
           required_fields?: number;
           captured_fields?: number;
@@ -550,7 +542,6 @@ export async function clearRequestAttachmentOcr(
 export async function persistEligibilityManualOcrPrecheck(
   id: number | string,
   payload: {
-    service_url?: string;
     worker?: string;
     count?: number;
     success_count?: number;
@@ -561,12 +552,9 @@ export async function persistEligibilityManualOcrPrecheck(
       ok?: boolean;
       markdown?: string;
       error?: string;
-      engine_used?: string;
-      fallback_used?: boolean;
       document_kind?: string;
       fields?: Record<string, unknown>;
       missing_fields?: string[];
-      fallback_reason?: string;
       quality?: {
         required_fields?: number;
         captured_fields?: number;
@@ -602,12 +590,9 @@ export async function runEligibilityAttachmentsOcr(
         ok?: boolean;
         markdown?: string;
         error?: string;
-        engine_used?: string;
-        fallback_used?: boolean;
         document_kind?: string;
         fields?: Record<string, unknown>;
         missing_fields?: string[];
-        fallback_reason?: string;
         quality?: {
           required_fields?: number;
           captured_fields?: number;

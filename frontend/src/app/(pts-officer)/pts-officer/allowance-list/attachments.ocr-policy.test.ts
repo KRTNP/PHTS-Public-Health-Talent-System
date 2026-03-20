@@ -31,17 +31,10 @@ describe('allowance attachment OCR policy', () => {
       }),
     ).toBe(false)
 
-    expect(
-      shouldShowAllowanceAttachmentOcrAction({
-        name: 'cleared.pdf',
-        suppressed: true,
-      }),
-    ).toBe(true)
-
     expect(shouldShowAllowanceAttachmentOcrAction(undefined)).toBe(true)
   })
 
-  test('builds OCR UI state centrally for suppressed warning-only files', () => {
+  test('builds OCR UI state centrally for warning-only files', () => {
     expect(
       getAllowanceAttachmentOcrUiState({
         fileName: 'page-5-6.pdf',

@@ -36,8 +36,6 @@ export type AllowanceAttachmentOcrLike = {
   ok?: boolean;
   markdown?: string;
   error?: string;
-  suppressed?: boolean;
-  engine_used?: string;
   document_kind?: string;
   fields?: Record<string, unknown>;
 };
@@ -82,21 +80,29 @@ const getReadableOcrFirstLine = (markdown?: string | null): string | null => {
   return null;
 };
 
+const hasMeaningfulOcrResult = (item: AllowanceAttachmentOcrLike): boolean => {
+  if (item.ok === true || item.ok === false) return true;
+  if (String(item.markdown ?? "").trim()) return true;
+  if (String(item.error ?? "").trim()) return true;
+  if (String(item.document_kind ?? "").trim()) return true;
+  if (item.fields && Object.keys(item.fields).length > 0) return true;
+  return false;
+};
+
 export function buildAllowanceOcrDocuments(params: {
   eligibilityResults?: AllowanceAttachmentOcrLike[];
   requestResults?: AllowanceAttachmentOcrLike[];
   latestResults?: AllowanceAttachmentOcrLike[];
   visibleFileNames?: Iterable<string>;
-}): Array<{ fileName: string; markdown: string; engineUsed?: string | null }> {
+}): Array<{ fileName: string; markdown: string }> {
   const byFileName = buildAllowanceAttachmentOcrResultMap(params);
   return Array.from(byFileName.values())
-    .filter((item) => !item.suppressed && item.ok && item.markdown)
+    .filter((item) => item.ok && item.markdown)
     .map((item) => ({
       fileName: item.name?.trim() || "ผล OCR",
       markdown: item.markdown?.trim() || "",
-      engineUsed: typeof item.engine_used === "string" ? item.engine_used : null,
     }))
-    .filter((item) => item.markdown.length > 0)
+    .filter((item) => item.markdown.length > 0);
 }
 
 export function buildAllowanceAttachmentOcrResultMap(params: {
@@ -111,6 +117,7 @@ export function buildAllowanceAttachmentOcrResultMap(params: {
   for (const item of params.eligibilityResults ?? []) {
     const fileName = (item.name ?? "").trim();
     if (!fileName) continue;
+    if (!hasMeaningfulOcrResult(item)) continue;
     if (visibleFileNameSet && !visibleFileNameSet.has(fileName.toLowerCase())) continue;
     entries.set(fileName, item);
   }
@@ -118,6 +125,7 @@ export function buildAllowanceAttachmentOcrResultMap(params: {
   for (const item of params.requestResults ?? []) {
     const fileName = (item.name ?? "").trim();
     if (!fileName || entries.has(fileName)) continue;
+    if (!hasMeaningfulOcrResult(item)) continue;
     if (visibleFileNameSet && !visibleFileNameSet.has(fileName.toLowerCase())) continue;
     entries.set(fileName, item);
   }
@@ -125,6 +133,7 @@ export function buildAllowanceAttachmentOcrResultMap(params: {
   for (const item of params.latestResults ?? []) {
     const fileName = (item.name ?? "").trim();
     if (!fileName) continue;
+    if (!hasMeaningfulOcrResult(item)) continue;
     if (visibleFileNameSet && !visibleFileNameSet.has(fileName.toLowerCase())) continue;
     entries.set(fileName, item);
   }
@@ -144,7 +153,7 @@ export function buildAllowanceClearableOcrFileNameSet(params: {
     const fileName = String(item.name ?? "").trim().toLowerCase();
     if (!fileName) continue;
     if (visibleFileNameSet && !visibleFileNameSet.has(fileName)) continue;
-    if (item.suppressed) continue;
+    if (!hasMeaningfulOcrResult(item)) continue;
     names.add(fileName);
   }
 
@@ -212,7 +221,6 @@ export function getAllowanceAttachmentOcrSummary(
   item?: AllowanceAttachmentOcrLike | null,
 ): { tone: "success" | "muted" | "error"; text: string } | null {
   if (!item) return null;
-  if (item.suppressed) return null;
   if (item.ok === false) {
     return {
       tone: "error",
@@ -242,7 +250,7 @@ export function getAllowanceAttachmentOcrSummary(
 export function getAllowanceAttachmentOcrDocumentTypeLabel(
   item?: AllowanceAttachmentOcrLike | null,
 ): string | null {
-  if (!item || item.suppressed) return null;
+  if (!item) return null;
   const documentKind = String(item.document_kind ?? "").trim().toLowerCase();
   const detectedKind = item.markdown
     ? detectOcrDocumentKind({
@@ -276,7 +284,6 @@ export function shouldShowAllowanceAttachmentOcrAction(
   item?: AllowanceAttachmentOcrLike | null,
 ): boolean {
   if (!item) return true;
-  if (item.suppressed) return true;
   if (item.ok === false) return false;
   if (item.ok) {
     return false;
