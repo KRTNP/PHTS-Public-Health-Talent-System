@@ -345,6 +345,8 @@ router.post(
  */
 
 // Approve a request
+// Compatibility endpoint: kept for existing clients.
+// Implementation delegates to the same approval service used by `/:id/action`.
 router.post(
   "/:id/approve",
   restrictTo(
@@ -359,6 +361,8 @@ router.post(
 );
 
 // Reject a request
+// Compatibility endpoint: kept for existing clients.
+// Implementation delegates to the same approval service used by `/:id/action`.
 router.post(
   "/:id/reject",
   restrictTo(
@@ -373,6 +377,8 @@ router.post(
 );
 
 // Return a request to previous step
+// Compatibility endpoint: kept for existing clients.
+// Implementation delegates to the same approval service used by `/:id/action`.
 router.post(
   "/:id/return",
   restrictTo(

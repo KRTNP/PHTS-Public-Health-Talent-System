@@ -13,6 +13,7 @@
     "dev:frontend": "npm run dev --prefix frontend",
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
     "lint:all": "npm run lint --prefix backend && npm run lint --prefix frontend",
+    "test:smoke:backend": "npm run test:smoke --prefix backend",
     "test:smoke:frontend": "npm run test:smoke --prefix frontend",
     "test:all": "npm run test --prefix backend && npm run test --prefix frontend",
     "typecheck:all": "npm run typecheck --prefix backend && npm run typecheck --prefix frontend"

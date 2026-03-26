@@ -8,6 +8,11 @@ import { PayrollService } from "@/modules/payroll/services/facade/payroll.servic
 import { emitAuditEventWithRequest } from "@/modules/audit/services/audit.service.js";
 import { AuditEventType } from "@/modules/audit/entities/audit.entity.js";
 import { ApiResponse } from "@/types/auth.js";
+import {
+  getAuthenticatedUserId,
+  getAuthenticatedUserRole,
+  requireAuthenticatedUserId,
+} from "@/shared/http/authenticated-user.js";
 import type {
   CreatePeriodDto,
   CalculatePeriodDto,
@@ -42,7 +47,7 @@ const handlePeriodVisibilityError = (
 };
 
 const getCurrentRole = (req: Request): string | null => {
-  return ((req.user as any)?.role as string | undefined) ?? null;
+  return getAuthenticatedUserRole(req) ?? null;
 };
 
 export const getPeriodStatus = async (req: Request, res: Response) => {
@@ -113,7 +118,7 @@ export const addPeriodItems = async (
   try {
     const { periodId } = req.params;
     const { request_ids } = req.body as { request_ids: number[] };
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = requireAuthenticatedUserId(req);
     await PayrollService.addPeriodItems(Number(periodId), request_ids, actorId);
     res.json({ success: true });
   } catch (error: any) {
@@ -140,7 +145,7 @@ export const removePeriodItem = async (
 ) => {
   try {
     const { periodId, itemId } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = requireAuthenticatedUserId(req);
     await PayrollService.removePeriodItem(
       Number(periodId),
       Number(itemId),
@@ -175,7 +180,7 @@ export const createPeriod = async (
     const yearNum = Number(year);
     const monthNum = Number(month);
 
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id ?? null;
+    const actorId = requireAuthenticatedUserId(req);
     const period = await PayrollService.getOrCreatePeriod(
       yearNum,
       monthNum,
@@ -432,8 +437,7 @@ export const calculatePayroll = async (req: Request, res: Response) => {
       );
       res.json({ success: true, data });
     } else {
-      const actorId =
-        (req.user as any)?.userId ?? (req.user as any)?.id ?? null;
+      const actorId = getAuthenticatedUserId(req);
       const period = await PayrollService.getOrCreatePeriod(
         Number(year),
         Number(month),
@@ -468,7 +472,7 @@ export const calculateOnDemand = async (
       return;
     }
 
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id ?? null;
+    const actorId = requireAuthenticatedUserId(req);
     const period = await PayrollService.getOrCreatePeriod(
       Number(year),
       Number(month),
@@ -492,7 +496,7 @@ export const calculateOnDemand = async (
 export const submitToHR = async (req: Request, res: Response) => {
   try {
     const { periodId } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = requireAuthenticatedUserId(req);
 
     const result = await PayrollService.updatePeriodStatus(
       Number(periodId),
@@ -558,7 +562,7 @@ export const setPeriodProfessionReview = async (
       profession_code: string;
       reviewed: boolean;
     };
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = requireAuthenticatedUserId(req);
     const data = await PayrollService.setPeriodProfessionReview(
       Number(periodId),
       profession_code,
@@ -587,7 +591,7 @@ export const setPeriodProfessionReview = async (
 export const approveByHR = async (req: Request, res: Response) => {
   try {
     const { periodId } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = requireAuthenticatedUserId(req);
 
     const result = await PayrollService.updatePeriodStatus(
       Number(periodId),
@@ -603,7 +607,7 @@ export const approveByHR = async (req: Request, res: Response) => {
 export const approveByDirector = async (req: Request, res: Response) => {
   try {
     const { periodId } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = requireAuthenticatedUserId(req);
 
     const result = await PayrollService.updatePeriodStatus(
       Number(periodId),
@@ -619,7 +623,7 @@ export const approveByDirector = async (req: Request, res: Response) => {
 export const approveByHeadFinance = async (req: Request, res: Response) => {
   try {
     const { periodId } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = requireAuthenticatedUserId(req);
 
     const result = await PayrollService.updatePeriodStatus(
       Number(periodId),
@@ -635,7 +639,7 @@ export const approveByHeadFinance = async (req: Request, res: Response) => {
 export const rejectPeriod = async (req: Request, res: Response) => {
   try {
     const { periodId } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = requireAuthenticatedUserId(req);
     const { reason } = req.body as { reason: string };
 
     const result = await PayrollService.updatePeriodStatus(
@@ -677,7 +681,7 @@ export const deletePeriod = async (
 ) => {
   try {
     const { periodId } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = getAuthenticatedUserId(req);
     if (!actorId) {
       res.status(401).json({ success: false, error: "Unauthorized" });
       return;

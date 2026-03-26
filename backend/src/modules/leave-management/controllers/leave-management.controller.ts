@@ -11,6 +11,7 @@ import type {
 import { handleUploadError } from "@config/upload.js";
 import { asyncHandler } from "@middlewares/errorHandler.js";
 import { ValidationError } from "@shared/utils/errors.js";
+import { getAuthenticatedUserId } from "@/shared/http/authenticated-user.js";
 
 export const listLeaveManagement = asyncHandler(
   async (req: Request, res: Response) => {
@@ -56,7 +57,7 @@ export const createLeaveManagement = asyncHandler(
 
 export const upsertLeaveManagementExtension = asyncHandler(
   async (req: Request, res: Response) => {
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = getAuthenticatedUserId(req);
     const payload = req.body as LeaveManagementExtensionBody;
     await leaveManagementService.upsertLeaveManagementExtension(
       payload,
@@ -92,7 +93,7 @@ export const addLeaveManagementDocuments = asyncHandler(
   async (req: Request, res: Response) => {
     try {
       const leaveManagementId = Number(req.params.leaveManagementId);
-      const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+      const actorId = getAuthenticatedUserId(req);
       const files = (req.files as Express.Multer.File[]) ?? [];
       const ids = await leaveManagementService.addLeaveManagementDocuments(
         leaveManagementId,
@@ -147,7 +148,7 @@ export const listLeaveReturnReportEvents = asyncHandler(
 export const replaceLeaveReturnReportEvents = asyncHandler(
   async (req: Request, res: Response) => {
     const leaveManagementId = Number(req.params.leaveManagementId);
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = getAuthenticatedUserId(req);
     const payload = req.body as ReplaceLeaveReturnEventsBody;
     await leaveManagementService.replaceLeaveReturnReportEvents(
       leaveManagementId,

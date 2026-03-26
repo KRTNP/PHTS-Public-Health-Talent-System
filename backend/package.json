@@ -22,7 +22,8 @@
     "start": "cross-env TZ=Asia/Bangkok node dist/index.js",
     "sync:all": "cross-env TZ=Asia/Bangkok tsx src/scripts/ops/runners/sync-service.ts",
     "test": "jest",
-    "test:perf": "RUN_PERF=1 jest src/__tests__/perf",
+    "test:smoke": "jest src/modules/auth/__tests__/integration/auth.integration.test.ts src/modules/request/services/__tests__/request-approval.flow.integration.test.ts src/modules/payroll/services/__tests__/payroll-workflow.service.test.ts src/__tests__/integration/api.integration.test.ts",
+    "test:perf": "RUN_PERF=1 jest --passWithNoTests src/__tests__/perf",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

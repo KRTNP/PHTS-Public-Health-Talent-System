@@ -3,6 +3,7 @@ import { requestRepository } from "@/modules/request/data/repositories/request.r
 import { requestQueryService } from "@/modules/request/read/services/query.service.js";
 import * as reassignService from "@/modules/request/reassign/application/reassign.service.js";
 import { requestCommandService } from "@/modules/request/services/command.service.js";
+import { requestApprovalService } from "@/modules/request/services/approval.service.js";
 import {
   makeJsonRes,
   makeNext,
@@ -17,6 +18,14 @@ jest.mock("@/modules/request/services/command.service.js", () => ({
     persistEligibilityManualOcrPrecheck: jest.fn(),
     runEligibilityAttachmentsOcr: jest.fn(),
     updateVerificationChecks: jest.fn(),
+  },
+}));
+
+jest.mock("@/modules/request/services/approval.service.js", () => ({
+  requestApprovalService: {
+    approveRequest: jest.fn(),
+    rejectRequest: jest.fn(),
+    returnRequest: jest.fn(),
   },
 }));
 
@@ -443,6 +452,143 @@ describe("request.controller", () => {
         success: true,
         data: { request_id: 42, status: "PENDING" },
       });
+    });
+  });
+
+  describe("action endpoint parity", () => {
+    it("maps unified APPROVE and legacy approve endpoint to identical approval service call", async () => {
+      const user = makeUser({ userId: 77, role: "HEAD_HR" });
+      const signatureBase64 = Buffer.from("signature-binary").toString("base64");
+      (requestApprovalService.approveRequest as jest.Mock).mockResolvedValue({
+        request_id: 42,
+        status: "PENDING",
+      });
+
+      const unifiedReq: any = {
+        params: { id: "42" },
+        body: { action: "APPROVE", comment: "ok", signature_base64: signatureBase64 },
+        user,
+      };
+      const unifiedRes: any = makeJsonRes();
+      const unifiedNext = makeNext();
+      await (requestController.processAction as any)(
+        unifiedReq,
+        unifiedRes,
+        unifiedNext,
+      );
+
+      const legacyReq: any = {
+        params: { id: "42" },
+        body: { comment: "ok", signature_base64: signatureBase64 },
+        user,
+      };
+      const legacyRes: any = makeJsonRes();
+      const legacyNext = makeNext();
+      await (requestController.approveRequest as any)(
+        legacyReq,
+        legacyRes,
+        legacyNext,
+      );
+
+      expect(requestApprovalService.approveRequest).toHaveBeenNthCalledWith(
+        1,
+        42,
+        77,
+        "HEAD_HR",
+        "ok",
+        Buffer.from("signature-binary"),
+      );
+      expect(requestApprovalService.approveRequest).toHaveBeenNthCalledWith(
+        2,
+        42,
+        77,
+        "HEAD_HR",
+        "ok",
+        Buffer.from("signature-binary"),
+      );
+    });
+
+    it("maps unified REJECT/RETURN and legacy reject/return endpoints to identical service calls", async () => {
+      const user = makeUser({ userId: 88, role: "DIRECTOR" });
+      (requestApprovalService.rejectRequest as jest.Mock).mockResolvedValue({
+        request_id: 53,
+        status: "REJECTED",
+      });
+      (requestApprovalService.returnRequest as jest.Mock).mockResolvedValue({
+        request_id: 53,
+        status: "RETURNED",
+      });
+
+      const rejectUnifiedReq: any = {
+        params: { id: "53" },
+        body: { action: "REJECT", comment: "no" },
+        user,
+      };
+      const rejectLegacyReq: any = {
+        params: { id: "53" },
+        body: { comment: "no" },
+        user,
+      };
+      await (requestController.processAction as any)(
+        rejectUnifiedReq,
+        makeJsonRes(),
+        makeNext(),
+      );
+      await (requestController.rejectRequest as any)(
+        rejectLegacyReq,
+        makeJsonRes(),
+        makeNext(),
+      );
+
+      const returnUnifiedReq: any = {
+        params: { id: "53" },
+        body: { action: "RETURN", comment: "revise" },
+        user,
+      };
+      const returnLegacyReq: any = {
+        params: { id: "53" },
+        body: { comment: "revise" },
+        user,
+      };
+      await (requestController.processAction as any)(
+        returnUnifiedReq,
+        makeJsonRes(),
+        makeNext(),
+      );
+      await (requestController.returnRequest as any)(
+        returnLegacyReq,
+        makeJsonRes(),
+        makeNext(),
+      );
+
+      expect(requestApprovalService.rejectRequest).toHaveBeenNthCalledWith(
+        1,
+        53,
+        88,
+        "DIRECTOR",
+        "no",
+      );
+      expect(requestApprovalService.rejectRequest).toHaveBeenNthCalledWith(
+        2,
+        53,
+        88,
+        "DIRECTOR",
+        "no",
+      );
+      expect(requestApprovalService.returnRequest).toHaveBeenNthCalledWith(
+        1,
+        53,
+        88,
+        "DIRECTOR",
+        "revise",
+      );
+      expect(requestApprovalService.returnRequest).toHaveBeenNthCalledWith(
+        2,
+        53,
+        88,
+        "DIRECTOR",
+        "revise",
+      );
     });
   });
 });

@@ -21,6 +21,7 @@ import {
   CreateRateDTO,
   UpdateRateBody,
 } from "@/modules/master-data/master-data.schema.js";
+import { getAuthenticatedUserId } from "@/shared/http/authenticated-user.js";
 
 // Holidays
 export const getHolidays = asyncHandler(async (req: Request, res: Response) => {
@@ -37,7 +38,7 @@ export const getHolidays = asyncHandler(async (req: Request, res: Response) => {
 
 export const addHoliday = asyncHandler(async (req: Request, res: Response) => {
   const { date, name, type } = req.body as CreateHolidayDTO;
-  const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+  const actorId = getAuthenticatedUserId(req);
   await holidayService.addHoliday(date, name, type, actorId);
   res.json({ success: true, message: "Holiday saved successfully" });
 });
@@ -46,7 +47,7 @@ export const updateHoliday = asyncHandler(
   async (req: Request, res: Response) => {
     const { date: originalDate } = req.params;
     const { date, name, type } = req.body as UpdateHolidayDTO;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = getAuthenticatedUserId(req);
     await holidayService.updateHoliday(originalDate, date, name, type, actorId);
     res.json({ success: true, message: "Holiday updated successfully" });
   },
@@ -55,7 +56,7 @@ export const updateHoliday = asyncHandler(
 export const deleteHoliday = asyncHandler(
   async (req: Request, res: Response) => {
     const { date } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = getAuthenticatedUserId(req);
     await holidayService.deleteHoliday(date, actorId);
     res.json({ success: true, message: "Holiday deleted successfully" });
   },
@@ -73,7 +74,7 @@ export const updateMasterRate = asyncHandler(
   async (req: Request, res: Response) => {
     const { rateId } = req.params;
     const body = req.body as UpdateRateBody;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = getAuthenticatedUserId(req);
 
     const existing = await rateService.getMasterRateById(Number(rateId));
     if (!existing) {
@@ -139,7 +140,7 @@ export const createMasterRate = asyncHandler(
       detailed_desc,
       is_active,
     } = req.body as CreateRateDTO;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = getAuthenticatedUserId(req);
 
     const rateId = await rateService.createMasterRate({
       profession_code,
@@ -163,7 +164,7 @@ export const createMasterRate = asyncHandler(
 export const deleteMasterRate = asyncHandler(
   async (req: Request, res: Response) => {
     const { rateId } = req.params;
-    const actorId = (req.user as any)?.userId ?? (req.user as any)?.id;
+    const actorId = getAuthenticatedUserId(req);
 
     await rateService.deleteMasterRate(Number(rateId), actorId);
     res.json({ success: true, message: "Rate deleted successfully" });

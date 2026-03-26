@@ -11,6 +11,7 @@ import {
   DeleteReadBody,
   NotificationSettingsBody,
 } from "@/modules/notification/notification.schema.js";
+import { requireAuthenticatedUserId } from "@/shared/http/authenticated-user.js";
 
 /**
  * Get notifications for current user
@@ -18,7 +19,7 @@ import {
  */
 export const getMyNotifications = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const userId = (req.user as any).id ?? (req.user as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const limit = req.query.limit ? Number(req.query.limit) : 20;
 
     const result = await NotificationService.getMyNotifications(userId, limit);
@@ -36,7 +37,7 @@ export const getMyNotifications = asyncHandler(
  */
 export const markRead = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const userId = (req.user as any).id ?? (req.user as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const { id } = req.params;
 
     if (id === "all") {
@@ -58,7 +59,7 @@ export const deleteReadNotifications = asyncHandler(
     req: Request<object, object, DeleteReadBody>,
     res: Response,
   ): Promise<void> => {
-    const userId = (req.user as any).id ?? (req.user as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const olderThanDays = req.body?.older_than_days;
     const deletedCount = await NotificationService.deleteRead(
       userId,
@@ -74,7 +75,7 @@ export const deleteReadNotifications = asyncHandler(
  */
 export const getUnreadCount = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const userId = (req.user as any).id ?? (req.user as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const count = await NotificationService.getUnreadCount(userId);
 
     res.json({ success: true, data: { count } });
@@ -87,7 +88,7 @@ export const getUnreadCount = asyncHandler(
  */
 export const getNotificationSettings = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
-    const userId = (req.user as any).id ?? (req.user as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const settings = await NotificationService.getNotificationSettings(userId);
     res.json({ success: true, data: settings });
   },
@@ -102,7 +103,7 @@ export const updateNotificationSettings = asyncHandler(
     req: Request<object, object, NotificationSettingsBody>,
     res: Response,
   ): Promise<void> => {
-    const userId = (req.user as any).id ?? (req.user as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const settings = await NotificationService.updateNotificationSettings(
       userId,
       req.body,
