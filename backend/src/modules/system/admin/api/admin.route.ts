@@ -7,8 +7,8 @@ import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { validate } from "@shared/validate.middleware.js";
 import { UserRole } from "@/types/auth.js";
 import * as systemController from "@/modules/system/admin/api/admin.controller.js";
-import syncRoutes from "@/modules/sync/sync.routes.js";
-import backupRoutes from "@/modules/backup/backup.routes.js";
+import syncRoutes from "@/modules/sync/api/sync.route.js";
+import backupRoutes from "@/modules/backup/api/backup.route.js";
 import {
   searchUsersSchema,
   getUserByIdSchema,

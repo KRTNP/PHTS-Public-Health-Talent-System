@@ -154,12 +154,12 @@ jest.mock("@/modules/notification/api/notification.controller.js", () => ({
   updateNotificationSettings: ok,
 }));
 
-jest.mock("@/modules/sync/sync.routes.js", () => {
+jest.mock("@/modules/sync/api/sync.route.js", () => {
   const { Router } = jest.requireActual("express");
   return { __esModule: true, default: Router() };
 });
 
-jest.mock("@/modules/backup/backup.routes.js", () => {
+jest.mock("@/modules/backup/api/backup.route.js", () => {
   const { Router } = jest.requireActual("express");
   return { __esModule: true, default: Router() };
 });
