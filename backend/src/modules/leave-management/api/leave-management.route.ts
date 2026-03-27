@@ -18,7 +18,6 @@ import {
   leaveManagementIdParamSchema,
   leaveDocumentIdParamSchema,
 } from "@/modules/leave-management/leave-management.schema.js";
-// Intentionally import through compatibility path to keep existing imports/mocks stable.
 import {
   listLeaveManagement,
   listLeavePersonnel,
@@ -32,7 +31,7 @@ import {
   addLeaveManagementDocuments,
   deleteLeaveManagementDocument,
   deleteLeaveManagementExtension,
-} from "@/modules/leave-management/controllers/leave-management.controller.js";
+} from "@/modules/leave-management/api/leave-management.controller.js";
 
 const router = Router();
 

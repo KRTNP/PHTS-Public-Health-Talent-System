@@ -7,13 +7,12 @@
 - quota status and return-report events
 - leave document upload/list/delete
 
-## Canonical File Locations (Phase 6)
+## Canonical File Locations
 - Route: `api/leave-management.route.ts`
 - Controller: `api/leave-management.controller.ts`
 
-Compatibility shims kept for import stability:
-- `leave-management.routes.ts` -> re-exports `api/leave-management.route.ts`
-- `controllers/leave-management.controller.ts` -> re-exports from `api/leave-management.controller.ts`
+Phase 12 shim status:
+- legacy route/controller shim files retired after in-repo usage checks
 
 ## High-Level Flow
 - `api/leave-management.route.ts` handles auth + validation + upload wiring
@@ -23,7 +22,6 @@ Compatibility shims kept for import stability:
 
 ## Guardrails
 - Add new endpoints in canonical `api/leave-management.route.ts`.
-- Keep shim files as re-export only.
 - Keep leave workflow/business rules in services, not routes/controllers.
 
 ## Deferred
