@@ -290,6 +290,95 @@ export class RequestApprovalService {
     );
   }
 
+  private async loadPendingRequestForAction(
+    requestId: number,
+    connection: PoolConnection,
+    actionVerb: "approve" | "reject" | "return",
+  ): Promise<{
+    request: PTSRequest;
+    empDepartment: unknown;
+    empSubDepartment: unknown;
+  }> {
+    const requestEntity = await requestRepository.findById(
+      requestId,
+      connection,
+    );
+
+    if (!requestEntity) {
+      throw new Error("Request not found");
+    }
+
+    const request = mapRequestRow(requestEntity);
+    if (request.status !== RequestStatus.PENDING) {
+      throw new Error(`Cannot ${actionVerb} request with status: ${request.status}`);
+    }
+
+    return {
+      request,
+      empDepartment: (requestEntity as any).emp_department,
+      empSubDepartment: (requestEntity as any).emp_sub_department,
+    };
+  }
+
+  private async resolveEffectiveActorRoleForStep(
+    requestCurrentStep: number,
+    actorId: number,
+    actorRole: string,
+  ): Promise<string> {
+    const expectedRole = STEP_ROLE_MAP[requestCurrentStep];
+    let effectiveActorRole = actorRole;
+
+    if (actorRole === "HEAD_SCOPE") {
+      const activeRoles = await getActiveHeadScopeRoles(actorId, actorRole);
+      if (!activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")) {
+        throw new Error(
+          `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
+        );
+      }
+      effectiveActorRole = expectedRole;
+    }
+
+    if (
+      actorRole !== "HEAD_SCOPE" &&
+      (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")
+    ) {
+      throw new Error(
+        `Invalid approver role. Expected HEAD_SCOPE, got ${actorRole}`,
+      );
+    }
+
+    if (expectedRole !== effectiveActorRole) {
+      throw new Error(
+        `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
+      );
+    }
+
+    return effectiveActorRole;
+  }
+
+  private async hasScopePermissionForStep(params: {
+    actorId: number;
+    effectiveActorRole: string;
+    empDepartment: any;
+    empSubDepartment: any;
+  }): Promise<boolean> {
+    const { actorId, effectiveActorRole, empDepartment, empSubDepartment } =
+      params;
+    if (
+      effectiveActorRole !== "WARD_SCOPE" &&
+      effectiveActorRole !== "DEPT_SCOPE"
+    ) {
+      return true;
+    }
+
+    return canApproverAccessRequest(
+      actorId,
+      effectiveActorRole,
+      empDepartment,
+      empSubDepartment,
+    );
+  }
+
   // ============================================================================
   // Approve Request
   // ============================================================================
@@ -306,51 +395,14 @@ export class RequestApprovalService {
     try {
       await connection.beginTransaction();
 
-      const requestEntity = await requestRepository.findById(
-        requestId,
-        connection,
+      const { request, empDepartment, empSubDepartment } =
+        await this.loadPendingRequestForAction(requestId, connection, "approve");
+
+      const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
+        request.current_step,
+        actorId,
+        actorRole,
       );
-
-      if (!requestEntity) {
-        throw new Error("Request not found");
-      }
-
-      const request = mapRequestRow(requestEntity);
-      const empDepartment = (requestEntity as any).emp_department;
-      const empSubDepartment = (requestEntity as any).emp_sub_department;
-
-      if (request.status !== RequestStatus.PENDING) {
-        throw new Error(
-          `Cannot approve request with status: ${request.status}`,
-        );
-      }
-
-      const expectedRole = STEP_ROLE_MAP[request.current_step];
-      let effectiveActorRole = actorRole;
-      if (actorRole === "HEAD_SCOPE") {
-        const activeRoles = await getActiveHeadScopeRoles(actorId, actorRole);
-        if (
-          !activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")
-        ) {
-          throw new Error(
-            `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
-          );
-        }
-        effectiveActorRole = expectedRole;
-      }
-      if (
-        actorRole !== "HEAD_SCOPE" &&
-        (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")
-      ) {
-        throw new Error(
-          `Invalid approver role. Expected HEAD_SCOPE, got ${actorRole}`,
-        );
-      }
-      if (expectedRole !== effectiveActorRole) {
-        throw new Error(
-          `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
-        );
-      }
 
       const isSelfApproval = await isRequestOwner(actorId, request.user_id);
 
@@ -358,12 +410,12 @@ export class RequestApprovalService {
         effectiveActorRole === "WARD_SCOPE" ||
         effectiveActorRole === "DEPT_SCOPE"
       ) {
-        const hasScope = await canApproverAccessRequest(
+        const hasScope = await this.hasScopePermissionForStep({
           actorId,
           effectiveActorRole,
           empDepartment,
           empSubDepartment,
-        );
+        });
 
         if (!hasScope && !isSelfApproval) {
           throw new Error("คุณไม่มีสิทธิ์อนุมัติคำขอนี้ในขอบเขตการดูแล");
@@ -447,60 +499,25 @@ export class RequestApprovalService {
     try {
       await connection.beginTransaction();
 
-      const requestEntity = await requestRepository.findById(
-        requestId,
-        connection,
+      const { request, empDepartment, empSubDepartment } =
+        await this.loadPendingRequestForAction(requestId, connection, "reject");
+
+      const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
+        request.current_step,
+        actorId,
+        actorRole,
       );
-
-      if (!requestEntity) {
-        throw new Error("Request not found");
-      }
-
-      const request = mapRequestRow(requestEntity);
-      const empDepartment = (requestEntity as any).emp_department;
-      const empSubDepartment = (requestEntity as any).emp_sub_department;
-
-      if (request.status !== RequestStatus.PENDING) {
-        throw new Error(`Cannot reject request with status: ${request.status}`);
-      }
-
-      const expectedRole = STEP_ROLE_MAP[request.current_step];
-      let effectiveActorRole = actorRole;
-      if (actorRole === "HEAD_SCOPE") {
-        const activeRoles = await getActiveHeadScopeRoles(actorId, actorRole);
-        if (
-          !activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")
-        ) {
-          throw new Error(
-            `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
-          );
-        }
-        effectiveActorRole = expectedRole;
-      }
-      if (
-        actorRole !== "HEAD_SCOPE" &&
-        (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")
-      ) {
-        throw new Error(
-          `Invalid approver role. Expected HEAD_SCOPE, got ${actorRole}`,
-        );
-      }
-      if (expectedRole !== effectiveActorRole) {
-        throw new Error(
-          `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
-        );
-      }
 
       if (
         effectiveActorRole === "WARD_SCOPE" ||
         effectiveActorRole === "DEPT_SCOPE"
       ) {
-        const hasScope = await canApproverAccessRequest(
+        const hasScope = await this.hasScopePermissionForStep({
           actorId,
           effectiveActorRole,
           empDepartment,
           empSubDepartment,
-        );
+        });
         if (!hasScope) {
           throw new Error("คุณไม่มีสิทธิ์ปฏิเสธคำขอนี้ในขอบเขตการดูแล");
         }
@@ -586,60 +603,25 @@ export class RequestApprovalService {
     try {
       await connection.beginTransaction();
 
-      const requestEntity = await requestRepository.findById(
-        requestId,
-        connection,
+      const { request, empDepartment, empSubDepartment } =
+        await this.loadPendingRequestForAction(requestId, connection, "return");
+
+      const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
+        request.current_step,
+        actorId,
+        actorRole,
       );
-
-      if (!requestEntity) {
-        throw new Error("Request not found");
-      }
-
-      const request = mapRequestRow(requestEntity);
-      const empDepartment = (requestEntity as any).emp_department;
-      const empSubDepartment = (requestEntity as any).emp_sub_department;
-
-      if (request.status !== RequestStatus.PENDING) {
-        throw new Error(`Cannot return request with status: ${request.status}`);
-      }
-
-      const expectedRole = STEP_ROLE_MAP[request.current_step];
-      let effectiveActorRole = actorRole;
-      if (actorRole === "HEAD_SCOPE") {
-        const activeRoles = await getActiveHeadScopeRoles(actorId, actorRole);
-        if (
-          !activeRoles.includes(expectedRole as "WARD_SCOPE" | "DEPT_SCOPE")
-        ) {
-          throw new Error(
-            `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
-          );
-        }
-        effectiveActorRole = expectedRole;
-      }
-      if (
-        actorRole !== "HEAD_SCOPE" &&
-        (expectedRole === "WARD_SCOPE" || expectedRole === "DEPT_SCOPE")
-      ) {
-        throw new Error(
-          `Invalid approver role. Expected HEAD_SCOPE, got ${actorRole}`,
-        );
-      }
-      if (expectedRole !== effectiveActorRole) {
-        throw new Error(
-          `Invalid approver role. Expected ${expectedRole}, got ${actorRole}`,
-        );
-      }
 
       if (
         effectiveActorRole === "WARD_SCOPE" ||
         effectiveActorRole === "DEPT_SCOPE"
       ) {
-        const hasScope = await canApproverAccessRequest(
+        const hasScope = await this.hasScopePermissionForStep({
           actorId,
           effectiveActorRole,
           empDepartment,
           empSubDepartment,
-        );
+        });
         if (!hasScope) {
           throw new Error("คุณไม่มีสิทธิ์ส่งคำขอนี้กลับแก้ไขในขอบเขตการดูแล");
         }
