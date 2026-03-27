@@ -27,7 +27,7 @@ import {
   setPeriodProfessionReview,
   submitToHR,
   updatePayout,
-} from "@/modules/payroll/payroll.controller.js";
+} from "@/modules/payroll/api/payroll.controller.js";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { validate } from "@shared/validate.middleware.js";
 import {

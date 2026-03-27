@@ -30,7 +30,7 @@ jest.mock("@shared/validate.middleware.js", () => ({
   validate: () => (_req: any, _res: any, next: any) => next(),
 }));
 
-jest.mock("@/modules/payroll/payroll.controller.js", () => ({
+jest.mock("@/modules/payroll/api/payroll.controller.js", () => ({
   getPeriodDetail: (_req: any, res: any) =>
     res.json({ success: true, data: { period: {} } }),
   getPeriodPayouts: (_req: any, res: any) =>
@@ -61,7 +61,7 @@ jest.mock("@/modules/payroll/payroll.controller.js", () => ({
 
 describe("payroll routes", () => {
   const buildApp = async () => {
-    const payrollRouter = (await import("../payroll.routes.js")).default;
+    const payrollRouter = (await import("../api/payroll.route.js")).default;
     const app = express();
     app.disable("x-powered-by");
     app.use(express.json());

@@ -18,11 +18,10 @@ Manages payroll period lifecycle, payroll calculation, payout review, and approv
 - `dto/`, `entities/`, `payroll.schema.ts`: contracts, types, validation.
 
 ## Compatibility Notes
-- `payroll.routes.ts` and `payroll.controller.ts` are compatibility shims.
 - Canonical files are:
   - `api/payroll.route.ts`
   - `api/payroll.controller.ts`
-- Shims should remain until external imports are migrated.
+- Legacy shim files were retired in consolidation passes after in-repo usage scans.
 
 ## Deferred Work
 - Decompose large controller actions into narrower controller/service units.
