@@ -9,7 +9,7 @@ import {
   getRobots,
   getRoot,
   getSitemap,
-} from "@/modules/health/controllers/health.controller.js";
+} from "@/modules/health/api/health.controller.js";
 
 const router = Router();
 
