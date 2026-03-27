@@ -7,13 +7,12 @@
 - unread count
 - notification settings read/update
 
-## Canonical File Locations (Phase 7)
+## Canonical File Locations
 - Route: `api/notification.route.ts`
 - Controller: `api/notification.controller.ts`
 
-Compatibility shims kept for import stability:
-- `notification.routes.ts` -> re-exports `api/notification.route.ts`
-- `notification.controller.ts` -> re-exports from `api/notification.controller.ts`
+Phase 12 shim status:
+- legacy route/controller shim files retired after in-repo usage checks
 
 ## High-Level Flow
 - `api/notification.route.ts` handles auth + validation wiring
@@ -23,7 +22,6 @@ Compatibility shims kept for import stability:
 
 ## Guardrails
 - Add new endpoints in canonical `api/notification.route.ts`.
-- Keep shim files alias-only (re-export only).
 - Keep notification policy/logic in service layer.
 
 ## Deferred

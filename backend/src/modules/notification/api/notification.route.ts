@@ -5,8 +5,7 @@
 import { Router } from "express";
 import { protect } from "@middlewares/authMiddleware.js";
 import { validate } from "@shared/validate.middleware.js";
-// Intentionally import through compatibility path to keep existing imports/mocks stable.
-import * as notifCtrl from "@/modules/notification/notification.controller.js";
+import * as notifCtrl from "@/modules/notification/api/notification.controller.js";
 import {
   deleteReadSchema,
   listNotificationsSchema,
