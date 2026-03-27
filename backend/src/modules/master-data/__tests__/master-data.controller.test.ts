@@ -18,7 +18,7 @@ jest.mock("@/shared/utils/profession.js", () => ({
 import * as rateService from "@/modules/master-data/services/rate.service.js";
 import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
 import { resolveProfessionCode } from "@/shared/utils/profession.js";
-import { getRatesByProfession } from "@/modules/master-data/master-data.controller.js";
+import { getRatesByProfession } from "@/modules/master-data/api/master-data.controller.js";
 
 describe("master-data controller", () => {
   test("getRatesByProfession returns AuthorizationError for mismatched profession", async () => {
