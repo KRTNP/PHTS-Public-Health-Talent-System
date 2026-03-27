@@ -14,7 +14,7 @@ import {
   supportTicketMessageSchema,
   updateSupportStatusSchema,
 } from "@/modules/support/support.schema.js";
-import * as supportController from "@/modules/support/support.controller.js";
+import * as supportController from "@/modules/support/api/support.controller.js";
 
 const router = Router();
 

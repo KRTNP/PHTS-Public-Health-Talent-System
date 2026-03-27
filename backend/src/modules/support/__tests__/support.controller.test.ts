@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from "@jest/globals";
 
-import * as supportController from "../support.controller";
+import * as supportController from "../api/support.controller";
 import { SupportService } from "../services/support.service";
 
 jest.mock("../services/support.service", () => ({
