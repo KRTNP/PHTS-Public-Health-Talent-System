@@ -14,7 +14,7 @@ import * as accessReviewService from "@/modules/access-review/services/access-re
 import {
   getCycle,
   updateItem,
-} from "@/modules/access-review/access-review.controller.js";
+} from "@/modules/access-review/api/access-review.controller.js";
 
 describe("access-review controller", () => {
   test("getCycle forwards NotFoundError when cycle does not exist", async () => {
