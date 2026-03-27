@@ -8,14 +8,14 @@ import morgan from "morgan";
 import { initializePassport } from "@config/passport.js";
 import { getJwtSecret } from "@config/jwt.js";
 import authRoutes from "@/modules/auth/auth.routes.js";
-import requestRoutes from "@/modules/request/request.routes.js";
+import requestRoutes from "@/modules/request/api/request.route.js";
 import signatureRoutes from "@/modules/signature/signature.routes.js";
-import payrollRoutes from "@/modules/payroll/payroll.routes.js";
+import payrollRoutes from "@/modules/payroll/api/payroll.route.js";
 import reportRoutes from "@/modules/report/report.routes.js";
 import systemRoutes from "@/modules/system/admin/admin.routes.js";
-import masterDataRoutes from "@/modules/master-data/master-data.routes.js";
-import leaveManagementRoutes from "@/modules/leave-management/leave-management.routes.js";
-import notificationRoutes from "@/modules/notification/notification.routes.js";
+import masterDataRoutes from "@/modules/master-data/api/master-data.route.js";
+import leaveManagementRoutes from "@/modules/leave-management/api/leave-management.route.js";
+import notificationRoutes from "@/modules/notification/api/notification.route.js";
 import financeRoutes from "@/modules/finance/finance.routes.js";
 import auditRoutes from "@/modules/audit/audit.routes.js";
 import slaRoutes from "@/modules/sla/sla.routes.js";
@@ -261,4 +261,3 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
 
   return app;
 };
-
