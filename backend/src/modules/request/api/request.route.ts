@@ -6,12 +6,11 @@
  * Date: 2025-12-30
  */
 
-import { Router } from "express";
+import { RequestHandler, Router } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { idempotency } from "@middlewares/idempotency.js";
 import { requestUpload } from "@config/upload.js";
-// Intentionally import through compatibility path to keep existing test mocks stable.
-import { requestController } from "@/modules/request/controllers/request.controller.js";
+import { requestController } from "@/modules/request/api/request.controller.js";
 import { validate } from "@shared/validate.middleware.js";
 import {
   actionSchema,
@@ -42,6 +41,25 @@ import { UserRole } from "@/types/auth.js";
 // Current controller implementation handles validation manually after file upload.
 
 const router = Router();
+const requestActionRoles = [
+  UserRole.HEAD_SCOPE,
+  UserRole.PTS_OFFICER,
+  UserRole.HEAD_HR,
+  UserRole.DIRECTOR,
+  UserRole.HEAD_FINANCE,
+] as const;
+
+const registerLegacyActionAlias = (
+  path: "/:id/approve" | "/:id/reject" | "/:id/return",
+  handler: RequestHandler,
+) => {
+  router.post(
+    path,
+    restrictTo(...requestActionRoles),
+    validate(requestIdParamSchema),
+    handler,
+  );
+};
 
 /**
  * All routes require authentication
@@ -322,13 +340,7 @@ router.post(
 // Delegation parity is locked by controller parity tests and dispatcher helper tests.
 router.post(
   "/:id/action",
-  restrictTo(
-    UserRole.HEAD_SCOPE,
-    UserRole.PTS_OFFICER,
-    UserRole.HEAD_HR,
-    UserRole.DIRECTOR,
-    UserRole.HEAD_FINANCE,
-  ),
+  restrictTo(...requestActionRoles),
   validate(requestIdParamSchema),
   validate(actionSchema),
   requestController.processAction,
@@ -354,50 +366,17 @@ router.post(
 // Compatibility endpoint: kept for existing clients.
 // Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
 // Controller delegates through shared action dispatcher for parity with `/:id/action`.
-router.post(
-  "/:id/approve",
-  restrictTo(
-    UserRole.HEAD_SCOPE,
-    UserRole.PTS_OFFICER,
-    UserRole.HEAD_HR,
-    UserRole.DIRECTOR,
-    UserRole.HEAD_FINANCE,
-  ),
-  validate(requestIdParamSchema),
-  requestController.approveRequest,
-);
+registerLegacyActionAlias("/:id/approve", requestController.approveRequest);
 
 // Compatibility endpoint: kept for existing clients.
 // Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
 // Controller delegates through shared action dispatcher for parity with `/:id/action`.
-router.post(
-  "/:id/reject",
-  restrictTo(
-    UserRole.HEAD_SCOPE,
-    UserRole.PTS_OFFICER,
-    UserRole.HEAD_HR,
-    UserRole.DIRECTOR,
-    UserRole.HEAD_FINANCE,
-  ),
-  validate(requestIdParamSchema),
-  requestController.rejectRequest,
-);
+registerLegacyActionAlias("/:id/reject", requestController.rejectRequest);
 
 // Compatibility endpoint: kept for existing clients.
 // Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
 // Controller delegates through shared action dispatcher for parity with `/:id/action`.
-router.post(
-  "/:id/return",
-  restrictTo(
-    UserRole.HEAD_SCOPE,
-    UserRole.PTS_OFFICER,
-    UserRole.HEAD_HR,
-    UserRole.DIRECTOR,
-    UserRole.HEAD_FINANCE,
-  ),
-  validate(requestIdParamSchema),
-  requestController.returnRequest,
-);
+registerLegacyActionAlias("/:id/return", requestController.returnRequest);
 
 /**
  * Reassign Routes

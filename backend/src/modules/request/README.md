@@ -23,13 +23,9 @@ Current policy:
 - all action behavior must remain parity-aligned with `/:id/action`
 - canonical and legacy action handlers should use the same action dispatch helper
 
-## Canonical File Locations (Phase 4)
+## Canonical File Locations
 - Route: `api/request.route.ts`
 - Controller: `api/request.controller.ts`
-
-Compatibility shims kept for import stability:
-- `request.routes.ts` -> re-exports `api/request.route.ts`
-- `controllers/request.controller.ts` -> re-exports from `api/request.controller.ts`
 
 ## Thin Extractions Added in Phase 4
 To reduce controller clutter without behavior changes:
@@ -69,6 +65,16 @@ To reduce controller clutter without behavior changes:
     - scope-permission check reuse
   - reduced repeated logic across `approveRequest` / `rejectRequest` / `returnRequest`
 
+## Additional Thin Cleanup Added in Phase 8
+- `api/request.route.ts`
+  - introduced shared `requestActionRoles` and one legacy alias-registration helper
+  - reduced repeated legacy route wiring for:
+    - `POST /:id/approve`
+    - `POST /:id/reject`
+    - `POST /:id/return`
+  - preserved canonical ownership of `POST /:id/action`
+  - preserved shared dispatch parity path between canonical and legacy action surfaces
+
 ## Legacy Endpoint Deprecation Notes
 Canonical endpoint for request actions is `POST /:id/action`.
 
@@ -83,6 +89,21 @@ Phase 7 decision:
   `frontend/src/features/request/core/api.ts`.
 - Canonical endpoint ownership remains `POST /:id/action`.
 - Legacy endpoints must stay alias-only and delegate via shared dispatcher path.
+
+Phase 8 update:
+- Legacy endpoints are still retained after a fresh usage scan because frontend and tests
+  continue to reference them.
+- Legacy wiring in route registration is now centralized to reduce drift risk while compatibility remains.
+
+Phase 9 update:
+- Legacy endpoints remain retained after another usage scan confirmed active frontend usage.
+- Internal route-to-controller import now points to canonical `api/request.controller.ts` to reduce
+  shim dependence inside module wiring.
+
+Phase 10 update:
+- Legacy action endpoints remain retained after fresh usage evidence still shows active frontend hooks
+  and backend/e2e test coverage.
+- Canonical endpoint ownership remains `POST /:id/action`; legacy routes stay compatibility aliases only.
 
 ## Guardrails For Contributors
 - Keep HTTP wiring in `api/` files.

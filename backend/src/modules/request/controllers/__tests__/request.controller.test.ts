@@ -1,4 +1,4 @@
-import { requestController } from "@/modules/request/controllers/request.controller.js";
+import { requestController } from "@/modules/request/api/request.controller.js";
 import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
 import { requestQueryService } from "@/modules/request/read/services/query.service.js";
 import * as reassignService from "@/modules/request/reassign/application/reassign.service.js";
