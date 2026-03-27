@@ -8,7 +8,7 @@
 import { Router } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { UserRole } from "@/types/auth.js";
-import * as auditController from "@/modules/audit/audit.controller.js";
+import * as auditController from "@/modules/audit/api/audit.controller.js";
 import { validate } from "@shared/validate.middleware.js";
 import {
   auditEntityParamsSchema,

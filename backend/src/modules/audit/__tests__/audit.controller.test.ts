@@ -10,7 +10,7 @@ jest.mock("@/modules/audit/services/audit.service.js", () => ({
   AuditEventType: { DATA_EXPORT: "DATA_EXPORT" },
 }));
 
-import { getEntityAuditTrail } from "@/modules/audit/audit.controller.js";
+import { getEntityAuditTrail } from "@/modules/audit/api/audit.controller.js";
 
 describe("audit controller", () => {
   test("getEntityAuditTrail forwards ValidationError when params missing", async () => {
