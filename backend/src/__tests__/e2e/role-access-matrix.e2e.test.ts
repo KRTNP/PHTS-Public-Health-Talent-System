@@ -45,7 +45,7 @@ jest.mock("@config/upload.js", () => ({
   },
 }));
 
-jest.mock("@/modules/request/controllers/request.controller.js", () => ({
+jest.mock("@/modules/request/api/request.controller.js", () => ({
   requestController: new Proxy(
     {},
     {
@@ -54,7 +54,7 @@ jest.mock("@/modules/request/controllers/request.controller.js", () => ({
   ),
 }));
 
-jest.mock("@/modules/payroll/payroll.controller.js", () => ({
+jest.mock("@/modules/payroll/api/payroll.controller.js", () => ({
   approveByDirector: ok,
   approveByHR: ok,
   approveByHeadFinance: ok,
@@ -106,7 +106,7 @@ jest.mock("@/modules/dashboard/controllers/dashboard.controller.js", () => ({
   getApproverDashboardSummary: ok,
 }));
 
-jest.mock("@/modules/system/admin/admin.controller.js", () => ({
+jest.mock("@/modules/system/admin/api/admin.controller.js", () => ({
   searchUsers: ok,
   getUserById: ok,
   updateUserRole: ok,
@@ -123,7 +123,7 @@ jest.mock("@/modules/system/admin/admin.controller.js", () => ({
 }));
 
 jest.mock(
-  "@/modules/leave-management/controllers/leave-management.controller.js",
+  "@/modules/leave-management/api/leave-management.controller.js",
   () => ({
     listLeaveManagement: ok,
     listLeavePersonnel: ok,
@@ -145,7 +145,7 @@ jest.mock("@/modules/report/report.controller.js", () => ({
   downloadSummaryReport: ok,
 }));
 
-jest.mock("@/modules/notification/notification.controller.js", () => ({
+jest.mock("@/modules/notification/api/notification.controller.js", () => ({
   getMyNotifications: ok,
   markRead: ok,
   getUnreadCount: ok,
@@ -190,10 +190,12 @@ describe("API role access matrix", () => {
   };
 
   const buildApp = async () => {
-    const requestRoutes = (await import("@/modules/request/request.routes.js"))
-      .default;
-    const payrollRoutes = (await import("@/modules/payroll/payroll.routes.js"))
-      .default;
+    const requestRoutes = (
+      await import("@/modules/request/api/request.route.js")
+    ).default;
+    const payrollRoutes = (
+      await import("@/modules/payroll/api/payroll.route.js")
+    ).default;
     const financeRoutes = (await import("@/modules/finance/finance.routes.js"))
       .default;
     const snapshotRoutes = (
@@ -203,15 +205,15 @@ describe("API role access matrix", () => {
       await import("@/modules/dashboard/routes/dashboard.routes.js")
     ).default;
     const systemRoutes = (
-      await import("@/modules/system/admin/admin.routes.js")
+      await import("@/modules/system/admin/api/admin.route.js")
     ).default;
     const leaveRoutes = (
-      await import("@/modules/leave-management/leave-management.routes.js")
+      await import("@/modules/leave-management/api/leave-management.route.js")
     ).default;
     const reportRoutes = (await import("@/modules/report/report.routes.js"))
       .default;
     const notificationRoutes = (
-      await import("@/modules/notification/notification.routes.js")
+      await import("@/modules/notification/api/notification.route.js")
     ).default;
 
     const app = express();
@@ -277,6 +279,28 @@ describe("API role access matrix", () => {
       {
         method: "post",
         path: "/api/requests/100/action",
+        allowed: [
+          UserRole.HEAD_SCOPE,
+          UserRole.PTS_OFFICER,
+          UserRole.HEAD_HR,
+          UserRole.HEAD_FINANCE,
+          UserRole.DIRECTOR,
+        ],
+      },
+      {
+        method: "post",
+        path: "/api/requests/100/reject",
+        allowed: [
+          UserRole.HEAD_SCOPE,
+          UserRole.PTS_OFFICER,
+          UserRole.HEAD_HR,
+          UserRole.HEAD_FINANCE,
+          UserRole.DIRECTOR,
+        ],
+      },
+      {
+        method: "post",
+        path: "/api/requests/100/return",
         allowed: [
           UserRole.HEAD_SCOPE,
           UserRole.PTS_OFFICER,
