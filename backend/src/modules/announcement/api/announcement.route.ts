@@ -13,7 +13,7 @@ import {
   putAnnouncement,
   activateAnnouncement,
   deactivateAnnouncement,
-} from "@/modules/announcement/announcement.controller.js";
+} from "@/modules/announcement/api/announcement.controller.js";
 import {
   announcementIdSchema,
   createAnnouncementSchema,
