@@ -7,7 +7,7 @@
  */
 
 import { Router } from "express";
-import * as authController from "@/modules/auth/auth.controller.js";
+import * as authController from "@/modules/auth/api/auth.controller.js";
 import { protect } from "@middlewares/authMiddleware.js";
 import { authRateLimiter } from "@middlewares/rateLimiter.js";
 import { validate } from "@shared/validate.middleware.js";

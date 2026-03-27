@@ -12,7 +12,7 @@ jest.mock("@/modules/sync/services/sync.service.js", () => ({
   },
 }));
 
-import { getMySignature } from "@/modules/signature/signature.controller.js";
+import { getMySignature } from "@/modules/signature/api/signature.controller.js";
 
 describe("signature controller", () => {
   test("getMySignature forwards AuthenticationError when user missing", async () => {

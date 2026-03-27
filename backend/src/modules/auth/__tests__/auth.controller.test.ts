@@ -32,7 +32,7 @@ import { AuthService } from "@/modules/auth/services/auth.service.js";
 import {
   getCurrentUser,
   updateCurrentUser,
-} from "@/modules/auth/auth.controller.js";
+} from "@/modules/auth/api/auth.controller.js";
 
 describe("auth controller", () => {
   test("getCurrentUser forwards AuthenticationError when not authenticated", async () => {

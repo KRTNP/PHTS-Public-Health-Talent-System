@@ -4,7 +4,7 @@
  */
 import { Router } from "express";
 import { protect } from "@middlewares/authMiddleware.js";
-import * as signatureController from "@/modules/signature/signature.controller.js";
+import * as signatureController from "@/modules/signature/api/signature.controller.js";
 
 const router = Router();
 
