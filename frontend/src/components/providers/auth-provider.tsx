@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = React.useCallback(() => {
     clearAuthSession()
     setUser(null)
-    redirectToLogin({ pathname, navigate: router.push })
+    redirectToLogin({ pathname, navigate: (target) => router.push(target) })
   }, [pathname, router])
 
   const refreshCurrentUser = React.useCallback(async () => {
