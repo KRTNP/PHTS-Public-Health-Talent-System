@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { DEFAULT_API_BASE, resolveApiBaseUrl } from '@/shared/api/base-url';
+import { resolveApiBaseUrl } from '@/shared/api/base-url';
 import {
   clearAuthSession,
   readAuthSessionToken,
@@ -7,7 +7,7 @@ import {
 import { redirectToLogin } from '@/shared/auth/redirect-policy';
 
 const api = axios.create({
-  baseURL: resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_BASE),
+  baseURL: resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL),
   headers: {
     'Content-Type': 'application/json',
   },

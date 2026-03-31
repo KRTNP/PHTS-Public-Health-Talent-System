@@ -1,10 +1,11 @@
-const DEFAULT_API_BASE_URL = "http://localhost:3001/api";
+export const DEFAULT_BROWSER_API_BASE = "/api";
+export const DEFAULT_BROWSER_UPLOADS_BASE = "/uploads";
 
 export const resolveApiBaseUrl = (rawBase?: string | null): string => {
   const value = String(rawBase ?? "").trim();
-  if (!value) return DEFAULT_API_BASE_URL;
+  if (!value) return DEFAULT_BROWSER_API_BASE;
 
-  if (/^https?:\/\//i.test(value)) return value;
+  if (/^https?:\/\//i.test(value)) return value.replace(/\/+$/, "");
 
   if (value.startsWith(":")) {
     return `http://localhost${value}`;
@@ -19,14 +20,14 @@ export const resolveApiBaseUrl = (rawBase?: string | null): string => {
   }
 
   if (value.startsWith("/")) {
-    const origin =
-      typeof window !== "undefined" && window.location?.origin
-        ? window.location.origin
-        : "http://localhost:3000";
-    return `${origin}${value}`;
+    return value.replace(/\/+$/, "") || "/";
   }
 
   return `http://${value}`;
 };
 
-export const DEFAULT_API_BASE = DEFAULT_API_BASE_URL;
+export const resolveUploadsBaseUrl = (rawApiBase?: string | null): string => {
+  const apiBase = resolveApiBaseUrl(rawApiBase);
+  if (apiBase.startsWith("/")) return DEFAULT_BROWSER_UPLOADS_BASE;
+  return `${apiBase.replace(/\/api\/?$/, "")}/uploads`;
+};

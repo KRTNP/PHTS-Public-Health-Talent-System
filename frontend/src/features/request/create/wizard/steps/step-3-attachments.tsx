@@ -8,7 +8,11 @@ import { AttachmentPreviewDialog } from '@/components/common';
 import { toast } from 'sonner';
 
 import { RequestFormData, RequestWithDetails } from '@/types/request.types';
-import { detectOcrDocumentKind, getOcrDocumentTypeLabel } from '@/features/request/detail/utils';
+import {
+  buildAttachmentUrl,
+  detectOcrDocumentKind,
+  getOcrDocumentTypeLabel,
+} from '@/features/request/detail/utils';
 
 interface Step3Props {
   data: RequestFormData;
@@ -50,15 +54,6 @@ export function Step3Attachments({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewName, setPreviewName] = useState('');
-
-  const resolveFileUrl = (filePath: string): string => {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
-    const baseUrl = apiBase.replace(/\/api\/?$/, '');
-    const normalizedPath = filePath.includes('uploads/')
-      ? filePath.slice(filePath.indexOf('uploads/'))
-      : filePath;
-    return `${baseUrl}/${normalizedPath}`;
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -246,7 +241,7 @@ export function Step3Attachments({
                       <div className="flex items-center gap-2 mt-2">
                         <button
                           onClick={() =>
-                            handlePreview(resolveFileUrl(attachment.file_path), attachment.file_name)
+                            handlePreview(buildAttachmentUrl(attachment.file_path), attachment.file_name)
                           }
                           className="text-xs text-primary hover:underline flex items-center gap-1"
                         >
