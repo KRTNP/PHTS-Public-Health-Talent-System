@@ -63,132 +63,86 @@ export type ApproverRequestsPageConfig = {
   theme: ApproverRequestsPageTheme;
 };
 
-export const headHrRequestsPageConfig: ApproverRequestsPageConfig = {
-  basePath: '/head-hr',
-  pageTitle: 'รายการคำขอที่รออนุมัติ',
-  subtitle: 'ตรวจสอบและอนุมัติคำขอ พ.ต.ส. ที่รอการพิจารณาในขั้นทรัพยากรบุคคล',
-  labels: {
-    pendingTitle: 'รายการรอดำเนินการ',
-    summaryCards: {
-      total: 'ทั้งหมด',
-      normal: 'ปกติ (ตามกำหนดเวลา)',
-      warning: 'ใกล้ครบกำหนด',
-      danger: 'เกินกำหนด',
-    },
-    searchPlaceholder: 'ค้นหาชื่อ, เลขที่คำขอ...',
-    slaFilterPlaceholder: 'สถานะกำหนดเวลา',
-    slaFilterOptions: {
-      all: 'ทุกสถานะกำหนดเวลา',
-      normal: 'ปกติ',
-      warning: 'ใกล้ครบกำหนด',
-      danger: 'เกินกำหนด',
-    },
-    tableHeaders: {
-      requestNo: 'เลขที่คำขอ',
-      nameAndPosition: 'ชื่อ-สกุล / ตำแหน่ง',
-      department: 'หน่วยงาน',
-      mapping: 'กลุ่ม/ข้อ',
-      amount: 'อัตรา (บาท)',
-      sla: 'กำหนดเวลา',
-      actions: 'จัดการ',
-    },
-    tableStates: {
-      loading: 'กำลังโหลดข้อมูล...',
-      empty: 'ไม่พบรายการคำขอ',
-      errorFallback: 'ไม่สามารถโหลดรายการคำขอได้',
-      rowCountPrefix: 'แสดง',
-      rowCountSuffix: 'รายการ',
-    },
-    dialog: {
-      titleByAction: {
-        approve: 'ยืนยันการอนุมัติ',
-        reject: 'ยืนยันการไม่อนุมัติ',
-        return: 'ยืนยันการส่งกลับแก้ไข',
-      },
-      descriptionPrefix: 'คำขอ',
-      descriptionConnector: 'ของ',
-      requestNoLabel: 'คำขอเลขที่:',
-      requesterLabel: 'ผู้ยื่น:',
-      amountLabel: 'จำนวนเงิน:',
-      optionalCommentLabel: 'หมายเหตุ (ไม่บังคับ)',
-      requiredCommentLabel: 'เหตุผลการดำเนินการ',
-      optionalCommentPlaceholder: 'ระบุหมายเหตุเพิ่มเติม (ถ้ามี)',
-      rejectCommentPlaceholder: 'โปรดระบุเหตุผลที่ไม่อนุมัติ...',
-      returnCommentPlaceholder: 'โปรดระบุสิ่งที่ต้องแก้ไข...',
-      validationCommentRequired: 'กรุณาระบุเหตุผลก่อนดำเนินการ',
-      successMessage: 'บันทึกผลการพิจารณาเรียบร้อยแล้ว',
-      genericErrorMessage: 'ไม่สามารถดำเนินการได้',
-      cancelButton: 'ยกเลิก',
-      confirmButton: 'ยืนยัน',
-      savingButton: 'กำลังบันทึก...',
-    },
+const sharedRequestsPageLabels: ApproverRequestsPageConfig['labels'] = {
+  pendingTitle: 'รายการรอดำเนินการ',
+  summaryCards: {
+    total: 'ทั้งหมด',
+    normal: 'ปกติ (ตามกำหนดเวลา)',
+    warning: 'ใกล้ครบกำหนด',
+    danger: 'เกินกำหนด',
   },
-  theme: {
-    requestLinkClassName: 'text-primary hover:underline',
+  searchPlaceholder: 'ค้นหาชื่อ, เลขที่คำขอ...',
+  slaFilterPlaceholder: 'สถานะกำหนดเวลา',
+  slaFilterOptions: {
+    all: 'ทุกสถานะกำหนดเวลา',
+    normal: 'ปกติ',
+    warning: 'ใกล้ครบกำหนด',
+    danger: 'เกินกำหนด',
+  },
+  tableHeaders: {
+    requestNo: 'เลขที่คำขอ',
+    nameAndPosition: 'ชื่อ-สกุล / ตำแหน่ง',
+    department: 'หน่วยงาน',
+    mapping: 'กลุ่ม/ข้อ',
+    amount: 'อัตรา (บาท)',
+    sla: 'กำหนดเวลา',
+    actions: 'จัดการ',
+  },
+  tableStates: {
+    loading: 'กำลังโหลดข้อมูล...',
+    empty: 'ไม่พบรายการคำขอ',
+    errorFallback: 'ไม่สามารถโหลดรายการคำขอได้',
+    rowCountPrefix: 'แสดง',
+    rowCountSuffix: 'รายการ',
+  },
+  dialog: {
+    titleByAction: {
+      approve: 'ยืนยันการอนุมัติ',
+      reject: 'ยืนยันการไม่อนุมัติ',
+      return: 'ยืนยันการส่งกลับแก้ไข',
+    },
+    descriptionPrefix: 'คำขอ',
+    descriptionConnector: 'ของ',
+    requestNoLabel: 'คำขอเลขที่:',
+    requesterLabel: 'ผู้ยื่น:',
+    amountLabel: 'จำนวนเงิน:',
+    optionalCommentLabel: 'หมายเหตุ (ไม่บังคับ)',
+    requiredCommentLabel: 'เหตุผลการดำเนินการ',
+    optionalCommentPlaceholder: 'ระบุหมายเหตุเพิ่มเติม (ถ้ามี)',
+    rejectCommentPlaceholder: 'โปรดระบุเหตุผลที่ไม่อนุมัติ...',
+    returnCommentPlaceholder: 'โปรดระบุสิ่งที่ต้องแก้ไข...',
+    validationCommentRequired: 'กรุณาระบุเหตุผลก่อนดำเนินการ',
+    successMessage: 'บันทึกผลการพิจารณาเรียบร้อยแล้ว',
+    genericErrorMessage: 'ไม่สามารถดำเนินการได้',
+    cancelButton: 'ยกเลิก',
+    confirmButton: 'ยืนยัน',
+    savingButton: 'กำลังบันทึก...',
   },
 };
 
-export const headFinanceRequestsPageConfig: ApproverRequestsPageConfig = {
-  basePath: '/head-finance',
-  pageTitle: 'รายการคำขอที่รออนุมัติ',
-  subtitle: 'ตรวจสอบและอนุมัติคำขอ พ.ต.ส. ที่รอการพิจารณาในขั้นการเงิน',
-  labels: {
-    pendingTitle: 'รายการรอดำเนินการ',
-    summaryCards: {
-      total: 'ทั้งหมด',
-      normal: 'ปกติ (ตามกำหนดเวลา)',
-      warning: 'ใกล้ครบกำหนด',
-      danger: 'เกินกำหนด',
-    },
-    searchPlaceholder: 'ค้นหาชื่อ, เลขที่คำขอ...',
-    slaFilterPlaceholder: 'สถานะกำหนดเวลา',
-    slaFilterOptions: {
-      all: 'ทุกสถานะกำหนดเวลา',
-      normal: 'ปกติ',
-      warning: 'ใกล้ครบกำหนด',
-      danger: 'เกินกำหนด',
-    },
-    tableHeaders: {
-      requestNo: 'เลขที่คำขอ',
-      nameAndPosition: 'ชื่อ-สกุล / ตำแหน่ง',
-      department: 'หน่วยงาน',
-      mapping: 'กลุ่ม/ข้อ',
-      amount: 'อัตรา (บาท)',
-      sla: 'กำหนดเวลา',
-      actions: 'จัดการ',
-    },
-    tableStates: {
-      loading: 'กำลังโหลดข้อมูล...',
-      empty: 'ไม่พบรายการคำขอ',
-      errorFallback: 'ไม่สามารถโหลดรายการคำขอได้',
-      rowCountPrefix: 'แสดง',
-      rowCountSuffix: 'รายการ',
-    },
-    dialog: {
-      titleByAction: {
-        approve: 'ยืนยันการอนุมัติ',
-        reject: 'ยืนยันการไม่อนุมัติ',
-        return: 'ยืนยันการส่งกลับแก้ไข',
-      },
-      descriptionPrefix: 'คำขอ',
-      descriptionConnector: 'ของ',
-      requestNoLabel: 'คำขอเลขที่:',
-      requesterLabel: 'ผู้ยื่น:',
-      amountLabel: 'จำนวนเงิน:',
-      optionalCommentLabel: 'หมายเหตุ (ไม่บังคับ)',
-      requiredCommentLabel: 'เหตุผลการดำเนินการ',
-      optionalCommentPlaceholder: 'ระบุหมายเหตุเพิ่มเติม (ถ้ามี)',
-      rejectCommentPlaceholder: 'โปรดระบุเหตุผลที่ไม่อนุมัติ...',
-      returnCommentPlaceholder: 'โปรดระบุสิ่งที่ต้องแก้ไข...',
-      validationCommentRequired: 'กรุณาระบุเหตุผลก่อนดำเนินการ',
-      successMessage: 'บันทึกผลการพิจารณาเรียบร้อยแล้ว',
-      genericErrorMessage: 'ไม่สามารถดำเนินการได้',
-      cancelButton: 'ยกเลิก',
-      confirmButton: 'ยืนยัน',
-      savingButton: 'กำลังบันทึก...',
-    },
-  },
-  theme: {
-    requestLinkClassName: 'text-primary hover:underline',
-  },
+const sharedRequestsPageTheme: ApproverRequestsPageTheme = {
+  requestLinkClassName: 'text-primary hover:underline',
 };
+
+const createApproverRequestsPageConfig = (
+  basePath: string,
+  subtitle: string,
+): ApproverRequestsPageConfig => ({
+  basePath,
+  pageTitle: 'รายการคำขอที่รออนุมัติ',
+  subtitle,
+  labels: sharedRequestsPageLabels,
+  theme: sharedRequestsPageTheme,
+});
+
+export const headHrRequestsPageConfig: ApproverRequestsPageConfig =
+  createApproverRequestsPageConfig(
+    '/head-hr',
+    'ตรวจสอบและอนุมัติคำขอ พ.ต.ส. ที่รอการพิจารณาในขั้นทรัพยากรบุคคล',
+  );
+
+export const headFinanceRequestsPageConfig: ApproverRequestsPageConfig =
+  createApproverRequestsPageConfig(
+    '/head-finance',
+    'ตรวจสอบและอนุมัติคำขอ พ.ต.ส. ที่รอการพิจารณาในขั้นการเงิน',
+  );
