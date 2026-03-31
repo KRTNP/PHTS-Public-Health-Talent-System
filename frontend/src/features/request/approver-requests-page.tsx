@@ -53,7 +53,10 @@ import { useRateHierarchy } from '@/features/master-data/hooks';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { formatThaiDate, formatThaiNumber } from '@/shared/utils/thai-locale';
-import type { ApproverRequestsPageConfig } from '@/features/request/approver-requests-page.config';
+import type {
+  ApproverActionType,
+  ApproverRequestsPageConfig,
+} from '@/features/request/approver-requests-page.config';
 
 function getSlaStatusBadge(status: string, remaining: number) {
   switch (status) {
@@ -261,7 +264,7 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
     const trimmed = comment.trim();
     const isCommentRequired = actionType !== 'approve';
     if (isCommentRequired && !trimmed) {
-      setActionError('กรุณาระบุเหตุผลก่อนดำเนินการ');
+      setActionError(config.labels.dialog.validationCommentRequired);
       return;
     }
     setActionError(null);
@@ -275,12 +278,13 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
         id: selectedRequest.id,
         payload: { action: actionMap[actionType], comment: trimmed || undefined },
       });
-      toast.success('บันทึกผลการพิจารณาเรียบร้อยแล้ว');
+      toast.success(config.labels.dialog.successMessage);
       setSelectedRequest(null);
       setActionType(null);
       setComment('');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'ไม่สามารถดำเนินการได้';
+      const message =
+        error instanceof Error ? error.message : config.labels.dialog.genericErrorMessage;
       toast.error(message);
       setActionError(message);
     }
@@ -288,40 +292,60 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
 
   const isLoading = pendingQuery.isLoading || slaQuery.isLoading;
   const isError = pendingQuery.isError;
-  const errorMessage =
-    pendingQuery.error instanceof Error ? pendingQuery.error.message : 'ไม่สามารถโหลดรายการคำขอได้';
+  const errorMessage = pendingQuery.error instanceof Error
+    ? pendingQuery.error.message
+    : config.labels.tableStates.errorFallback;
+
+  const dialogActionTitle = actionType ? config.labels.dialog.titleByAction[actionType] : '';
+  const dialogDescription = selectedRequest
+    ? `${config.labels.dialog.descriptionPrefix} ${selectedRequest.requestNo} ${config.labels.dialog.descriptionConnector} ${selectedRequest.name}`
+    : undefined;
+  const dialogCommentPlaceholder = actionType === 'approve'
+    ? config.labels.dialog.optionalCommentPlaceholder
+    : actionType === 'reject'
+      ? config.labels.dialog.rejectCommentPlaceholder
+      : config.labels.dialog.returnCommentPlaceholder;
+  const dialogCommentLabel = actionType === 'approve'
+    ? config.labels.dialog.optionalCommentLabel
+    : config.labels.dialog.requiredCommentLabel;
+  const buttonVariantByAction: Record<ApproverActionType, 'success' | 'destructive' | 'warning'> = {
+    approve: 'success',
+    reject: 'destructive',
+    return: 'warning',
+  };
+  const confirmButtonVariant = actionType ? buttonVariantByAction[actionType] : 'warning';
 
   return (
     <div className="p-8 space-y-8 pb-20">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">รายการคำขอที่รออนุมัติ</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{config.pageTitle}</h1>
         <p className="text-muted-foreground">{config.subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="ทั้งหมด"
+          title={config.labels.summaryCards.total}
           value={summaryCounts.total}
           icon={FileText}
           colorClass="text-primary"
           bgClass="bg-primary/10"
         />
         <StatCard
-          title="ปกติ (ตามกำหนดเวลา)"
+          title={config.labels.summaryCards.normal}
           value={summaryCounts.normal}
           icon={CheckCircle2}
           colorClass="text-emerald-600"
           bgClass="bg-emerald-500/10"
         />
         <StatCard
-          title="ใกล้ครบกำหนด"
+          title={config.labels.summaryCards.warning}
           value={summaryCounts.warning}
           icon={AlertTriangle}
           colorClass="text-amber-600"
           bgClass="bg-amber-500/10"
         />
         <StatCard
-          title="เกินกำหนด"
+          title={config.labels.summaryCards.danger}
           value={summaryCounts.danger}
           icon={XCircle}
           colorClass="text-destructive"
@@ -341,7 +365,7 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="ค้นหาชื่อ, เลขที่คำขอ..."
+                  placeholder={config.labels.searchPlaceholder}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="bg-background pl-9 h-9"
@@ -349,13 +373,13 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
               </div>
               <Select value={slaFilter} onValueChange={setSlaFilter}>
                 <SelectTrigger className="w-full sm:w-[160px] bg-background h-9">
-                  <SelectValue placeholder="สถานะกำหนดเวลา" />
+                  <SelectValue placeholder={config.labels.slaFilterPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">ทุกสถานะกำหนดเวลา</SelectItem>
-                  <SelectItem value="normal">ปกติ</SelectItem>
-                  <SelectItem value="warning">ใกล้ครบกำหนด</SelectItem>
-                  <SelectItem value="danger">เกินกำหนด</SelectItem>
+                  <SelectItem value="all">{config.labels.slaFilterOptions.all}</SelectItem>
+                  <SelectItem value="normal">{config.labels.slaFilterOptions.normal}</SelectItem>
+                  <SelectItem value="warning">{config.labels.slaFilterOptions.warning}</SelectItem>
+                  <SelectItem value="danger">{config.labels.slaFilterOptions.danger}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -373,26 +397,28 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="font-semibold w-[150px]">เลขที่คำขอ</TableHead>
-                  <TableHead className="font-semibold min-w-[200px]">ชื่อ-สกุล / ตำแหน่ง</TableHead>
-                  <TableHead className="font-semibold">หน่วยงาน</TableHead>
-                  <TableHead className="font-semibold text-center">กลุ่ม/ข้อ</TableHead>
-                  <TableHead className="font-semibold text-right">อัตรา (บาท)</TableHead>
-                  <TableHead className="font-semibold text-center">กำหนดเวลา</TableHead>
-                  <TableHead className="font-semibold text-right w-[140px]">จัดการ</TableHead>
+                  <TableHead className="font-semibold w-[150px]">{config.labels.tableHeaders.requestNo}</TableHead>
+                  <TableHead className="font-semibold min-w-[200px]">
+                    {config.labels.tableHeaders.nameAndPosition}
+                  </TableHead>
+                  <TableHead className="font-semibold">{config.labels.tableHeaders.department}</TableHead>
+                  <TableHead className="font-semibold text-center">{config.labels.tableHeaders.mapping}</TableHead>
+                  <TableHead className="font-semibold text-right">{config.labels.tableHeaders.amount}</TableHead>
+                  <TableHead className="font-semibold text-center">{config.labels.tableHeaders.sla}</TableHead>
+                  <TableHead className="font-semibold text-right w-[140px]">{config.labels.tableHeaders.actions}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                      กำลังโหลดข้อมูล...
+                      {config.labels.tableStates.loading}
                     </TableCell>
                   </TableRow>
                 ) : filteredRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                      ไม่พบรายการคำขอ
+                      {config.labels.tableStates.empty}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -454,7 +480,7 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
             </Table>
           </div>
           <div className="flex justify-end border-t bg-muted/5 px-4 py-3 text-xs text-muted-foreground">
-            แสดง {filteredRows.length} รายการ
+            {config.labels.tableStates.rowCountPrefix} {filteredRows.length} {config.labels.tableStates.rowCountSuffix}
           </div>
         </CardContent>
       </Card>
@@ -483,30 +509,24 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
               {actionType === 'reject' && <XCircle className="h-5 w-5" />}
               {actionType === 'return' && <RefreshCw className="h-5 w-5" />}
 
-              {actionType === 'approve' && 'ยืนยันการอนุมัติ'}
-              {actionType === 'reject' && 'ยืนยันการไม่อนุมัติ'}
-              {actionType === 'return' && 'ยืนยันการส่งกลับแก้ไข'}
+              {dialogActionTitle}
             </DialogTitle>
-            <DialogDescription>
-              {selectedRequest
-                ? `คำขอ ${selectedRequest.requestNo} ของ ${selectedRequest.name}`
-                : undefined}
-            </DialogDescription>
+            <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             {selectedRequest && (
               <div className="rounded-md bg-secondary/50 p-3 text-sm space-y-1">
                 <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">คำขอเลขที่:</span>
+                  <span className="text-muted-foreground">{config.labels.dialog.requestNoLabel}</span>
                   <span className="font-mono font-medium text-right">{selectedRequest.requestNo}</span>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">ผู้ยื่น:</span>
+                  <span className="text-muted-foreground">{config.labels.dialog.requesterLabel}</span>
                   <span className="font-medium text-right">{selectedRequest.name}</span>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">จำนวนเงิน:</span>
+                  <span className="text-muted-foreground">{config.labels.dialog.amountLabel}</span>
                   <span className="font-medium text-right">
                     {formatThaiNumber(selectedRequest.amount)} บาท
                   </span>
@@ -515,17 +535,11 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
             )}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                {actionType === 'approve' ? 'หมายเหตุ (ไม่บังคับ)' : 'เหตุผลการดำเนินการ'}
+                {dialogCommentLabel}
                 {actionType !== 'approve' && <span className="text-destructive ml-1">*</span>}
               </label>
               <Textarea
-                placeholder={
-                  actionType === 'approve'
-                    ? 'ระบุหมายเหตุเพิ่มเติม (ถ้ามี)'
-                    : actionType === 'reject'
-                      ? 'โปรดระบุเหตุผลที่ไม่อนุมัติ...'
-                      : 'โปรดระบุสิ่งที่ต้องแก้ไข...'
-                }
+                placeholder={dialogCommentPlaceholder}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 className="resize-none min-h-[100px]"
@@ -547,20 +561,16 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
                 setComment('');
               }}
             >
-              ยกเลิก
+              {config.labels.dialog.cancelButton}
             </Button>
             <Button
               onClick={handleAction}
               disabled={actionMutation.isPending}
-              variant={
-                actionType === 'approve'
-                  ? 'success'
-                  : actionType === 'reject'
-                    ? 'destructive'
-                    : 'warning'
-              }
+              variant={confirmButtonVariant}
             >
-              {actionMutation.isPending ? 'กำลังบันทึก...' : 'ยืนยัน'}
+              {actionMutation.isPending
+                ? config.labels.dialog.savingButton
+                : config.labels.dialog.confirmButton}
             </Button>
           </DialogFooter>
         </DialogContent>

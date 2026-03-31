@@ -31,6 +31,7 @@ export type ApproverDashboardQuickActionConfig = {
 
 export type ApproverDashboardRoleTheme = {
   payrollIconClass: string;
+  payrollPendingBadgeClass: string;
 };
 
 export type ApproverDashboardRoleConfig = {
@@ -39,6 +40,16 @@ export type ApproverDashboardRoleConfig = {
   statCards: ApproverDashboardStatCardConfig[];
   quickActions: ApproverDashboardQuickActionConfig[];
   theme: ApproverDashboardRoleTheme;
+  labels: {
+    pageTitle: string;
+    pendingRequestsTitle: string;
+    viewAllRequests: string;
+    noPendingRequests: string;
+    pendingPayrollsTitle: string;
+    pendingPayrollBadge: string;
+    noPendingPayrolls: string;
+    manageAllPayrolls: string;
+  };
 };
 
 const buildStatCards = (basePath: string): ApproverDashboardStatCardConfig[] => [
@@ -112,6 +123,17 @@ export const headHrDashboardConfig: ApproverDashboardRoleConfig = {
   ],
   theme: {
     payrollIconClass: 'text-blue-600',
+    payrollPendingBadgeClass: 'text-[10px] border-amber-200 text-amber-700 bg-amber-50',
+  },
+  labels: {
+    pageTitle: 'แดชบอร์ด',
+    pendingRequestsTitle: 'คำขอล่าสุดที่รออนุมัติ',
+    viewAllRequests: 'ดูทั้งหมด',
+    noPendingRequests: 'ไม่มีรายการรออนุมัติ',
+    pendingPayrollsTitle: 'รอบจ่ายรออนุมัติ',
+    pendingPayrollBadge: 'รออนุมัติ',
+    noPendingPayrolls: 'ไม่พบรอบจ่ายค้าง',
+    manageAllPayrolls: 'จัดการรอบจ่ายทั้งหมด',
   },
 };
 
@@ -142,5 +164,16 @@ export const headFinanceDashboardConfig: ApproverDashboardRoleConfig = {
   ],
   theme: {
     payrollIconClass: 'text-blue-600',
+    payrollPendingBadgeClass: 'text-[10px] border-amber-200 text-amber-700 bg-amber-50',
+  },
+  labels: {
+    pageTitle: 'แดชบอร์ด',
+    pendingRequestsTitle: 'คำขอล่าสุดที่รออนุมัติ',
+    viewAllRequests: 'ดูทั้งหมด',
+    noPendingRequests: 'ไม่มีรายการรออนุมัติ',
+    pendingPayrollsTitle: 'รอบจ่ายรออนุมัติ',
+    pendingPayrollBadge: 'รออนุมัติ',
+    noPendingPayrolls: 'ไม่พบรอบจ่ายค้าง',
+    manageAllPayrolls: 'จัดการรอบจ่ายทั้งหมด',
   },
 };

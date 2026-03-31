@@ -89,7 +89,7 @@ export function ApproverRoleDashboardPage({ config }: { config: ApproverDashboar
   return (
     <div className="p-8 space-y-8 pb-20">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">แดชบอร์ด</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">{config.labels.pageTitle}</h1>
         <p className="text-muted-foreground">{config.subtitle}</p>
       </div>
 
@@ -106,10 +106,10 @@ export function ApproverRoleDashboardPage({ config }: { config: ApproverDashboar
             <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <Clock className="h-5 w-5 text-muted-foreground" />
-                คำขอล่าสุดที่รออนุมัติ
+                {config.labels.pendingRequestsTitle}
               </CardTitle>
               <Button variant="ghost" size="sm" asChild className="text-xs">
-                <Link href={`${config.basePath}/requests`}>ดูทั้งหมด</Link>
+                <Link href={`${config.basePath}/requests`}>{config.labels.viewAllRequests}</Link>
               </Button>
             </CardHeader>
             <CardContent className="flex-1 p-0">
@@ -147,7 +147,7 @@ export function ApproverRoleDashboardPage({ config }: { config: ApproverDashboar
                   ))
                 ) : (
                   <div className="py-12 text-center text-muted-foreground text-sm">
-                    ไม่มีรายการรออนุมัติ
+                    {config.labels.noPendingRequests}
                   </div>
                 )}
               </div>
@@ -160,7 +160,7 @@ export function ApproverRoleDashboardPage({ config }: { config: ApproverDashboar
             <CardHeader className="pb-2 bg-secondary/20 border-b">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <Banknote className={`h-5 w-5 ${config.theme.payrollIconClass}`} />
-                รอบจ่ายรออนุมัติ
+                {config.labels.pendingPayrollsTitle}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -174,11 +174,8 @@ export function ApproverRoleDashboardPage({ config }: { config: ApproverDashboar
                     >
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-semibold text-foreground">{payroll.month}</span>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] border-amber-200 text-amber-700 bg-amber-50"
-                        >
-                          รออนุมัติ
+                        <Badge variant="outline" className={config.theme.payrollPendingBadgeClass}>
+                          {config.labels.pendingPayrollBadge}
                         </Badge>
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground">
@@ -191,14 +188,14 @@ export function ApproverRoleDashboardPage({ config }: { config: ApproverDashboar
                   ))
                 ) : (
                   <div className="py-8 text-center text-sm text-muted-foreground">
-                    ไม่พบรอบจ่ายค้าง
+                    {config.labels.noPendingPayrolls}
                   </div>
                 )}
               </div>
               {pendingPayrolls.length > 0 && (
                 <div className="p-2 bg-muted/10 border-t">
                   <Button variant="ghost" size="sm" className="w-full text-xs h-8" asChild>
-                    <Link href={`${config.basePath}/payroll`}>จัดการรอบจ่ายทั้งหมด</Link>
+                    <Link href={`${config.basePath}/payroll`}>{config.labels.manageAllPayrolls}</Link>
                   </Button>
                 </div>
               )}
