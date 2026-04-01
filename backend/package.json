@@ -61,6 +61,9 @@
     "archiver": "^7.0.1",
     "archiver-utils": "^5.0.2",
     "readdir-glob": "^3.0.0",
+    "brace-expansion@2": "^2.0.3",
+    "brace-expansion@5": "^5.0.5",
+    "path-to-regexp": "^0.1.13",
     "ajv": "^6.14.0",
     "unzipper": "^0.12.3",
     "qs": "^6.14.2"
