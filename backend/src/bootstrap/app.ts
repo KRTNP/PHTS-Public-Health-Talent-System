@@ -30,7 +30,7 @@ import dashboardRoutes from "@/modules/dashboard/routes/dashboard.routes.js";
 import navigationRoutes from "@/modules/navigation/api/navigation.route.js";
 import { isMaintenanceModeEnabled } from "@/modules/system/services/maintenance.service.js";
 import { errorHandler, notFoundHandler } from "@middlewares/errorHandler.js";
-import { apiRateLimiter } from "@middlewares/rateLimiter.js";
+import { apiRateLimiter, securityRateLimiter } from "@middlewares/rateLimiter.js";
 import { protect } from "@middlewares/authMiddleware.js";
 import { tokenBlacklistMiddleware } from "@middlewares/tokenBlacklistMiddleware.js";
 import { authorizeUploadAccess } from "@middlewares/uploadAccessMiddleware.js";
@@ -106,7 +106,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
 
   app.use(
     helmet({
-      frameguard: false,
+      frameguard: { action: "sameorigin" },
       crossOriginEmbedderPolicy: true,
       contentSecurityPolicy: {
         useDefaults: true,
@@ -181,6 +181,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
 
   app.use(
     "/uploads",
+    securityRateLimiter,
     tokenBlacklistMiddleware,
     protect,
     authorizeUploadAccess,
@@ -193,7 +194,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
 
   app.use("/", healthRoutes);
 
-  app.use(async (req, res, next) => {
+  app.use(securityRateLimiter, async (req, res, next) => {
     const maintenanceEnabled = await isMaintenanceModeEnabled();
     if (!maintenanceEnabled) return next();
 
@@ -232,7 +233,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     });
   });
 
-  app.use("/api", tokenBlacklistMiddleware, apiRateLimiter);
+  app.use("/api", apiRateLimiter, tokenBlacklistMiddleware);
   app.use("/api/auth", authRoutes);
   app.use("/api/requests", requestRoutes);
   app.use("/api/signatures", signatureRoutes);

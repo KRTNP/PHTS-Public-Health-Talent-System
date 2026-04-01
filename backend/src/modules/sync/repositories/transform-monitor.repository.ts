@@ -21,7 +21,24 @@ type SyncRecordTableConfig = {
   searchColumns: string[];
 };
 
-const SYNC_RECORD_TABLE_CONFIG: Record<string, SyncRecordTableConfig> = {
+const SYNC_RECORD_TABLE_NAMES = [
+  "users",
+  "emp_profiles",
+  "emp_support_staff",
+  "leave_records",
+  "emp_licenses",
+  "leave_quotas",
+  "emp_movements",
+  "sig_images",
+] as const;
+
+type SyncRecordTableName = (typeof SYNC_RECORD_TABLE_NAMES)[number];
+
+const isSyncRecordTableName = (value: string): value is SyncRecordTableName =>
+  (SYNC_RECORD_TABLE_NAMES as ReadonlyArray<string>).includes(value);
+
+const SYNC_RECORD_TABLE_CONFIG: Record<SyncRecordTableName, SyncRecordTableConfig> =
+  {
   users: {
     timestampColumn: "updated_at",
     selectColumns: ["id", "citizen_id", "role", "is_active", "updated_at"],
@@ -695,7 +712,7 @@ export class TransformMonitorRepository {
     const safePage = Math.max(1, Number(input.page || 1));
     const safeLimit = Math.max(1, Math.min(Number(input.limit || 20), 200));
     const offset = (safePage - 1) * safeLimit;
-    const tableOptions = Object.keys(SYNC_RECORD_TABLE_CONFIG);
+    const tableOptions = [...SYNC_RECORD_TABLE_NAMES];
     const emptyTableCounts = Object.fromEntries(
       tableOptions.map((table) => [table, 0]),
     ) as Record<string, number>;
@@ -776,11 +793,17 @@ export class TransformMonitorRepository {
       tableCounts = selectedCounts ?? emptyTableCounts;
     }
 
-    const targetTable =
-      input.targetTable && SYNC_RECORD_TABLE_CONFIG[input.targetTable]
+    const requestedTable =
+      typeof input.targetTable === "string" &&
+      isSyncRecordTableName(input.targetTable)
         ? input.targetTable
-        : (Object.entries(tableCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
-          "users");
+        : undefined;
+    const fallbackTargetTable = (
+      Object.entries(tableCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "users"
+    ).toString();
+    const targetTable = isSyncRecordTableName(fallbackTargetTable)
+      ? (requestedTable ?? fallbackTargetTable)
+      : (requestedTable ?? "users");
     const config = SYNC_RECORD_TABLE_CONFIG[targetTable];
 
     const where: string[] = [`\`${config.timestampColumn}\` BETWEEN ? AND ?`];

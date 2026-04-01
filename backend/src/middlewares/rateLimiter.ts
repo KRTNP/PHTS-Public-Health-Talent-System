@@ -10,6 +10,12 @@ const authWindowMs = Number(
   process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
 );
 const authMax = Number(process.env.AUTH_RATE_LIMIT_MAX || 5);
+const securityWindowMs = Number(
+  process.env.SECURITY_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
+);
+const securityMax = Number(
+  process.env.SECURITY_RATE_LIMIT_MAX || (isProduction() ? 300 : 1000),
+);
 const isDevRateLimitEnabled = () =>
   String(process.env.DEV_ENABLE_RATE_LIMIT || "").toLowerCase() === "true";
 
@@ -90,5 +96,19 @@ export const authRateLimiter = rateLimit({
       retry_after_seconds: retryAfterSeconds,
       retry_after_minutes: retryAfterMinutes,
     });
+  },
+});
+
+export const securityRateLimiter = rateLimit({
+  windowMs: securityWindowMs,
+  max: securityMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientKey(req),
+  skip: () =>
+    process.env.NODE_ENV === "test" || shouldSkipRateLimitInDevelopment(),
+  message: {
+    success: false,
+    error: "Too many requests, please try again later.",
   },
 });

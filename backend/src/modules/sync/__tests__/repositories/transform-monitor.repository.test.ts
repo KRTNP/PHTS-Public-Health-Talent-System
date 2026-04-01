@@ -81,4 +81,57 @@ describe("TransformMonitorRepository.getSyncRecords", () => {
     expect(result.rows).toHaveLength(2);
     expect(result.table_counts.users).toBe(2);
   });
+
+  it("ignores invalid targetTable values and keeps SQL constrained to allowlisted tables", async () => {
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (
+        sql.includes("FROM hrms_sync_batches") &&
+        sql.includes("ORDER BY batch_id DESC")
+      ) {
+        return [
+          {
+            batch_id: 23,
+            started_at: "2026-03-13 16:10:00",
+            finished_at: "2026-03-13 16:10:02",
+          },
+        ] as RowDataPacket[];
+      }
+
+      if (sql.includes("SELECT COUNT(*) AS total") && sql.includes("FROM `")) {
+        return [{ total: 0 }] as RowDataPacket[];
+      }
+
+      if (sql.includes("FROM `users`") && sql.includes("ORDER BY")) {
+        return [
+          {
+            id: 1001,
+            citizen_id: "1234567890123",
+            role: "USER",
+            is_active: 1,
+            updated_at: "2026-03-12 10:00:02",
+          },
+        ] as RowDataPacket[];
+      }
+
+      return [] as RowDataPacket[];
+    });
+
+    const { TransformMonitorRepository } =
+      await import("../../repositories/transform-monitor.repository.js");
+
+    const maliciousTargetTable = "users` WHERE 1=1 --";
+    const result = await TransformMonitorRepository.getSyncRecords({
+      page: 1,
+      limit: 10,
+      targetTable: maliciousTargetTable,
+    });
+
+    expect(result.target_table).toBe("users");
+
+    const executedSql = mockQuery.mock.calls.map((call) => String(call[0]));
+    expect(executedSql.some((sql) => sql.includes(maliciousTargetTable))).toBe(
+      false,
+    );
+    expect(executedSql.some((sql) => sql.includes("FROM `users`"))).toBe(true);
+  });
 });

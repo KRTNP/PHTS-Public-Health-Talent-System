@@ -87,12 +87,14 @@ export const getSyncRecords = asyncHandler(
       req.query as unknown as SyncRecordsQuery;
     const safePage = Math.max(1, Number(page || 1));
     const safeLimit = Math.max(1, Math.min(Number(limit || 20), 200));
+    const safeTargetTable =
+      typeof target_table === "string" ? target_table.trim() : undefined;
     const safeSearch = typeof search === "string" ? search.trim() : undefined;
     const data = await TransformMonitorRepository.getSyncRecords({
       page: safePage,
       limit: safeLimit,
       batchId: batch_id ? Number(batch_id) : undefined,
-      targetTable: target_table,
+      targetTable: safeTargetTable || undefined,
       search: safeSearch || undefined,
     });
     res.json({ success: true, data });
