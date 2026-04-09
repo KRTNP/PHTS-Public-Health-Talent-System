@@ -121,3 +121,6 @@ backend/uploads/*
 
 # Local docs artifacts
 /docs/refactor/
+
+# CodeQL local database
+.codeql-db/
