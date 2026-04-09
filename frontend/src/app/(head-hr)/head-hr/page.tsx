@@ -1,3 +1,5 @@
+'use client';
+
 import { ApproverRoleDashboardPage } from '@/features/dashboard/approver-role-dashboard';
 import { headHrDashboardConfig } from '@/features/dashboard/approver-role-dashboard.config';
 

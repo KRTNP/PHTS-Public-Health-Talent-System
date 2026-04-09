@@ -192,13 +192,9 @@ export function sanitizeString(value: string): string {
  * Validate and sanitize input object
  */
 export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
-  const sanitized: Record<string, unknown> = { ...obj };
-
-  for (const [key, value] of Object.entries(sanitized)) {
-    if (typeof value === "string") {
-      sanitized[key] = sanitizeString(value);
-    }
-  }
-
-  return sanitized as T;
+  const sanitizedEntries = Object.entries(obj).map(([key, value]) => [
+    key,
+    typeof value === "string" ? sanitizeString(value) : value,
+  ]);
+  return Object.fromEntries(sanitizedEntries) as T;
 }

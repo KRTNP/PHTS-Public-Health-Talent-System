@@ -9,6 +9,7 @@ const extraDevOrigins = (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? '')
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(__dirname),
+  productionBrowserSourceMaps: false,
   allowedDevOrigins: [
     ...new Set([
       'http://localhost:3000',
@@ -20,6 +21,19 @@ const nextConfig: NextConfig = {
       ...extraDevOrigins,
     ]),
   ],
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

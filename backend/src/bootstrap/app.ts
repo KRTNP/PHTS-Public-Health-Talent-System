@@ -1,12 +1,10 @@
 import express, { Application } from "express";
 import crypto from "node:crypto";
 import path from "node:path";
-import jwt from "jsonwebtoken";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import { initializePassport } from "@config/passport.js";
-import { getJwtSecret } from "@config/jwt.js";
 import authRoutes from "@/modules/auth/api/auth.route.js";
 import requestRoutes from "@/modules/request/api/request.route.js";
 import signatureRoutes from "@/modules/signature/api/signature.route.js";
@@ -43,8 +41,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  const defaultOrigins = ["http://localhost:3000"];
-  const allowedOrigins = [...new Set([...envOrigins, ...defaultOrigins])];
+  const allowedOrigins = [...new Set(envOrigins)];
   const defaultTunnelSuffixes = [".trycloudflare.com"];
   const devTunnelAllowedSuffixes = (
     process.env.CORS_DEV_TUNNEL_SUFFIXES || defaultTunnelSuffixes.join(",")
@@ -127,7 +124,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
         }
 
         console.warn(`[CORS] Blocked origin: ${origin}`);
-        return callback(new Error("Not allowed by CORS"));
+        return callback(null, false);
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -143,6 +140,24 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       ],
     }),
   );
+
+  app.use((req, res, next) => {
+    const originHeader = req.headers.origin;
+    const origin =
+      typeof originHeader === "string" ? originHeader : Array.isArray(originHeader) ? originHeader[0] : "";
+
+    if (origin && !isOriginAllowed(origin)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "CORS_ORIGIN_FORBIDDEN",
+          message: "Origin is not allowed",
+        },
+      });
+    }
+
+    return next();
+  });
 
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -206,24 +221,6 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     ];
     if (allowPaths.some((allowPath) => req.path.startsWith(allowPath))) {
       return next();
-    }
-
-    const authHeader = req.headers.authorization;
-    const token =
-      typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-        ? authHeader.slice("Bearer ".length)
-        : null;
-
-    if (token) {
-      try {
-        const jwtSecret = getJwtSecret();
-        const payload = jwt.verify(token, jwtSecret) as { role?: string };
-        if (payload?.role === "ADMIN") {
-          return next();
-        }
-      } catch {
-        // Ignore invalid token and continue to maintenance response
-      }
     }
 
     return res.status(503).json({

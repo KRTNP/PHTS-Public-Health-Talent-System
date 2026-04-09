@@ -883,7 +883,7 @@ const findRelevantDutyAnchorIndex = (
     }
   }
 
-  if (personIndex !== null && personIndex >= 0 && nextMajorSectionIndex === lines.length) {
+  if (personIndex >= 0 && nextMajorSectionIndex === lines.length) {
     for (let index = personIndex; index < Math.min(lines.length, personIndex + 30); index += 1) {
       if (DUTY_ANCHOR_PATTERN.test(normalizeAssignmentOrderWhitespace(lines[index] || ''))) {
         return index;

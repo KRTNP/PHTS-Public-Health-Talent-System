@@ -78,9 +78,9 @@ const finalizeRequest = async (
   }
 
   if (!rateId) {
-    console.warn(
-      `[finalizeRequest] No matching rate found for Request ${requestId}`,
-    );
+    console.warn("[finalizeRequest] No matching rate found for request", {
+      requestId: Number(requestId),
+    });
     return;
   }
 

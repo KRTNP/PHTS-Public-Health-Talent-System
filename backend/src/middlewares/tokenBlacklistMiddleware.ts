@@ -26,12 +26,7 @@ export const tokenBlacklistMiddleware = async (
 ) => {
   try {
     // Extract token from request
-    const token = extractAuthToken(req);
-
-    // If no token, let Passport handle it (will return 401)
-    if (!token) {
-      return next();
-    }
+    const token = extractAuthToken(req) ?? "";
 
     // Check if token is individually blacklisted
     const isBlacklisted = await tokenBlacklist.isTokenBlacklisted(token);
@@ -78,8 +73,7 @@ export const tokenBlacklistMiddleware = async (
       throw tokenError;
     }
 
-    // Token is valid and not blacklisted
-    next();
+    return next();
   } catch (error) {
     // On error, let request continue - Passport will handle auth
     log.error("Error in token blacklist middleware", error as Error, {

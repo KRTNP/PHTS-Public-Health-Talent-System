@@ -189,15 +189,15 @@ export function buildErrorResponse(error: Error | AppError): ErrorResponse {
     return error.toJSON() as ErrorResponse;
   }
 
-  // Unknown error - don't expose details in production
-  const isProduction = process.env.NODE_ENV === "production";
+  // Unknown error - never expose stack traces by default.
+  const exposeErrorDetails = process.env.ERROR_RESPONSE_INCLUDE_DETAILS === "true";
 
   return {
     success: false,
     error: {
       code: "INTERNAL_ERROR",
-      message: isProduction ? "เกิดข้อผิดพลาดภายในระบบ" : error.message,
-      ...(!isProduction && { details: { stack: error.stack } }),
+      message: "เกิดข้อผิดพลาดภายในระบบ",
+      ...(exposeErrorDetails && { details: { message: error.message } }),
     },
   };
 }
