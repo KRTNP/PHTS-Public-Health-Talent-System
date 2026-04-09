@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const cookiesMock = vi.fn();
 const redirectMock = vi.fn((target: string) => {
@@ -21,7 +21,7 @@ describe("requireRoleAccess security behavior", () => {
     vi.resetModules();
     vi.clearAllMocks();
     process.env = { ...originalEnv };
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     delete process.env.NEXT_INTERNAL_API_PROXY_TARGET;
 
     cookiesMock.mockResolvedValue({
@@ -63,5 +63,25 @@ describe("requireRoleAccess security behavior", () => {
 
     await expect(requireRoleAccess("ADMIN")).rejects.toThrow("REDIRECT:/login");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses localhost fallback in development when internal target is not set", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const { requireRoleAccess } = await import("@/shared/auth/server-guard");
+
+    await expect(requireRoleAccess("ADMIN")).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/api/auth/me",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-123",
+        }),
+      }),
+    );
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
   });
 });

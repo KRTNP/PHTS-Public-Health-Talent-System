@@ -23,6 +23,10 @@ const resolveBackendBase = (): string | null => {
   const configuredTarget = process.env.NEXT_INTERNAL_API_PROXY_TARGET?.trim();
   if (configuredTarget) return configuredTarget;
 
+  if (process.env.NODE_ENV !== "production") {
+    return "http://127.0.0.1:3001";
+  }
+
   return null;
 };
 
