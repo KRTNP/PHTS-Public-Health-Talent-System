@@ -1,6 +1,6 @@
 import "server-only";
 
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Role } from "@/types/auth";
 import { AUTH_TOKEN_COOKIE_NAME } from "@/shared/auth/storage";
@@ -13,6 +13,8 @@ type AuthMeResponse = {
   };
 };
 
+const DEFAULT_DEV_BACKEND_TARGET = "http://127.0.0.1:3001";
+
 const normalizeApiBase = (rawBase: string): string => {
   const trimmed = rawBase.trim().replace(/\/+$/, "");
   if (trimmed.endsWith("/api")) return trimmed;
@@ -23,14 +25,11 @@ const resolveBackendBase = async (): Promise<string | null> => {
   const configuredTarget = process.env.NEXT_INTERNAL_API_PROXY_TARGET?.trim();
   if (configuredTarget) return configuredTarget;
 
-  const requestHeaders = await headers();
-  const forwardedHost = requestHeaders.get("x-forwarded-host");
-  const host = forwardedHost || requestHeaders.get("host");
-  if (!host) return null;
+  if (process.env.NODE_ENV !== "production") {
+    return DEFAULT_DEV_BACKEND_TARGET;
+  }
 
-  const forwardedProto = requestHeaders.get("x-forwarded-proto");
-  const protocol = forwardedProto || "http";
-  return `${protocol}://${host}`;
+  return null;
 };
 
 const getRoleFromBackend = async (token: string): Promise<string | null> => {

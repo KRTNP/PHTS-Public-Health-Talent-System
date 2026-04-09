@@ -17,8 +17,6 @@ const nextConfig: NextConfig = {
       'http://127.0.0.1:3000',
       'https://*.trycloudflare.com',
       '*.trycloudflare.com',
-      'laptop-vpnchdqf-1.tail84384c.ts.net',
-      '*.tail84384c.ts.net',
       ...extraDevOrigins,
     ]),
   ],

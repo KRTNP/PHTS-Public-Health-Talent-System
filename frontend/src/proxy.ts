@@ -12,8 +12,7 @@ const isLocalHostname = (hostname: string): boolean => {
 };
 
 const getRequestHostname = (request: NextRequest): string => {
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const host = forwardedHost || request.headers.get('host') || request.nextUrl.host;
+  const host = request.headers.get('host') || request.nextUrl.host || request.nextUrl.hostname;
   return (host || '').split(':')[0];
 };
 
