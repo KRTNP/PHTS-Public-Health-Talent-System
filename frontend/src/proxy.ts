@@ -1,21 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-const isLocalHostname = (hostname: string): boolean => {
-  const normalized = hostname.toLowerCase();
-  return (
-    normalized === 'localhost' ||
-    normalized === '127.0.0.1' ||
-    normalized === '::1' ||
-    normalized.endsWith('.local')
-  );
-};
-
-const getRequestHostname = (request: NextRequest): string => {
-  const host = request.headers.get('host') || request.nextUrl.host || request.nextUrl.hostname;
-  return (host || '').split(':')[0];
-};
-
 const isBlockedDevPath = (pathname: string): boolean => {
   if (pathname.startsWith('/__nextjs_')) return true;
   if (pathname.startsWith('/_next/webpack-hmr')) return true;
@@ -26,12 +11,10 @@ const isBlockedDevPath = (pathname: string): boolean => {
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const hostname = getRequestHostname(request);
-  const isLocalRequest = isLocalHostname(hostname);
   const isDevRuntime = process.env.NODE_ENV !== 'production';
   const allowPublicDev = process.env.NEXT_ALLOW_PUBLIC_DEV === 'true';
 
-  if (!isLocalRequest && isBlockedDevPath(pathname)) {
+  if (isBlockedDevPath(pathname)) {
     return NextResponse.json(
       {
         success: false,
@@ -44,7 +27,7 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  if (isDevRuntime && !allowPublicDev && !isLocalRequest) {
+  if (isDevRuntime && !allowPublicDev) {
     return NextResponse.json(
       {
         success: false,

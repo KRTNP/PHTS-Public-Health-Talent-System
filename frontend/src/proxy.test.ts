@@ -49,7 +49,7 @@ describe("proxy host handling", () => {
     process.env.NEXT_ALLOW_PUBLIC_DEV = "false";
   });
 
-  it("does not trust x-forwarded-host for dev access checks", () => {
+  it("blocks all dev runtime access when NEXT_ALLOW_PUBLIC_DEV is false", () => {
     const request = makeRequest({
       pathname: "/dashboard",
       host: "public.example.com",
@@ -68,7 +68,8 @@ describe("proxy host handling", () => {
     expect(nextMock).not.toHaveBeenCalled();
   });
 
-  it("allows local host requests in development", () => {
+  it("allows access in development when NEXT_ALLOW_PUBLIC_DEV is true", () => {
+    process.env.NEXT_ALLOW_PUBLIC_DEV = "true";
     const request = makeRequest({
       pathname: "/dashboard",
       host: "localhost:3000",

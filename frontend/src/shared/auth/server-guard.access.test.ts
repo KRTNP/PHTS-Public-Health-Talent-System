@@ -1,14 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const cookiesMock = vi.fn();
-const headersMock = vi.fn();
 const redirectMock = vi.fn((target: string) => {
   throw new Error(`REDIRECT:${target}`);
 });
 
 vi.mock("next/headers", () => ({
   cookies: cookiesMock,
-  headers: headersMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -29,10 +27,6 @@ describe("requireRoleAccess security behavior", () => {
     cookiesMock.mockResolvedValue({
       get: () => ({ value: "token-123" }),
     });
-    headersMock.mockResolvedValue({
-      get: (name: string) => (name.toLowerCase() === "host" ? "evil.example.com" : null),
-    });
-
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({ success: true, data: { role: "ADMIN" } }),
@@ -60,6 +54,17 @@ describe("requireRoleAccess security behavior", () => {
           Authorization: "Bearer token-123",
         }),
       }),
+    );
+  });
+
+  it("uses absolute NEXT_PUBLIC_API_URL when internal target is not set", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://public-api.example.com/api";
+    const { requireRoleAccess } = await import("@/shared/auth/server-guard");
+
+    await expect(requireRoleAccess("ADMIN")).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://public-api.example.com/api/auth/me",
+      expect.any(Object),
     );
   });
 });

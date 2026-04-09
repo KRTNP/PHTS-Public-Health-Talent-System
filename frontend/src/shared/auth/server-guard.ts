@@ -13,27 +13,26 @@ type AuthMeResponse = {
   };
 };
 
-const DEFAULT_DEV_BACKEND_TARGET = "http://127.0.0.1:3001";
-
 const normalizeApiBase = (rawBase: string): string => {
   const trimmed = rawBase.trim().replace(/\/+$/, "");
   if (trimmed.endsWith("/api")) return trimmed;
   return `${trimmed}/api`;
 };
 
-const resolveBackendBase = async (): Promise<string | null> => {
+const resolveBackendBase = (): string | null => {
   const configuredTarget = process.env.NEXT_INTERNAL_API_PROXY_TARGET?.trim();
   if (configuredTarget) return configuredTarget;
 
-  if (process.env.NODE_ENV !== "production") {
-    return DEFAULT_DEV_BACKEND_TARGET;
+  const publicApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (publicApiUrl && /^https?:\/\//i.test(publicApiUrl)) {
+    return publicApiUrl;
   }
 
   return null;
 };
 
 const getRoleFromBackend = async (token: string): Promise<string | null> => {
-  const backendBase = await resolveBackendBase();
+  const backendBase = resolveBackendBase();
   if (!backendBase) return null;
 
   const authMeUrl = `${normalizeApiBase(backendBase)}/auth/me`;
