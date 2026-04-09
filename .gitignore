@@ -90,6 +90,7 @@ import_data/
 # AI assistant files (may contain credentials)
 CLAUDE.md
 AGENTS.md
+.codex/
 
 # Uploads / generated files
 uploads/
@@ -119,4 +120,4 @@ backend/uploads/*
 /safe/
 
 # Local docs artifacts
-/docs/
+/docs/refactor/
