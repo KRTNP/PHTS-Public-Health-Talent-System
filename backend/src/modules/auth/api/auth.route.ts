@@ -9,7 +9,10 @@
 import { Router } from "express";
 import * as authController from "@/modules/auth/api/auth.controller.js";
 import { protect } from "@middlewares/authMiddleware.js";
-import { authRateLimiter } from "@middlewares/rateLimiter.js";
+import {
+  authProbeRateLimiter,
+  authRateLimiter,
+} from "@middlewares/rateLimiter.js";
 import { validate } from "@shared/validate.middleware.js";
 import {
   loginSchema,
@@ -31,6 +34,9 @@ router.post(
   validate(loginSchema),
   authController.login,
 );
+
+// Throttle repeated invalid/expired token probes on current-user endpoints.
+router.use("/me", authProbeRateLimiter);
 
 /**
  * @route   GET /api/auth/me

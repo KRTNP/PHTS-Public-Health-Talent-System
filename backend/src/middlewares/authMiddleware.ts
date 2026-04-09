@@ -27,7 +27,7 @@ export function protect(
   passport.authenticate(
     "jwt",
     { session: false },
-    (err: any, user: any, info: any) => {
+    (err: any, user: any, _info: any) => {
       // Handle authentication errors
       if (err) {
         console.error("Authentication error:", err);
@@ -40,10 +40,9 @@ export function protect(
 
       // Check if authentication failed
       if (!user) {
-        const message = info?.message || "Unauthorized access";
         res.status(401).json({
           success: false,
-          error: message,
+          error: "Unauthorized",
         });
         return;
       }

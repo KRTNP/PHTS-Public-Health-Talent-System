@@ -16,6 +16,10 @@ const securityWindowMs = Number(
 const securityMax = Number(
   process.env.SECURITY_RATE_LIMIT_MAX || (isProduction() ? 300 : 1000),
 );
+const authProbeWindowMs = Number(
+  process.env.AUTH_PROBE_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000,
+);
+const authProbeMax = Number(process.env.AUTH_PROBE_RATE_LIMIT_MAX || 30);
 const isDevRateLimitEnabled = () =>
   String(process.env.DEV_ENABLE_RATE_LIMIT || "").toLowerCase() === "true";
 
@@ -110,5 +114,30 @@ export const securityRateLimiter = rateLimit({
   message: {
     success: false,
     error: "Too many requests, please try again later.",
+  },
+});
+
+export const authProbeRateLimiter = rateLimit({
+  windowMs: authProbeWindowMs,
+  max: authProbeMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientKey(req),
+  skip: () => process.env.NODE_ENV === "test",
+  handler: (req, res) => {
+    const requestWithRateLimit = req as typeof req & RateLimitedRequest;
+    const now = Date.now();
+    const resetTime =
+      requestWithRateLimit.rateLimit?.resetTime instanceof Date
+        ? requestWithRateLimit.rateLimit.resetTime.getTime()
+        : now + authProbeWindowMs;
+    const retryAfterSeconds = Math.max(1, Math.ceil((resetTime - now) / 1000));
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    res.status(429).json({
+      success: false,
+      code: "AUTH_PROBE_RATE_LIMIT_EXCEEDED",
+      error: "Too many authentication attempts, please try again later.",
+      retry_after_seconds: retryAfterSeconds,
+    });
   },
 });

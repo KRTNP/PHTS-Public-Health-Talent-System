@@ -21,6 +21,7 @@ describe("rateLimiter", () => {
       mod,
       apiConfig: calls[0]?.[0] as any,
       authConfig: calls[1]?.[0] as any,
+      authProbeConfig: calls[3]?.[0] as any,
     };
   };
 
@@ -170,5 +171,26 @@ describe("rateLimiter", () => {
     expect(apiConfig.keyGenerator(reqFromForwardedFor)).toBe("ip:203.0.113.7");
     expect(apiConfig.keyGenerator(reqFallback)).toBe("ip:127.0.0.1");
     expect(authConfig.keyGenerator(reqFromCloudflare)).toBe("ip:198.51.100.12");
+  });
+
+  it("builds auth probe limiter with dedicated thresholds", async () => {
+    process.env.AUTH_PROBE_RATE_LIMIT_WINDOW_MS = "120000";
+    process.env.AUTH_PROBE_RATE_LIMIT_MAX = "9";
+
+    const { mod, authProbeConfig } = await getConfigs();
+
+    expect(typeof mod.authProbeRateLimiter).toBe("function");
+    expect(authProbeConfig.windowMs).toBe(120000);
+    expect(authProbeConfig.max).toBe(9);
+    expect(typeof authProbeConfig.handler).toBe("function");
+  });
+
+  it("does not skip auth probe limiter in development", async () => {
+    process.env.NODE_ENV = "development";
+    delete process.env.DEV_ENABLE_RATE_LIMIT;
+
+    const { authProbeConfig } = await getConfigs();
+
+    expect(authProbeConfig.skip({}, {})).toBe(false);
   });
 });

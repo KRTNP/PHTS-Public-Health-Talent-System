@@ -50,6 +50,12 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     .map((suffix) => suffix.trim().toLowerCase())
     .filter(Boolean)
     .map((suffix) => (suffix.startsWith(".") ? suffix : `.${suffix}`));
+  const preflightAllowedPathRules = (
+    process.env.CORS_PREFLIGHT_ALLOWED_PATHS || "/api/auth/login"
+  )
+    .split(",")
+    .map((rule) => rule.trim())
+    .filter(Boolean);
 
   const isOriginAllowed = (origin: string): boolean => {
     const normalizedOrigin = origin.trim();
@@ -101,6 +107,15 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     });
   };
 
+  const isPreflightPathAllowed = (pathname: string): boolean =>
+    preflightAllowedPathRules.some((rule) => {
+      if (rule.endsWith("*")) {
+        const prefix = rule.slice(0, -1);
+        return pathname.startsWith(prefix);
+      }
+      return pathname === rule;
+    });
+
   app.use(
     helmet({
       frameguard: { action: "sameorigin" },
@@ -128,6 +143,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      preflightContinue: true,
       allowedHeaders: [
         "Content-Type",
         "Authorization",
@@ -157,6 +173,40 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     }
 
     return next();
+  });
+
+  app.use((req, res, next) => {
+    if (req.method !== "OPTIONS") return next();
+
+    const originHeader = req.headers.origin;
+    const origin =
+      typeof originHeader === "string"
+        ? originHeader
+        : Array.isArray(originHeader)
+          ? originHeader[0]
+          : "";
+
+    if (!origin || !isOriginAllowed(origin)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "CORS_ORIGIN_FORBIDDEN",
+          message: "Origin is not allowed",
+        },
+      });
+    }
+
+    if (!isPreflightPathAllowed(req.path)) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Not found",
+        },
+      });
+    }
+
+    return res.status(204).end();
   });
 
   app.use(express.json({ limit: "10mb" }));
