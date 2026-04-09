@@ -2,6 +2,7 @@
 
 import { FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { buildAttachmentUrl } from '@/features/request/detail/utils';
 
 type AttachmentItem = {
   id: number;
@@ -9,15 +10,6 @@ type AttachmentItem = {
   type?: string;
   path: string;
 };
-
-function resolveFileUrl(filePath: string): string {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
-  const baseUrl = apiBase.replace(/\/api\/?$/, '');
-  const normalizedPath = filePath.includes('uploads/')
-    ? filePath.slice(filePath.indexOf('uploads/'))
-    : filePath;
-  return `${baseUrl}/${normalizedPath}`;
-}
 
 export function AttachmentList({
   title = 'เอกสารแนบ',
@@ -42,7 +34,7 @@ export function AttachmentList({
 
       <div className="p-2 space-y-1">
         {items.map((item) => {
-          const fileUrl = resolveFileUrl(item.path);
+          const fileUrl = buildAttachmentUrl(item.path);
           return (
             <div
               key={item.id}

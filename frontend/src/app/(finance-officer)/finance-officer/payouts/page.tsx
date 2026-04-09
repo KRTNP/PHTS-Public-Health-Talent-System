@@ -94,10 +94,6 @@ export default function PayoutsPage() {
     const openPeriods = filteredPeriods.filter(
       (row) => row.pending_count > 0 || row.pending_amount > 0,
     ).length;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const pendingAmount = filteredPeriods.reduce((sum, row) => sum + row.pending_amount, 0);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const paidAmount = filteredPeriods.reduce((sum, row) => sum + row.paid_amount, 0);
     return { totalPeriods, openPeriods };
   }, [filteredPeriods]);
 

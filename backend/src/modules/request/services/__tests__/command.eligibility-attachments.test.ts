@@ -17,6 +17,7 @@ describe("RequestCommandService eligibility attachments", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
+    jest.spyOn(requestRepository, "findById").mockResolvedValue(null as any);
     jest
       .spyOn(requestRepository, "findAttachmentsWithMetadata")
       .mockResolvedValue([]);

@@ -459,6 +459,7 @@ export const calculateOnDemand = async (
 ) => {
   try {
     const { year, month, citizen_id } = req.body as CalculatePeriodDto;
+    const actorId = requireAuthenticatedUserId(req);
 
     // Validation handled by Zod
 
@@ -472,7 +473,6 @@ export const calculateOnDemand = async (
       return;
     }
 
-    const actorId = requireAuthenticatedUserId(req);
     const period = await PayrollService.getOrCreatePeriod(
       Number(year),
       Number(month),

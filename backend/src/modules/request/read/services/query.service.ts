@@ -146,6 +146,13 @@ export class RequestQueryService {
     if (userRole === "HEAD_SCOPE" && hasScopeAccess) {
       isApprover = true;
     }
+    if (userRole === "PTS_OFFICER" && isApprover) {
+      const assignedOfficerId =
+        Number((request as any).assigned_officer_id ?? 0) || null;
+      if (assignedOfficerId !== null && assignedOfficerId !== userId) {
+        isApprover = false;
+      }
+    }
     if (isOwner || isCreatorOfficer || isApprover || isAdmin) {
       return;
     }
@@ -155,6 +162,41 @@ export class RequestQueryService {
     if (!isActor) {
       throw new AuthorizationError(
         "You do not have permission to view this request",
+      );
+    }
+  }
+
+  private async ensureEligibilityReadAccess(
+    row: Record<string, unknown>,
+    userId: number,
+    userRole: string,
+  ): Promise<void> {
+    if (userRole !== "PTS_OFFICER") {
+      return;
+    }
+
+    const linkedRequestId = Number((row as any).request_id ?? 0) || null;
+    if (!linkedRequestId) {
+      return;
+    }
+
+    const linkedRequest = await requestRepository.findById(linkedRequestId);
+    if (!linkedRequest) {
+      return;
+    }
+
+    const isOfficerStep =
+      linkedRequest.status === RequestStatus.PENDING &&
+      Number(linkedRequest.current_step) === ROLE_STEP_MAP.PTS_OFFICER;
+    if (!isOfficerStep) {
+      return;
+    }
+
+    const assignedOfficerId =
+      Number((linkedRequest as any).assigned_officer_id ?? 0) || null;
+    if (assignedOfficerId !== null && assignedOfficerId !== userId) {
+      throw new AuthorizationError(
+        "You do not have permission to view this eligibility record",
       );
     }
   }
@@ -304,11 +346,14 @@ export class RequestQueryService {
 
   async getEligibilityById(
     eligibilityId: number,
+    userId: number,
+    userRole: string,
   ): Promise<Record<string, unknown>> {
     const row = await requestRepository.findEligibilityById(eligibilityId);
     if (!row) {
       throw new Error("Eligibility not found");
     }
+    await this.ensureEligibilityReadAccess(row as Record<string, unknown>, userId, userRole);
 
     const requestId = (row as any).request_id
       ? Number((row as any).request_id)

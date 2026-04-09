@@ -76,6 +76,17 @@ export async function reassignRequest(
         { requestId, currentStep: requestEntity.current_step },
       );
     }
+    if (
+      requestEntity.assigned_officer_id &&
+      requestEntity.assigned_officer_id !== actorId
+    ) {
+      throw new AppError(
+        "You can reassign only requests currently assigned to you",
+        403,
+        "REASSIGN_NOT_ASSIGNEE",
+        { requestId, assignedOfficerId: requestEntity.assigned_officer_id },
+      );
+    }
 
     if (actorId === targetOfficerId) {
       throw new AppError(

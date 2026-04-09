@@ -16,12 +16,12 @@ import {
 /**
  * Handle 404 Not Found routes
  */
-export const notFoundHandler = (req: Request, res: Response) => {
+export const notFoundHandler = (_req: Request, res: Response) => {
   res.status(404).json({
     success: false,
     error: {
       code: "NOT_FOUND",
-      message: `Route ${req.originalUrl} not found`,
+      message: "ไม่พบเส้นทางที่ร้องขอ",
     },
   });
 };

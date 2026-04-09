@@ -1,11 +1,15 @@
-const DEFAULT_API_BASE = 'http://localhost:3001/api';
+import { resolveUploadsBaseUrl } from '@/shared/api/base-url';
 
 export const buildAttachmentUrl = (filePath: string, apiBase?: string): string => {
-  const base = (apiBase ?? process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_BASE).replace(/\/api\/?$/, '');
+  const rawPath = String(filePath ?? '').trim();
+  if (!rawPath) return '';
+  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+
+  const base = resolveUploadsBaseUrl(apiBase ?? process.env.NEXT_PUBLIC_API_URL);
   const normalized = filePath.includes('uploads/')
     ? filePath.slice(filePath.indexOf('uploads/'))
     : filePath.replace(/^\/+/, '');
-  return `${base}/${normalized}`;
+  return `${base}/${normalized.replace(/^uploads\/+/, '')}`;
 };
 
 export const isPreviewableFile = (fileName?: string | null): boolean => {

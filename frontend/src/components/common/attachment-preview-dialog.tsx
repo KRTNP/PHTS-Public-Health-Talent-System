@@ -33,6 +33,34 @@ const isImageFile = (url: string, name?: string) => {
   );
 };
 
+const sanitizePreviewUrl = (rawUrl: string): string | null => {
+  const normalized = rawUrl.trim();
+  if (!normalized) return null;
+
+  const lower = normalized.toLowerCase();
+  if (
+    lower.startsWith('data:image/') ||
+    lower.startsWith('data:application/pdf')
+  ) {
+    return normalized;
+  }
+
+  if (normalized.startsWith('/')) {
+    return normalized;
+  }
+
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'blob:') {
+      return normalized;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
 export function AttachmentPreviewDialog({
   open,
   onOpenChange,
@@ -41,9 +69,11 @@ export function AttachmentPreviewDialog({
 }: AttachmentPreviewDialogProps) {
   if (!previewUrl) return null;
   const safePreviewName = previewName || 'ตัวอย่างไฟล์';
+  const safePreviewUrl = sanitizePreviewUrl(previewUrl);
+  const encodedPreviewUrl = safePreviewUrl ? encodeURI(safePreviewUrl) : null;
 
-  const isPdf = isPdfFile(previewUrl, safePreviewName);
-  const isImage = isImageFile(previewUrl, safePreviewName);
+  const isPdf = encodedPreviewUrl ? isPdfFile(encodedPreviewUrl, safePreviewName) : false;
+  const isImage = encodedPreviewUrl ? isImageFile(encodedPreviewUrl, safePreviewName) : false;
 
   // Determine Icon based on type
   const FileIcon = isPdf ? FileText : isImage ? ImageIcon : FileQuestion;
@@ -65,7 +95,14 @@ export function AttachmentPreviewDialog({
 
           <div className="flex items-center shrink-0">
             <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-              <a href={previewUrl} target="_blank" rel="noreferrer">
+              <a
+                href={encodedPreviewUrl || '#'}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => {
+                  if (!encodedPreviewUrl) event.preventDefault();
+                }}
+              >
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                 <span className="hidden sm:inline">เปิดแท็บใหม่</span>
               </a>
@@ -78,7 +115,7 @@ export function AttachmentPreviewDialog({
           {isPdf && (
             <iframe
               title={safePreviewName}
-              src={previewUrl}
+              src={encodedPreviewUrl || ''}
               className="w-full h-full rounded-lg border bg-white shadow-sm"
             />
           )}
@@ -86,7 +123,7 @@ export function AttachmentPreviewDialog({
           {isImage && (
             <div className="relative w-full h-full flex items-center justify-center">
               <Image
-                src={previewUrl}
+                src={encodedPreviewUrl || ''}
                 alt={safePreviewName}
                 unoptimized
                 width={1600}
@@ -103,7 +140,13 @@ export function AttachmentPreviewDialog({
               </div>
               <p>ไม่สามารถแสดงตัวอย่างไฟล์ประเภทนี้ได้</p>
               <Button asChild variant="outline" size="sm" className="mt-2">
-                <a href={previewUrl} download={safePreviewName}>
+                <a
+                  href={encodedPreviewUrl || '#'}
+                  download={safePreviewName}
+                  onClick={(event) => {
+                    if (!encodedPreviewUrl) event.preventDefault();
+                  }}
+                >
                   <Download className="mr-2 h-4 w-4" /> ดาวน์โหลดไฟล์
                 </a>
               </Button>

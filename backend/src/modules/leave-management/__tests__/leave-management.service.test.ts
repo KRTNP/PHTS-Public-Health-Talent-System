@@ -1,5 +1,13 @@
 import { describe, expect, test, jest } from "@jest/globals";
 
+const addDaysUtc = (date: Date, days: number): Date => {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+};
+
+const toIsoDate = (date: Date): string => date.toISOString().slice(0, 10);
+
 const insertLeaveManagementMock = jest.fn().mockResolvedValue(99);
 const upsertExtensionMock = jest.fn().mockResolvedValue(undefined);
 const replaceLeaveReturnReportEventsMock = jest
@@ -58,6 +66,10 @@ describe("leave-management service", () => {
   });
 
   test("getLeaveManagementQuotaStatus returns all quotas with current leave highlighted", async () => {
+    const today = new Date();
+    const upcomingStartDate = toIsoDate(addDaysUtc(today, 10));
+    const upcomingEndDate = toIsoDate(addDaysUtc(today, 39));
+
     findLeaveManagementQuotaContextMock.mockResolvedValue({
       id: 10,
       citizen_id: "123",
@@ -68,8 +80,8 @@ describe("leave-management service", () => {
     listLeaveManagementRowsForQuotaMock.mockResolvedValue([
       {
         id: 10,
-        start_date: "2026-03-29",
-        end_date: "2026-08-06",
+        start_date: upcomingStartDate,
+        end_date: upcomingEndDate,
         document_start_date: null,
         document_end_date: null,
       },

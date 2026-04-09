@@ -390,4 +390,43 @@ describe("Request & Approval flow integration", () => {
     expect(current.assigned_officer_id).toBe(officerBId);
     expect(await listActions(requestId)).toEqual(["REASSIGN"]);
   });
+
+  test("blocks officer from approving request assigned to another officer", async () => {
+    const requestId = await seedRequest({
+      userId: requesterId,
+      citizenId: "1000000000001",
+      status: "PENDING",
+      currentStep: 3,
+      assignedOfficerId: officerAId,
+      requestNo: "REQ-APPROVAL-BLOCK-001",
+    });
+
+    await expect(
+      requestApprovalService.approveRequest(
+        requestId,
+        officerBId,
+        "PTS_OFFICER",
+        "should fail",
+        Buffer.from("sig"),
+      ),
+    ).rejects.toThrow("คุณไม่มีสิทธิ์ดำเนินการคำขอนี้");
+  });
+
+  test("blocks reassignment by non-assigned officer", async () => {
+    const requestId = await seedRequest({
+      userId: requesterId,
+      citizenId: "1000000000001",
+      status: "PENDING",
+      currentStep: 3,
+      assignedOfficerId: officerAId,
+      requestNo: "REQ-REASSIGN-BLOCK-001",
+    });
+
+    await expect(
+      reassignRequest(requestId, officerBId, {
+        targetOfficerId: officerAId,
+        reason: "not assignee",
+      }),
+    ).rejects.toMatchObject({ code: "REASSIGN_NOT_ASSIGNEE" });
+  });
 });

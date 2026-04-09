@@ -7,10 +7,13 @@ import api from "@/shared/api/axios"
 import { User } from "@/types/auth"
 import type { ApiResponse } from "@/shared/api/types"
 import {
-  AUTH_TOKEN_COOKIE_NAME,
-  AUTH_TOKEN_STORAGE_NAME,
-  AUTH_USER_STORAGE_NAME,
-} from "@/shared/auth/storage"
+  clearAuthSession,
+  persistAuthSession,
+  readAuthSessionToken,
+  setStoredAuthUser,
+  syncAuthTokenCookie,
+} from "@/shared/auth/session"
+import { redirectToLogin } from "@/shared/auth/redirect-policy"
 import {
   FRONTEND_HEAD_SCOPE_BASE_PATH,
 } from "@/shared/utils/role-label"
@@ -54,16 +57,6 @@ function normalizeUser(user: AuthUserPayload): User {
   }
 }
 
-function setTokenCookie(token: string) {
-  if (typeof document === "undefined") return
-  document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Secure`
-}
-
-function clearTokenCookie() {
-  if (typeof document === "undefined") return
-  document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax; Secure`
-}
-
 function getRoleHomePath(role: User["role"]): string {
   switch (role) {
     case "USER":
@@ -92,24 +85,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = React.useState(true)
   const router = useRouter()
   const pathname = usePathname()
-  const tokenKey = AUTH_TOKEN_STORAGE_NAME
-  const userKey = AUTH_USER_STORAGE_NAME
 
   const logout = React.useCallback(() => {
-    localStorage.removeItem(tokenKey)
-    localStorage.removeItem(userKey)
-    clearTokenCookie()
+    clearAuthSession()
     setUser(null)
-    router.push("/login")
-  }, [router, tokenKey, userKey])
+    redirectToLogin({ pathname, navigate: (target) => router.push(target) })
+  }, [pathname, router])
 
   const refreshCurrentUser = React.useCallback(async () => {
-    const token = localStorage.getItem(tokenKey)
+    const token = readAuthSessionToken()
     if (!token) {
       setUser(null)
       return null
     }
-    setTokenCookie(token)
+    syncAuthTokenCookie(token)
 
     const { data } = await api.get<ApiResponse<AuthUserPayload>>("/auth/me")
     if (!data.success || !data.data) {
@@ -118,9 +107,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const normalizedUser = normalizeUser(data.data)
     setUser(normalizedUser)
-    localStorage.setItem(userKey, JSON.stringify(normalizedUser))
+    setStoredAuthUser(normalizedUser)
     return normalizedUser
-  }, [tokenKey, userKey])
+  }, [])
 
   const isExpectedAuthRefreshError = React.useCallback((error: unknown): boolean => {
     if (!isAxiosError(error)) return false
@@ -148,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 2. Refresh user on tab focus / visibility to detect role changes from backend.
   React.useEffect(() => {
-    const shouldSkip = !localStorage.getItem(tokenKey) || isLoading
+    const shouldSkip = !readAuthSessionToken() || isLoading
     if (shouldSkip) return
 
     const syncUser = async () => {
@@ -174,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [isLoading, logout, refreshCurrentUser, tokenKey])
+  }, [isLoading, logout, refreshCurrentUser])
 
   // 3. Enforce route by current role so layout/sidebar always match active user.
   React.useEffect(() => {
@@ -202,10 +191,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Login response missing token or user")
       }
 
-      localStorage.setItem(tokenKey, token)
       const normalizedUser = normalizeUser(user)
-      localStorage.setItem(userKey, JSON.stringify(normalizedUser))
-      setTokenCookie(token)
+      persistAuthSession(token, normalizedUser)
 
       setUser(normalizedUser)
 

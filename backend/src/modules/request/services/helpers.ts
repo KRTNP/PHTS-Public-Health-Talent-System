@@ -103,10 +103,20 @@ const REQUEST_NO_TOKEN_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const REQUEST_NO_TOKEN_LENGTH = 8;
 
 const generateRequestNoToken = (): string => {
-  const bytes = randomBytes(REQUEST_NO_TOKEN_LENGTH);
+  const alphabetLength = REQUEST_NO_TOKEN_CHARS.length;
+  const unbiasedUpperBound = Math.floor(256 / alphabetLength) * alphabetLength;
   let token = "";
-  for (let i = 0; i < bytes.length; i += 1) {
-    token += REQUEST_NO_TOKEN_CHARS[bytes[i] % REQUEST_NO_TOKEN_CHARS.length];
+  while (token.length < REQUEST_NO_TOKEN_LENGTH) {
+    const bytes = randomBytes(REQUEST_NO_TOKEN_LENGTH);
+    for (const byte of bytes) {
+      if (byte >= unbiasedUpperBound) {
+        continue;
+      }
+      token += REQUEST_NO_TOKEN_CHARS[byte % alphabetLength];
+      if (token.length >= REQUEST_NO_TOKEN_LENGTH) {
+        break;
+      }
+    }
   }
   return token;
 };

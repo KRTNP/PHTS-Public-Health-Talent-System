@@ -38,7 +38,7 @@ export class AdminRepository {
     const limit = Math.min(limitRaw, 100);
     const offset = (page - 1) * limit;
 
-    const sanitized = params.q.replace(/[%_]/g, "\\$&");
+    const sanitized = params.q.replace(/[\\%_]/g, "\\$&");
     const search = `%${sanitized}%`;
 
     const whereParts: string[] = [

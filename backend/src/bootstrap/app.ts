@@ -1,12 +1,10 @@
 import express, { Application } from "express";
 import crypto from "node:crypto";
 import path from "node:path";
-import jwt from "jsonwebtoken";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import { initializePassport } from "@config/passport.js";
-import { getJwtSecret } from "@config/jwt.js";
 import authRoutes from "@/modules/auth/api/auth.route.js";
 import requestRoutes from "@/modules/request/api/request.route.js";
 import signatureRoutes from "@/modules/signature/api/signature.route.js";
@@ -30,21 +28,21 @@ import dashboardRoutes from "@/modules/dashboard/routes/dashboard.routes.js";
 import navigationRoutes from "@/modules/navigation/api/navigation.route.js";
 import { isMaintenanceModeEnabled } from "@/modules/system/services/maintenance.service.js";
 import { errorHandler, notFoundHandler } from "@middlewares/errorHandler.js";
-import { apiRateLimiter } from "@middlewares/rateLimiter.js";
+import { apiRateLimiter, securityRateLimiter } from "@middlewares/rateLimiter.js";
 import { protect } from "@middlewares/authMiddleware.js";
 import { tokenBlacklistMiddleware } from "@middlewares/tokenBlacklistMiddleware.js";
 import { authorizeUploadAccess } from "@middlewares/uploadAccessMiddleware.js";
 
 export const createConfiguredApp = (nodeEnv: string): Application => {
   const app: Application = express();
+  app.disable("x-powered-by");
 
   const envOrigins = (process.env.FRONTEND_URL || "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  const defaultOrigins = ["http://localhost:3000"];
-  const allowedOrigins = [...new Set([...envOrigins, ...defaultOrigins])];
+  const allowedOrigins = [...new Set(envOrigins)];
   const defaultTunnelSuffixes = [".trycloudflare.com"];
   const devTunnelAllowedSuffixes = (
     process.env.CORS_DEV_TUNNEL_SUFFIXES || defaultTunnelSuffixes.join(",")
@@ -53,6 +51,31 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     .map((suffix) => suffix.trim().toLowerCase())
     .filter(Boolean)
     .map((suffix) => (suffix.startsWith(".") ? suffix : `.${suffix}`));
+  const preflightAllowedPathRules = (
+    process.env.CORS_PREFLIGHT_ALLOWED_PATHS || "/api/auth/login"
+  )
+    .split(",")
+    .map((rule) => rule.trim())
+    .filter(Boolean)
+    .map((rule) => {
+      const [rawPath = "", rawMethods = ""] = rule.split(":");
+      const pathRule = rawPath.trim();
+      if (!pathRule) return null;
+
+      const isPrefix = pathRule.endsWith("*");
+      const path = isPrefix ? pathRule.slice(0, -1) : pathRule;
+      const methods = rawMethods
+        .split("|")
+        .map((method) => method.trim().toUpperCase())
+        .filter(Boolean);
+
+      return {
+        isPrefix,
+        path,
+        methods: methods.length > 0 ? new Set(methods) : null,
+      };
+    })
+    .filter((rule): rule is { isPrefix: boolean; path: string; methods: Set<string> | null } => Boolean(rule));
 
   const isOriginAllowed = (origin: string): boolean => {
     const normalizedOrigin = origin.trim();
@@ -104,14 +127,42 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     });
   };
 
+  const isPreflightPathAllowed = (
+    pathname: string,
+    requestedMethod: string,
+  ): boolean =>
+    preflightAllowedPathRules.some((rule) => {
+      const pathMatch = rule.isPrefix
+        ? pathname.startsWith(rule.path)
+        : pathname === rule.path;
+
+      if (!pathMatch) {
+        return false;
+      }
+
+      if (!rule.methods) {
+        return true;
+      }
+
+      return rule.methods.has(requestedMethod.toUpperCase());
+    });
+
+  const frameAncestorsDirectives =
+    nodeEnv === "production" ? ["'self'"] : ["'self'", ...allowedOrigins];
+
   app.use(
     helmet({
-      frameguard: false,
+      frameguard: { action: "sameorigin" },
       crossOriginEmbedderPolicy: true,
+      strictTransportSecurity: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
       contentSecurityPolicy: {
         useDefaults: true,
         directives: {
-          frameAncestors: ["'self'", ...allowedOrigins],
+          frameAncestors: frameAncestorsDirectives,
         },
       },
     }),
@@ -127,10 +178,11 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
         }
 
         console.warn(`[CORS] Blocked origin: ${origin}`);
-        return callback(new Error("Not allowed by CORS"));
+        return callback(null, false);
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      preflightContinue: true,
       allowedHeaders: [
         "Content-Type",
         "Authorization",
@@ -143,6 +195,77 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       ],
     }),
   );
+
+  app.use((req, res, next) => {
+    const originHeader = req.headers.origin;
+    const origin =
+      typeof originHeader === "string" ? originHeader : Array.isArray(originHeader) ? originHeader[0] : "";
+
+    if (origin && !isOriginAllowed(origin)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "CORS_ORIGIN_FORBIDDEN",
+          message: "Origin is not allowed",
+        },
+      });
+    }
+
+    return next();
+  });
+
+  app.use((req, res, next) => {
+    if (req.method !== "OPTIONS") return next();
+
+    const originHeader = req.headers.origin;
+    const origin =
+      typeof originHeader === "string"
+        ? originHeader
+        : Array.isArray(originHeader)
+          ? originHeader[0]
+          : "";
+
+    if (!origin || !isOriginAllowed(origin)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "CORS_ORIGIN_FORBIDDEN",
+          message: "Origin is not allowed",
+        },
+      });
+    }
+
+    const accessControlRequestMethodHeader =
+      req.headers["access-control-request-method"];
+    const accessControlRequestMethod =
+      typeof accessControlRequestMethodHeader === "string"
+        ? accessControlRequestMethodHeader
+        : Array.isArray(accessControlRequestMethodHeader)
+          ? accessControlRequestMethodHeader[0]
+          : "";
+
+    if (!accessControlRequestMethod.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "Invalid CORS preflight request",
+        },
+      });
+    }
+
+    if (!isPreflightPathAllowed(req.path, accessControlRequestMethod)) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "ไม่พบเส้นทางที่ร้องขอ",
+        },
+      });
+    }
+
+    return res.status(204).end();
+  });
 
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -181,6 +304,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
 
   app.use(
     "/uploads",
+    securityRateLimiter,
     tokenBlacklistMiddleware,
     protect,
     authorizeUploadAccess,
@@ -193,7 +317,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
 
   app.use("/", healthRoutes);
 
-  app.use(async (req, res, next) => {
+  app.use(securityRateLimiter, async (req, res, next) => {
     const maintenanceEnabled = await isMaintenanceModeEnabled();
     if (!maintenanceEnabled) return next();
 
@@ -207,24 +331,6 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       return next();
     }
 
-    const authHeader = req.headers.authorization;
-    const token =
-      typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-        ? authHeader.slice("Bearer ".length)
-        : null;
-
-    if (token) {
-      try {
-        const jwtSecret = getJwtSecret();
-        const payload = jwt.verify(token, jwtSecret) as { role?: string };
-        if (payload?.role === "ADMIN") {
-          return next();
-        }
-      } catch {
-        // Ignore invalid token and continue to maintenance response
-      }
-    }
-
     return res.status(503).json({
       success: false,
       error: "MAINTENANCE_MODE",
@@ -232,7 +338,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     });
   });
 
-  app.use("/api", tokenBlacklistMiddleware, apiRateLimiter);
+  app.use("/api", apiRateLimiter, tokenBlacklistMiddleware);
   app.use("/api/auth", authRoutes);
   app.use("/api/requests", requestRoutes);
   app.use("/api/signatures", signatureRoutes);

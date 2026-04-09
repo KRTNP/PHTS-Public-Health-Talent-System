@@ -227,13 +227,17 @@ async function calculateBusinessDaysFast(
   const start = new Date(startDate);
   const end = new Date(endDate);
   if (start > end) return 0;
-  while (start <= end) {
-    const day = start.getDay();
-    const key = start.toISOString().slice(0, 10);
+  const endTime = end.getTime();
+  for (
+    const cursor = new Date(start);
+    cursor.getTime() <= endTime;
+    cursor.setDate(cursor.getDate() + 1)
+  ) {
+    const day = cursor.getDay();
+    const key = cursor.toISOString().slice(0, 10);
     if (day !== 0 && day !== 6 && !holidays.has(key)) {
       count += 1;
     }
-    start.setDate(start.getDate() + 1);
   }
   return count;
 }

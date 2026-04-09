@@ -1,11 +1,14 @@
 import React from "react"
 import { HeadFinanceSidebar } from "@/features/navigation/components"
+import { requireRoleAccess } from "@/shared/auth/server-guard"
 
-export default function HeadFinanceLayout({
+export default async function HeadFinanceLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  await requireRoleAccess("HEAD_FINANCE")
+
   return (
     <div className="role-theme-head-finance min-h-screen bg-background">
       <HeadFinanceSidebar />

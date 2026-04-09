@@ -1,12 +1,9 @@
 'use client';
 
-import { useDeferredValue, useMemo, useState } from 'react';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, CalendarDays, GraduationCap, UserCheck, List } from 'lucide-react';
-import { toast } from 'sonner';
 import {
   useAddLeaveRecordDocuments,
   useCreateLeaveRecord,
@@ -21,111 +18,41 @@ import {
   useUpsertLeaveRecordExtension,
   useDeleteLeaveRecordExtension,
 } from '@/features/leave-management/core/hooks';
-import type { LeaveRecordApiRow } from '@/features/leave-management/core/api';
-import { buildSearchParam } from '@/features/leave-management/domain/search';
-import {
-  getLeaveTypeColor,
-  mapLeavePersonnel,
-  mapLeaveRows,
-  toLeavePersonMap,
-} from '@/features/leave-management/domain/leave-records.mapper';
+import { getLeaveTypeColor } from '@/features/leave-management/domain/leave-records.mapper';
 import { formatThaiDateDisplay } from '@/features/leave-management/utils/date-display';
-import { buildReturnReportSummary } from '@/features/leave-management/utils/returnReportSummary';
-import type {
-  LeaveRecord,
-  LeaveRecordDocument,
-} from '@/features/leave-management/core/types';
+import type { LeaveRecordDocument } from '@/features/leave-management/core/types';
 import { AllLeavesTab } from './components/AllLeavesTab';
 import { LeaveManagementDialogs } from './components/LeaveManagementDialogs';
 import { PendingReportTab } from './components/PendingReportTab';
 import { StatCard } from './components/StatCard';
 import { StudyLeavesTab } from './components/StudyLeavesTab';
+import { useLeaveManagementActions } from './hooks/useLeaveManagementActions';
+import { useLeaveManagementDerivedData } from './hooks/useLeaveManagementDerivedData';
 import { useLeaveManagementDialogs } from './hooks/useLeaveManagementDialogs';
-
-const getErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error && error.message ? error.message : fallback;
+import { useLeaveManagementFilters } from './hooks/useLeaveManagementFilters';
 
 export function LeaveManagementScreen() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  const initialSearchQuery = searchParams.get('search') ?? '';
-  const initialTab = searchParams.get('tab');
-
-  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [fiscalYearFilter, setFiscalYearFilter] = useState<number | 'all'>('all');
-  const [page, setPage] = useState(0);
-  const [pageSize] = useState(50);
-  const [sortBy, setSortBy] = useState<'start_date' | 'name'>('start_date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-
-  const [activeTab, setActiveTab] = useState(
-    initialTab && ['all', 'study', 'pending-report'].includes(initialTab) ? initialTab : 'all',
-  );
-
   const dialogs = useLeaveManagementDialogs();
-
-  const handleTabChange = (nextTab: string) => {
-    setActiveTab(nextTab);
-
-    const currentTab = searchParams.get('tab') ?? 'all';
-    if (currentTab === nextTab) return;
-
-    const params = new URLSearchParams(searchParams.toString());
-    if (nextTab === 'all') {
-      params.delete('tab');
-    } else {
-      params.set('tab', nextTab);
-    }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
-
-  const fiscalYearOptions = useMemo(() => {
-    const now = new Date();
-    const currentFiscalYear =
-      now.getMonth() >= 9 ? now.getFullYear() + 544 : now.getFullYear() + 543;
-    const years = [];
-    for (let y = currentFiscalYear - 5; y <= currentFiscalYear + 1; y += 1) {
-      years.push(y);
-    }
-    return years;
-  }, []);
-
-  const offset = page * pageSize;
-  const deferredSearchQuery = useDeferredValue(searchQuery);
-  const normalizedSearch = useMemo(
-    () => buildSearchParam(deferredSearchQuery),
-    [deferredSearchQuery],
-  );
-
-  const listParams = useMemo(
-    () => ({
-      leave_type: typeFilter === 'all' ? undefined : typeFilter,
-      fiscal_year: fiscalYearFilter === 'all' ? undefined : fiscalYearFilter,
-      search: normalizedSearch,
-      limit: pageSize,
-      offset,
-      sort_by: sortBy,
-      sort_dir: sortDir,
-    }),
-    [normalizedSearch, offset, pageSize, fiscalYearFilter, sortBy, sortDir, typeFilter],
-  );
-
-  const tabListParams = useMemo(
-    () => ({
-      leave_type: activeTab === 'study' ? 'education' : undefined,
-      pending_report: activeTab === 'pending-report' ? true : undefined,
-      fiscal_year: fiscalYearFilter === 'all' ? undefined : fiscalYearFilter,
-      search: normalizedSearch,
-      limit: 500, // Load all for tabs
-      offset: 0,
-      sort_by: sortBy,
-      sort_dir: sortDir,
-    }),
-    [normalizedSearch, fiscalYearFilter, sortBy, sortDir, activeTab],
-  );
+  const {
+    searchQuery,
+    typeFilter,
+    fiscalYearFilter,
+    page,
+    pageSize,
+    sortBy,
+    sortDir,
+    activeTab,
+    fiscalYearOptions,
+    listParams,
+    tabListParams,
+    handleTabChange,
+    onSearchChange,
+    onTypeFilterChange,
+    onFiscalYearFilterChange,
+    onSortChange,
+    onPrevPage,
+    onNextPage,
+  } = useLeaveManagementFilters();
 
   const {
     data: leaveRecordsData,
@@ -165,274 +92,66 @@ export function LeaveManagementScreen() {
     dialogs.selectedLeave?.id ?? null,
   );
 
-  const leaveRecordItems = useMemo(() => leaveRecordsData?.items ?? [], [leaveRecordsData]);
+  const {
+    personnel,
+    leaveRecords,
+    pendingLoading,
+    pendingError,
+    pendingRetry,
+    pendingReportCount,
+    studyLeaveCount,
+    pendingReportRecords,
+    studyRecords,
+    totalRecords,
+    totalPages,
+    showingFrom,
+    showingTo,
+    canPrevPage,
+    canNextPage,
+  } = useLeaveManagementDerivedData({
+    activeTab,
+    page,
+    pageSize,
+    leaveRecordsData,
+    leaveRecordsTabData,
+    leavePersonnelData,
+    statsData,
+    leaveRecordsLoading,
+    leaveRecordsError,
+    leaveRecordsTabLoading,
+    leaveRecordsTabError,
+    refetchLeaveRecords,
+    refetchLeaveRecordsTab,
+  });
 
-  const leaveRecordTabItems = useMemo(
-    () => leaveRecordsTabData?.items ?? [],
-    [leaveRecordsTabData],
-  );
-
-  const totalRecords = leaveRecordsData?.total ?? leaveRecordItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  const showingFrom = totalRecords === 0 ? 0 : offset + 1;
-  const showingTo = Math.min(offset + pageSize, totalRecords);
-  const canPrevPage = page > 0;
-  const canNextPage = offset + pageSize < totalRecords;
-
-  const personnel = useMemo(() => mapLeavePersonnel(leavePersonnelData), [leavePersonnelData]);
-  const personMap = useMemo(() => toLeavePersonMap(personnel), [personnel]);
-
-  const leaveRecords = useMemo<LeaveRecord[]>(() => {
-    if (!Array.isArray(leaveRecordItems)) return [];
-    return mapLeaveRows(leaveRecordItems as LeaveRecordApiRow[], personMap);
-  }, [leaveRecordItems, personMap]);
-
-  const leaveRecordsForTabs = useMemo<LeaveRecord[]>(() => {
-    if (!Array.isArray(leaveRecordTabItems)) return [];
-    return mapLeaveRows(leaveRecordTabItems as LeaveRecordApiRow[], personMap);
-  }, [leaveRecordTabItems, personMap]);
-
-  const pendingRecordsSource =
-    activeTab === 'pending-report' || activeTab === 'study' ? leaveRecordsForTabs : leaveRecords;
-  const pendingLoading =
-    activeTab === 'pending-report' || activeTab === 'study'
-      ? leaveRecordsTabLoading
-      : leaveRecordsLoading;
-  const pendingError =
-    activeTab === 'pending-report' || activeTab === 'study'
-      ? leaveRecordsTabError
-      : leaveRecordsError;
-  const pendingRetry =
-    activeTab === 'pending-report' || activeTab === 'study'
-      ? refetchLeaveRecordsTab
-      : refetchLeaveRecords;
-
-  const pendingReportCount =
-    leaveRecords.filter((r) => r.requireReport && r.reportStatus === 'pending').length ||
-    statsData?.pending_report ||
-    0;
-  const studyLeaveCount =
-    statsData?.study ?? leaveRecords.filter((r) => r.type === 'education').length;
-
-  const pendingReportRecords = useMemo(
-    () => pendingRecordsSource.filter((r) => r.requireReport && r.reportStatus === 'pending'),
-    [pendingRecordsSource],
-  );
-  const studyRecords = useMemo(
-    () => pendingRecordsSource.filter((r) => r.type === 'education'),
-    [pendingRecordsSource],
-  );
+  const {
+    handleAddLeave,
+    handleEditLeave,
+    handleDeleteLeave,
+    handleRecordReport,
+    handleDeleteReturnEvent,
+    handleDeleteDocument,
+  } = useLeaveManagementActions({
+    selectedLeave: dialogs.selectedLeave,
+    editingReturnEventId: dialogs.editingReturnEventId,
+    selectedLeaveReturnEvents,
+    createLeaveRecord: createLeaveRecord.mutateAsync,
+    upsertExtension: upsertExtension.mutateAsync,
+    deleteExtension: deleteExtension.mutateAsync,
+    addDocuments: addDocuments.mutateAsync,
+    replaceReturnEvents: replaceReturnEvents.mutateAsync,
+    deleteDocument: deleteDocument.mutateAsync,
+    refetchLeaveRecords,
+    refetchDocuments,
+    closeAddDialog: dialogs.closeAddDialog,
+    closeEditDialog: dialogs.closeEditDialog,
+    closeDeleteAlert: dialogs.closeDeleteAlert,
+    closeReportDialog: dialogs.closeReportDialog,
+    clearSelection: dialogs.clearSelection,
+    showSuccess: dialogs.showSuccess,
+  });
 
   const formatDateDisplay = formatThaiDateDisplay;
-
-  const handleAddLeave = async (
-    newLeave: Partial<LeaveRecord> & { leaveRecordId?: number; files?: File[] },
-  ) => {
-    if (!newLeave.userStartDate || !newLeave.userEndDate) return;
-    try {
-      const leaveRecordId =
-        newLeave.leaveRecordId ??
-        (
-          await createLeaveRecord.mutateAsync({
-            citizen_id: newLeave.personId ?? '',
-            leave_type: newLeave.type ?? '',
-            start_date: newLeave.userStartDate,
-            end_date: newLeave.userEndDate,
-            duration_days: newLeave.days,
-            remark: newLeave.note,
-          })
-        ).id;
-
-      await upsertExtension.mutateAsync({
-        leave_record_id: leaveRecordId,
-        document_start_date: newLeave.documentStartDate,
-        document_end_date: newLeave.documentEndDate,
-        require_return_report: newLeave.requireReport ?? false,
-        pay_exception: false,
-        note: newLeave.note,
-        study_institution: newLeave.studyInfo?.institution,
-        study_program: newLeave.studyInfo?.program,
-        study_major: newLeave.studyInfo?.field,
-        study_start_date: newLeave.studyInfo?.startDate || undefined,
-      });
-
-      if (newLeave.files && newLeave.files.length > 0) {
-        await addDocuments.mutateAsync({ leaveRecordId, files: newLeave.files });
-      }
-
-      await refetchLeaveRecords();
-      dialogs.closeAddDialog();
-      dialogs.showSuccess('บันทึกข้อมูลวันลาสำเร็จ');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'ไม่สามารถบันทึกข้อมูลวันลาได้'));
-    }
-  };
-
-  const handleEditLeave = async (updatedLeave: LeaveRecord & { files?: File[] }) => {
-    try {
-      await upsertExtension.mutateAsync({
-        leave_record_id: updatedLeave.id,
-        document_start_date: updatedLeave.documentStartDate,
-        document_end_date: updatedLeave.documentEndDate,
-        require_return_report: updatedLeave.requireReport ?? false,
-        pay_exception: false,
-        note: updatedLeave.note,
-        study_institution: updatedLeave.studyInfo?.institution,
-        study_program: updatedLeave.studyInfo?.program,
-        study_major: updatedLeave.studyInfo?.field,
-        study_start_date: updatedLeave.studyInfo?.startDate || undefined,
-      });
-
-      if (updatedLeave.files && updatedLeave.files.length > 0) {
-        await addDocuments.mutateAsync({
-          leaveRecordId: updatedLeave.id,
-          files: updatedLeave.files,
-        });
-      }
-
-      await refetchLeaveRecords();
-      dialogs.closeEditDialog();
-      dialogs.showSuccess('แก้ไขรายการวันลาสำเร็จ');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'ไม่สามารถแก้ไขรายการวันลาได้'));
-    }
-  };
-
-  const handleDeleteLeave = async () => {
-    if (!dialogs.selectedLeave) return;
-    try {
-      await deleteExtension.mutateAsync(dialogs.selectedLeave.id);
-      await refetchLeaveRecords();
-      dialogs.closeDeleteAlert();
-      dialogs.clearSelection();
-      dialogs.showSuccess('ลบรายการวันลาสำเร็จ');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'ไม่สามารถลบรายการวันลาได้'));
-    }
-  };
-
-  const handleRecordReport = async ({
-    reportDate,
-    resumeDate,
-    note,
-    resumeStudyProgram,
-  }: {
-    reportDate: string;
-    resumeDate?: string;
-    note: string;
-    resumeStudyProgram?: string;
-  }) => {
-    if (!dialogs.selectedLeave) return;
-    try {
-      const currentEvents = (selectedLeaveReturnEvents ?? []).map((event) => ({
-        event_id: event.event_id,
-        report_date: String(event.report_date),
-        resume_date:
-          event.resume_date === null || event.resume_date === undefined
-            ? null
-            : String(event.resume_date),
-        resume_study_program:
-          event.resume_study_program === null || event.resume_study_program === undefined
-            ? undefined
-            : String(event.resume_study_program),
-      }));
-
-      if (
-        currentEvents.some(
-          (event) =>
-            event.report_date === reportDate &&
-            Number(event.event_id ?? -1) !== Number(dialogs.editingReturnEventId ?? -2),
-        )
-      ) {
-        toast.error('มีรายการรายงานตัวในวันที่นี้แล้ว');
-        return;
-      }
-
-      const nextEvents =
-        dialogs.editingReturnEventId !== null
-          ? currentEvents
-              .map((event) =>
-                Number(event.event_id ?? -1) === Number(dialogs.editingReturnEventId)
-                  ? {
-                      ...event,
-                      report_date: reportDate,
-                      resume_date: resumeDate ?? null,
-                      resume_study_program: resumeStudyProgram,
-                    }
-                  : event,
-              )
-              .sort((a, b) => a.report_date.localeCompare(b.report_date))
-          : [
-              ...currentEvents,
-              {
-                report_date: reportDate,
-                resume_date: resumeDate ?? null,
-                resume_study_program: resumeStudyProgram,
-              },
-            ].sort((a, b) => a.report_date.localeCompare(b.report_date));
-
-      await replaceReturnEvents.mutateAsync({
-        leaveRecordId: dialogs.selectedLeave.id,
-        events: nextEvents,
-      });
-      const summary = buildReturnReportSummary(nextEvents);
-
-      await upsertExtension.mutateAsync({
-        leave_record_id: dialogs.selectedLeave.id,
-        require_return_report: true,
-        return_report_status: summary.return_report_status,
-        return_date: summary.return_date,
-        return_remark: note || undefined,
-      });
-      await refetchLeaveRecords();
-      dialogs.closeReportDialog();
-      dialogs.clearSelection();
-      toast.success('บันทึกรายงานตัวสำเร็จ');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'ไม่สามารถบันทึกรายงานตัวได้'));
-    }
-  };
-
-  const handleDeleteReturnEvent = async (eventId?: number) => {
-    if (!dialogs.selectedLeave || !eventId) return;
-    try {
-      const currentEvents = (selectedLeaveReturnEvents ?? []).map((event) => ({
-        event_id: event.event_id,
-        report_date: String(event.report_date),
-        resume_date:
-          event.resume_date === null || event.resume_date === undefined
-            ? null
-            : String(event.resume_date),
-        resume_study_program:
-          event.resume_study_program === null || event.resume_study_program === undefined
-            ? undefined
-            : String(event.resume_study_program),
-      }));
-      const nextEvents = currentEvents
-        .filter((event) => Number(event.event_id ?? -1) !== Number(eventId))
-        .map((event) => ({
-          report_date: event.report_date,
-          resume_date: event.resume_date,
-          resume_study_program: event.resume_study_program,
-        }));
-
-      await replaceReturnEvents.mutateAsync({
-        leaveRecordId: dialogs.selectedLeave.id,
-        events: nextEvents,
-      });
-      const summary = buildReturnReportSummary(nextEvents);
-      await upsertExtension.mutateAsync({
-        leave_record_id: dialogs.selectedLeave.id,
-        require_return_report: true,
-        return_report_status: summary.return_report_status,
-        return_date: summary.return_date,
-      });
-      await refetchLeaveRecords();
-      toast.success('ลบรายการรายงานตัวสำเร็จ');
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'ไม่สามารถลบรายการรายงานตัวได้'));
-    }
-  };
 
   return (
     <div className="p-6 lg:p-8 space-y-8 max-w-[1400px] mx-auto">
@@ -511,28 +230,15 @@ export function LeaveManagementScreen() {
         <TabsContent value="all" className="m-0 border-none outline-none">
           <AllLeavesTab
             searchQuery={searchQuery}
-            onSearchChange={(value) => {
-              setSearchQuery(value);
-              setPage(0);
-            }}
+            onSearchChange={onSearchChange}
             typeFilter={typeFilter}
-            onTypeFilterChange={(value) => {
-              setTypeFilter(value);
-              setPage(0);
-            }}
+            onTypeFilterChange={onTypeFilterChange}
             fiscalYearFilter={fiscalYearFilter}
-            onFiscalYearFilterChange={(value) => {
-              setFiscalYearFilter(value);
-              setPage(0);
-            }}
+            onFiscalYearFilterChange={onFiscalYearFilterChange}
             fiscalYearOptions={fiscalYearOptions}
             sortBy={sortBy}
             sortDir={sortDir}
-            onSortChange={(nextSortBy, nextSortDir) => {
-              setSortBy(nextSortBy);
-              setSortDir(nextSortDir);
-              setPage(0);
-            }}
+            onSortChange={onSortChange}
             leaveRecords={leaveRecords}
             onViewDetail={dialogs.openDetailDialog}
             onEdit={dialogs.openEditDialog}
@@ -550,8 +256,8 @@ export function LeaveManagementScreen() {
             totalPages={totalPages}
             canPrevPage={canPrevPage}
             canNextPage={canNextPage}
-            onPrevPage={() => setPage((prev) => Math.max(0, prev - 1))}
-            onNextPage={() => setPage((prev) => prev + 1)}
+            onPrevPage={onPrevPage}
+            onNextPage={onNextPage}
           />
         </TabsContent>
 
@@ -616,11 +322,7 @@ export function LeaveManagementScreen() {
         onDeleteReturnEvent={(eventId) => {
           void handleDeleteReturnEvent(eventId);
         }}
-        onDeleteDocument={async (documentId) => {
-          if (!dialogs.selectedLeave) return;
-          await deleteDocument.mutateAsync({ documentId, leaveRecordId: dialogs.selectedLeave.id });
-          await refetchDocuments();
-        }}
+        onDeleteDocument={handleDeleteDocument}
         onOpenPreview={dialogs.openPreview}
         onOpenEditFromDetail={dialogs.openEditFromDetailDialog}
         onCloseReportDialog={dialogs.closeReportDialog}

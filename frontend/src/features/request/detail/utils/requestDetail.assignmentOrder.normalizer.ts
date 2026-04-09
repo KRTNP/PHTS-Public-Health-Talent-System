@@ -14,7 +14,7 @@ export const normalizeAssignmentOrderMarkdown = (input: {
 
   return base
     .replace(/Aseptc\s*Tech[กg]?ique/gi, 'Aseptic Technique')
-    .replace(/โดยมีหน้าที่\s*[ัั]*งนี้/g, 'โดยมีหน้าที่ ดังนี้')
+    .replace(/โดยมีหน้าที่\s*[ั]*งนี้/g, 'โดยมีหน้าที่ ดังนี้')
     .replace(/โดยมีหน้าที่\s*ดั+งนี้/g, 'โดยมีหน้าที่ ดังนี้')
     .replace(/สั่งณ\s*วันที่/g, 'สั่ง ณ วันที่')
     .replace(/([๐-๙])2\.\s*งาน/g, '$1. งาน')

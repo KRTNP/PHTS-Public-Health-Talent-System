@@ -3,10 +3,21 @@ import type { Application } from "express";
 
 describe("Critical Workflows E2E", () => {
   let app: Application;
+  const originalFrontendUrl = process.env.FRONTEND_URL;
 
   beforeAll(async () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET || "e2e-test-secret";
+    process.env.FRONTEND_URL = "http://localhost:3000";
     ({ default: app } = await import("@/index.js"));
+  });
+
+  afterAll(() => {
+    if (originalFrontendUrl === undefined) {
+      delete process.env.FRONTEND_URL;
+      return;
+    }
+
+    process.env.FRONTEND_URL = originalFrontendUrl;
   });
 
   test("should expose request id for health endpoint", async () => {

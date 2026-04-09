@@ -1,12 +1,15 @@
 import { UserSidebar } from "@/features/navigation/components"
+import { requireRoleAccess } from "@/shared/auth/server-guard"
 
 export const dynamic = 'force-dynamic'
 
-export default function UserLayout({
+export default async function UserLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  await requireRoleAccess("USER")
+
   return (
     <div className="role-theme-user min-h-screen bg-background">
       <UserSidebar />
