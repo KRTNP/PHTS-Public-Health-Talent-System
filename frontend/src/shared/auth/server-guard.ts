@@ -23,11 +23,6 @@ const resolveBackendBase = (): string | null => {
   const configuredTarget = process.env.NEXT_INTERNAL_API_PROXY_TARGET?.trim();
   if (configuredTarget) return configuredTarget;
 
-  const publicApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (publicApiUrl && /^https?:\/\//i.test(publicApiUrl)) {
-    return publicApiUrl;
-  }
-
   return null;
 };
 

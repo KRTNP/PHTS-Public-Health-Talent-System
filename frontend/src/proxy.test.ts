@@ -21,13 +21,9 @@ import { proxy } from "@/proxy";
 const makeRequest = (input: {
   pathname: string;
   host: string;
-  forwardedHost?: string;
 }) => {
   const headers = new Headers();
   headers.set("host", input.host);
-  if (input.forwardedHost) {
-    headers.set("x-forwarded-host", input.forwardedHost);
-  }
 
   return {
     nextUrl: {
@@ -49,11 +45,10 @@ describe("proxy host handling", () => {
     process.env.NEXT_ALLOW_PUBLIC_DEV = "false";
   });
 
-  it("blocks all dev runtime access when NEXT_ALLOW_PUBLIC_DEV is false", () => {
+  it("blocks public development access when NEXT_ALLOW_PUBLIC_DEV is false", () => {
     const request = makeRequest({
       pathname: "/dashboard",
       host: "public.example.com",
-      forwardedHost: "localhost:3000",
     });
 
     const response = proxy(request as never) as {
@@ -68,16 +63,86 @@ describe("proxy host handling", () => {
     expect(nextMock).not.toHaveBeenCalled();
   });
 
-  it("allows access in development when NEXT_ALLOW_PUBLIC_DEV is true", () => {
-    process.env.NEXT_ALLOW_PUBLIC_DEV = "true";
+  it("blocks local development access when NEXT_ALLOW_PUBLIC_DEV is false", () => {
     const request = makeRequest({
       pathname: "/dashboard",
       host: "localhost:3000",
     });
 
+    const response = proxy(request as never) as {
+      type: string;
+      status?: number;
+      body?: { error?: { code?: string } };
+    };
+    expect(response.type).toBe("json");
+    expect(response.status).toBe(403);
+    expect(response.body?.error?.code).toBe("DEV_PUBLIC_ACCESS_BLOCKED");
+    expect(nextMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks dev internals on public hosts when NEXT_ALLOW_PUBLIC_DEV is false", () => {
+    const request = makeRequest({
+      pathname: "/_next/webpack-hmr",
+      host: "public.example.com",
+    });
+
+    const response = proxy(request as never) as {
+      type: string;
+      status?: number;
+      body?: { error?: { code?: string } };
+    };
+    expect(response.type).toBe("json");
+    expect(response.status).toBe(404);
+    expect(response.body?.error?.code).toBe("NOT_FOUND");
+    expect(nextMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks dev internals on local hosts when NEXT_ALLOW_PUBLIC_DEV is false", () => {
+    const request = makeRequest({
+      pathname: "/_next/webpack-hmr",
+      host: "localhost:3000",
+    });
+
+    const response = proxy(request as never) as {
+      type: string;
+      status?: number;
+      body?: { error?: { code?: string } };
+    };
+    expect(response.type).toBe("json");
+    expect(response.status).toBe(404);
+    expect(response.body?.error?.code).toBe("NOT_FOUND");
+    expect(nextMock).not.toHaveBeenCalled();
+  });
+
+  it("allows public development access when NEXT_ALLOW_PUBLIC_DEV is true", () => {
+    process.env.NEXT_ALLOW_PUBLIC_DEV = "true";
+    const request = makeRequest({
+      pathname: "/_next/webpack-hmr",
+      host: "public.example.com",
+    });
+
     const response = proxy(request as never) as { type: string };
     expect(response.type).toBe("next");
     expect(nextMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks dev internals in production even when NEXT_ALLOW_PUBLIC_DEV is true", () => {
+    process.env.NODE_ENV = "production";
+    process.env.NEXT_ALLOW_PUBLIC_DEV = "true";
+    const request = makeRequest({
+      pathname: "/_next/webpack-hmr",
+      host: "public.example.com",
+    });
+
+    const response = proxy(request as never) as {
+      type: string;
+      status?: number;
+      body?: { error?: { code?: string } };
+    };
+    expect(response.type).toBe("json");
+    expect(response.status).toBe(404);
+    expect(response.body?.error?.code).toBe("NOT_FOUND");
+    expect(nextMock).not.toHaveBeenCalled();
   });
 
   afterAll(() => {

@@ -1,7 +1,18 @@
 import path from 'path';
 import type { NextConfig } from 'next';
 
-const backendApiTarget = process.env.NEXT_INTERNAL_API_PROXY_TARGET ?? 'http://127.0.0.1:3001';
+const resolveBackendApiTarget = (): string => {
+  const configuredTarget = process.env.NEXT_INTERNAL_API_PROXY_TARGET?.trim();
+  if (configuredTarget) return configuredTarget;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXT_INTERNAL_API_PROXY_TARGET is required in production');
+  }
+
+  return 'http://127.0.0.1:3001';
+};
+
+const backendApiTarget = resolveBackendApiTarget();
 const extraDevOrigins = (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())

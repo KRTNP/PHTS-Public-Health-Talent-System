@@ -14,7 +14,7 @@ export function proxy(request: NextRequest) {
   const isDevRuntime = process.env.NODE_ENV !== 'production';
   const allowPublicDev = process.env.NEXT_ALLOW_PUBLIC_DEV === 'true';
 
-  if (isBlockedDevPath(pathname)) {
+  if (isBlockedDevPath(pathname) && (!isDevRuntime || !allowPublicDev)) {
     return NextResponse.json(
       {
         success: false,

@@ -57,14 +57,11 @@ describe("requireRoleAccess security behavior", () => {
     );
   });
 
-  it("uses absolute NEXT_PUBLIC_API_URL when internal target is not set", async () => {
+  it("ignores NEXT_PUBLIC_API_URL when internal target is not set", async () => {
     process.env.NEXT_PUBLIC_API_URL = "https://public-api.example.com/api";
     const { requireRoleAccess } = await import("@/shared/auth/server-guard");
 
-    await expect(requireRoleAccess("ADMIN")).resolves.toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://public-api.example.com/api/auth/me",
-      expect.any(Object),
-    );
+    await expect(requireRoleAccess("ADMIN")).rejects.toThrow("REDIRECT:/login");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
