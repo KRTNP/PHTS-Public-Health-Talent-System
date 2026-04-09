@@ -90,7 +90,7 @@ import_data/
 # AI assistant files (may contain credentials)
 CLAUDE.md
 AGENTS.md
-.codex/
+.codex
 
 # Uploads / generated files
 uploads/
