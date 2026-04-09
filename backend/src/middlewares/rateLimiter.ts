@@ -80,8 +80,7 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientKey(req),
-  skip: () =>
-    process.env.NODE_ENV === "test" || shouldSkipRateLimitInDevelopment(),
+  skip: () => process.env.NODE_ENV === "test",
   handler: (req, res) => {
     const requestWithRateLimit = req as typeof req & RateLimitedRequest;
     const now = Date.now();

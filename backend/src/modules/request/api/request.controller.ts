@@ -292,7 +292,11 @@ export class RequestController {
         req.params.eligibilityId,
         "Invalid eligibility ID",
       );
-      const row = await requestQueryService.getEligibilityById(eligibilityId);
+      const row = await requestQueryService.getEligibilityById(
+        eligibilityId,
+        req.user.userId,
+        req.user.role,
+      );
       res.json({ success: true, data: row });
     },
   );

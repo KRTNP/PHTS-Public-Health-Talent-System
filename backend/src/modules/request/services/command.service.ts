@@ -185,9 +185,41 @@ export class RequestCommandService {
     return {};
   }
 
+  private assertOfficerAccessToRequestRow(
+    requestRow: unknown,
+    actorId: number,
+  ): void {
+    const row = requestRow as any;
+    const isOfficerStep =
+      String(row?.status ?? "") === RequestStatus.PENDING &&
+      Number(row?.current_step ?? 0) === ROLE_STEP_MAP.PTS_OFFICER;
+    if (!isOfficerStep) {
+      return;
+    }
+    const assignedOfficerId = Number(row?.assigned_officer_id ?? 0) || null;
+    if (assignedOfficerId !== null && assignedOfficerId !== actorId) {
+      throw new AuthorizationError("คุณไม่มีสิทธิ์จัดการคำขอนี้");
+    }
+  }
+
+  private async assertOfficerAccessToEligibility(
+    eligibilityRow: unknown,
+    actorId: number,
+  ): Promise<void> {
+    const linkedRequestId = Number((eligibilityRow as any)?.request_id ?? 0) || null;
+    if (!linkedRequestId) {
+      return;
+    }
+    const requestRow = await requestRepository.findById(linkedRequestId);
+    if (!requestRow) {
+      return;
+    }
+    this.assertOfficerAccessToRequestRow(requestRow, actorId);
+  }
+
   async persistManualOcrPrecheck(
     requestId: number,
-    _userId: number,
+    userId: number,
     userRole: string,
     payload: {
       worker?: string;
@@ -211,6 +243,10 @@ export class RequestCommandService {
     if (!requestRow) {
       throw new NotFoundError("Request not found");
     }
+    this.assertOfficerAccessToRequestRow(
+      requestRow,
+      userId,
+    );
 
     await saveOcrPrecheck(
       { kind: "request", id: requestId },
@@ -238,7 +274,7 @@ export class RequestCommandService {
 
   async runRequestAttachmentsOcr(
     requestId: number,
-    _userId: number,
+    userId: number,
     userRole: string,
     payload: {
       attachments: Array<{
@@ -260,6 +296,10 @@ export class RequestCommandService {
     if (!requestRow) {
       throw new NotFoundError("Request not found");
     }
+    this.assertOfficerAccessToRequestRow(
+      requestRow,
+      userId,
+    );
 
     const attachmentsToRun: Array<{ file_name: string; file_path: string }> =
       [];
@@ -315,7 +355,7 @@ export class RequestCommandService {
 
   async clearRequestAttachmentOcr(
     requestId: number,
-    _userId: number,
+    userId: number,
     userRole: string,
     fileName: string,
   ): Promise<{
@@ -332,6 +372,10 @@ export class RequestCommandService {
     if (!requestRow) {
       throw new NotFoundError("Request not found");
     }
+    this.assertOfficerAccessToRequestRow(
+      requestRow,
+      userId,
+    );
 
     const normalizedFileName = String(fileName ?? "")
       .trim()
@@ -383,7 +427,7 @@ export class RequestCommandService {
 
   async persistEligibilityManualOcrPrecheck(
     eligibilityId: number,
-    _userId: number,
+    userId: number,
     userRole: string,
     payload: {
       worker?: string;
@@ -408,6 +452,10 @@ export class RequestCommandService {
     if (!eligibilityRow) {
       throw new NotFoundError("Eligibility not found");
     }
+    await this.assertOfficerAccessToEligibility(
+      eligibilityRow,
+      userId,
+    );
 
     await saveOcrPrecheck(
       { kind: "eligibility", id: eligibilityId },
@@ -435,7 +483,7 @@ export class RequestCommandService {
 
   async runEligibilityAttachmentsOcr(
     eligibilityId: number,
-    _userId: number,
+    userId: number,
     userRole: string,
     payload: {
       attachments: Array<{
@@ -459,6 +507,10 @@ export class RequestCommandService {
     if (!eligibilityRow) {
       throw new NotFoundError("Eligibility not found");
     }
+    await this.assertOfficerAccessToEligibility(
+      eligibilityRow,
+      userId,
+    );
 
     const attachmentsToRun: Array<{ file_name: string; file_path: string }> =
       [];
@@ -539,7 +591,7 @@ export class RequestCommandService {
 
   async clearEligibilityAttachmentOcr(
     eligibilityId: number,
-    _userId: number,
+    userId: number,
     userRole: string,
     fileName: string,
   ): Promise<{
@@ -557,6 +609,10 @@ export class RequestCommandService {
     if (!eligibilityRow) {
       throw new NotFoundError("Eligibility not found");
     }
+    await this.assertOfficerAccessToEligibility(
+      eligibilityRow,
+      userId,
+    );
 
     const normalizedFileName = String(fileName ?? "")
       .trim()
@@ -1385,6 +1441,10 @@ export class RequestCommandService {
     if (!eligibility) {
       throw new NotFoundError("ไม่พบรายการสิทธิ");
     }
+    await this.assertOfficerAccessToEligibility(
+      eligibility,
+      userId,
+    );
     const linkedRequestId =
       Number((eligibility as any).request_id ?? 0) || null;
     const requestAttachments =
@@ -1487,6 +1547,10 @@ export class RequestCommandService {
     if (!eligibility) {
       throw new NotFoundError("ไม่พบรายการสิทธิ");
     }
+    await this.assertOfficerAccessToEligibility(
+      eligibility,
+      userId,
+    );
     const attachment =
       await requestRepository.findEligibilityAttachmentById(attachmentId);
     if (!attachment) {
@@ -2157,6 +2221,10 @@ export class RequestCommandService {
         connection,
       );
       if (!eligibility) throw new NotFoundError("สิทธิ์", eligibilityId);
+      await this.assertOfficerAccessToEligibility(
+        eligibility,
+        actorId,
+      );
 
       const citizenId = String((eligibility as any).citizen_id ?? "").trim();
       const professionCode = String(
@@ -2232,6 +2300,10 @@ export class RequestCommandService {
         connection,
       );
       if (!eligibility) throw new NotFoundError("สิทธิ์", eligibilityId);
+      await this.assertOfficerAccessToEligibility(
+        eligibility,
+        actorId,
+      );
 
       const nowYmd = new Date().toISOString().slice(0, 10);
       await requestRepository.setEligibilityActiveState(

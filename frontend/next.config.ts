@@ -10,6 +10,7 @@ const extraDevOrigins = (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? '')
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(__dirname),
   productionBrowserSourceMaps: false,
+  poweredByHeader: false,
   allowedDevOrigins: [
     ...new Set([
       'http://localhost:3000',

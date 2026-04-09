@@ -31,10 +31,33 @@ jest.mock("@/modules/auth/services/auth.service.js", () => ({
 import { AuthService } from "@/modules/auth/services/auth.service.js";
 import {
   getCurrentUser,
+  login,
   updateCurrentUser,
 } from "@/modules/auth/api/auth.controller.js";
+import { AuthenticationError as ServiceAuthenticationError } from "@/modules/auth/services/auth.service.js";
 
 describe("auth controller", () => {
+  test("login returns 401 for invalid credentials", async () => {
+    const req: any = {
+      body: { citizen_id: "1234567890123", password: "wrong-password" },
+      headers: {},
+      ip: "127.0.0.1",
+    };
+    const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+    (AuthService.login as jest.Mock).mockRejectedValue(
+      new ServiceAuthenticationError("Invalid citizen ID or password"),
+    );
+
+    await login(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      error: "Invalid citizen ID or password",
+    });
+  });
+
   test("getCurrentUser forwards AuthenticationError when not authenticated", async () => {
     const req: any = { user: undefined };
     const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn() };

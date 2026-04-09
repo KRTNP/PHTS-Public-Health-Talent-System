@@ -1,6 +1,8 @@
 import type { Request } from "express";
 
 const TOKEN_COOKIE_KEY = "phts_token";
+const isCookieTokenEnabled = (): boolean =>
+  String(process.env.AUTH_ALLOW_COOKIE_TOKEN || "").toLowerCase() === "true";
 
 function parseCookieValue(rawCookie: string, key: string): string | null {
   const parts = rawCookie.split(";");
@@ -24,6 +26,11 @@ export function extractAuthToken(req: Request): string | null {
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
     const token = authHeader.slice("Bearer ".length).trim();
     if (token) return token;
+  }
+
+  // Cookie-based auth is disabled by default to reduce CSRF attack surface.
+  if (!isCookieTokenEnabled()) {
+    return null;
   }
 
   const cookieHeader = req.headers.cookie;

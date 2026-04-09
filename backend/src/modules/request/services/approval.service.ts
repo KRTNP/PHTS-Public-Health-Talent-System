@@ -298,6 +298,7 @@ export class RequestApprovalService {
     request: PTSRequest;
     empDepartment: unknown;
     empSubDepartment: unknown;
+    assignedOfficerId: number | null;
   }> {
     const requestEntity = await requestRepository.findById(
       requestId,
@@ -317,7 +318,22 @@ export class RequestApprovalService {
       request,
       empDepartment: (requestEntity as any).emp_department,
       empSubDepartment: (requestEntity as any).emp_sub_department,
+      assignedOfficerId: Number((requestEntity as any).assigned_officer_id ?? 0) || null,
     };
+  }
+
+  private ensureOfficerAssignmentForAction(params: {
+    effectiveActorRole: string;
+    actorId: number;
+    assignedOfficerId: number | null;
+  }): void {
+    const { effectiveActorRole, actorId, assignedOfficerId } = params;
+    if (effectiveActorRole !== "PTS_OFFICER") {
+      return;
+    }
+    if (assignedOfficerId !== null && assignedOfficerId !== actorId) {
+      throw new Error("คุณไม่มีสิทธิ์ดำเนินการคำขอนี้");
+    }
   }
 
   private async resolveEffectiveActorRoleForStep(
@@ -395,7 +411,7 @@ export class RequestApprovalService {
     try {
       await connection.beginTransaction();
 
-      const { request, empDepartment, empSubDepartment } =
+      const { request, empDepartment, empSubDepartment, assignedOfficerId } =
         await this.loadPendingRequestForAction(requestId, connection, "approve");
 
       const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
@@ -403,6 +419,11 @@ export class RequestApprovalService {
         actorId,
         actorRole,
       );
+      this.ensureOfficerAssignmentForAction({
+        effectiveActorRole,
+        actorId,
+        assignedOfficerId,
+      });
 
       const isSelfApproval = await isRequestOwner(actorId, request.user_id);
 
@@ -499,7 +520,7 @@ export class RequestApprovalService {
     try {
       await connection.beginTransaction();
 
-      const { request, empDepartment, empSubDepartment } =
+      const { request, empDepartment, empSubDepartment, assignedOfficerId } =
         await this.loadPendingRequestForAction(requestId, connection, "reject");
 
       const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
@@ -507,6 +528,11 @@ export class RequestApprovalService {
         actorId,
         actorRole,
       );
+      this.ensureOfficerAssignmentForAction({
+        effectiveActorRole,
+        actorId,
+        assignedOfficerId,
+      });
 
       if (
         effectiveActorRole === "WARD_SCOPE" ||
@@ -603,7 +629,7 @@ export class RequestApprovalService {
     try {
       await connection.beginTransaction();
 
-      const { request, empDepartment, empSubDepartment } =
+      const { request, empDepartment, empSubDepartment, assignedOfficerId } =
         await this.loadPendingRequestForAction(requestId, connection, "return");
 
       const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
@@ -611,6 +637,11 @@ export class RequestApprovalService {
         actorId,
         actorRole,
       );
+      this.ensureOfficerAssignmentForAction({
+        effectiveActorRole,
+        actorId,
+        assignedOfficerId,
+      });
 
       if (
         effectiveActorRole === "WARD_SCOPE" ||

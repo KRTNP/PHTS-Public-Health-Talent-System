@@ -13,6 +13,7 @@ describe("RequestCommandService OCR methods", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
+    jest.spyOn(requestRepository, "findById").mockResolvedValue(null as any);
   });
 
   describe("persistManualOcrPrecheck", () => {

@@ -35,6 +35,7 @@ import { authorizeUploadAccess } from "@middlewares/uploadAccessMiddleware.js";
 
 export const createConfiguredApp = (nodeEnv: string): Application => {
   const app: Application = express();
+  app.disable("x-powered-by");
 
   const envOrigins = (process.env.FRONTEND_URL || "")
     .split(",")
@@ -55,7 +56,26 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
   )
     .split(",")
     .map((rule) => rule.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((rule) => {
+      const [rawPath = "", rawMethods = ""] = rule.split(":");
+      const pathRule = rawPath.trim();
+      if (!pathRule) return null;
+
+      const isPrefix = pathRule.endsWith("*");
+      const path = isPrefix ? pathRule.slice(0, -1) : pathRule;
+      const methods = rawMethods
+        .split("|")
+        .map((method) => method.trim().toUpperCase())
+        .filter(Boolean);
+
+      return {
+        isPrefix,
+        path,
+        methods: methods.length > 0 ? new Set(methods) : null,
+      };
+    })
+    .filter((rule): rule is { isPrefix: boolean; path: string; methods: Set<string> | null } => Boolean(rule));
 
   const isOriginAllowed = (origin: string): boolean => {
     const normalizedOrigin = origin.trim();
@@ -107,23 +127,42 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     });
   };
 
-  const isPreflightPathAllowed = (pathname: string): boolean =>
+  const isPreflightPathAllowed = (
+    pathname: string,
+    requestedMethod: string,
+  ): boolean =>
     preflightAllowedPathRules.some((rule) => {
-      if (rule.endsWith("*")) {
-        const prefix = rule.slice(0, -1);
-        return pathname.startsWith(prefix);
+      const pathMatch = rule.isPrefix
+        ? pathname.startsWith(rule.path)
+        : pathname === rule.path;
+
+      if (!pathMatch) {
+        return false;
       }
-      return pathname === rule;
+
+      if (!rule.methods) {
+        return true;
+      }
+
+      return rule.methods.has(requestedMethod.toUpperCase());
     });
+
+  const frameAncestorsDirectives =
+    nodeEnv === "production" ? ["'self'"] : ["'self'", ...allowedOrigins];
 
   app.use(
     helmet({
       frameguard: { action: "sameorigin" },
       crossOriginEmbedderPolicy: true,
+      strictTransportSecurity: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
       contentSecurityPolicy: {
         useDefaults: true,
         directives: {
-          frameAncestors: ["'self'", ...allowedOrigins],
+          frameAncestors: frameAncestorsDirectives,
         },
       },
     }),
@@ -196,12 +235,31 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       });
     }
 
-    if (!isPreflightPathAllowed(req.path)) {
+    const accessControlRequestMethodHeader =
+      req.headers["access-control-request-method"];
+    const accessControlRequestMethod =
+      typeof accessControlRequestMethodHeader === "string"
+        ? accessControlRequestMethodHeader
+        : Array.isArray(accessControlRequestMethodHeader)
+          ? accessControlRequestMethodHeader[0]
+          : "";
+
+    if (!accessControlRequestMethod.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "Invalid CORS preflight request",
+        },
+      });
+    }
+
+    if (!isPreflightPathAllowed(req.path, accessControlRequestMethod)) {
       return res.status(404).json({
         success: false,
         error: {
           code: "NOT_FOUND",
-          message: "Not found",
+          message: "ไม่พบเส้นทางที่ร้องขอ",
         },
       });
     }

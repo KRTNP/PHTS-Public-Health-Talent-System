@@ -25,6 +25,11 @@ type ApiErrorBody = {
   details?: ValidationDetail[];
 };
 
+const isLoginRequest = (url: unknown): boolean => {
+  if (typeof url !== "string") return false;
+  return /(^|\/)auth\/login($|\?)/.test(url);
+};
+
 const toReadableErrorMessage = (body?: ApiErrorBody): string => {
   if (!body) return 'เกิดข้อผิดพลาดจากการเชื่อมต่อระบบ';
 
@@ -67,7 +72,10 @@ api.interceptors.response.use(
     const errorBody = axiosError?.response?.data;
     const readableMessage = toReadableErrorMessage(errorBody);
 
-    if (axiosError?.response?.status === 401) {
+    if (
+      axiosError?.response?.status === 401 &&
+      !isLoginRequest(axiosError.config?.url)
+    ) {
       clearAuthSession();
       redirectToLogin();
     }

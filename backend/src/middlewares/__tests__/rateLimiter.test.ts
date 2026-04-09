@@ -87,7 +87,7 @@ describe("rateLimiter", () => {
     const localhostReq = { ip: "127.0.0.1", headers: {} } as any;
 
     expect(apiConfig.skip(localhostReq, {})).toBe(true);
-    expect(authConfig.skip(localhostReq, {})).toBe(true);
+    expect(authConfig.skip(localhostReq, {})).toBe(false);
   });
 
   it("does not skip development limiting for non-local forwarded clients", async () => {
@@ -115,7 +115,7 @@ describe("rateLimiter", () => {
     } as any;
 
     expect(apiConfig.skip(forwardedReq, {})).toBe(true);
-    expect(authConfig.skip(forwardedReq, {})).toBe(true);
+    expect(authConfig.skip(forwardedReq, {})).toBe(false);
   });
 
   it("skips api limiter for /api/auth routes to avoid double-limiting login", async () => {

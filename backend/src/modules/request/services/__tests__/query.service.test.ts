@@ -257,5 +257,43 @@ describe("RequestQueryService query methods", () => {
         requestQueryService.getRequestById(67918, 49000, "FINANCE_OFFICER"),
       ).resolves.toMatchObject({ request_id: 67918 });
     });
+
+    it("blocks PTS_OFFICER from reading request assigned to another officer", async () => {
+      jest.spyOn(requestRepository, "findById").mockResolvedValue({
+        request_id: 67919,
+        user_id: 12345,
+        status: "PENDING",
+        current_step: 3,
+        assigned_officer_id: 70000,
+        submission_data: JSON.stringify({}),
+      } as any);
+      jest
+        .spyOn(requestRepository, "findApprovalsWithActor")
+        .mockResolvedValue([]);
+
+      await expect(
+        requestQueryService.getRequestById(67919, 49000, "PTS_OFFICER"),
+      ).rejects.toThrow("You do not have permission to view this request");
+    });
+
+    it("blocks PTS_OFFICER from reading eligibility linked to another officer assignment", async () => {
+      jest.spyOn(requestRepository, "findEligibilityById").mockResolvedValue({
+        eligibility_id: 2978,
+        request_id: 67919,
+        citizen_id: "1570400181863",
+      } as any);
+      jest.spyOn(requestRepository, "findById").mockResolvedValue({
+        request_id: 67919,
+        status: "PENDING",
+        current_step: 3,
+        assigned_officer_id: 70000,
+      } as any);
+
+      await expect(
+        requestQueryService.getEligibilityById(2978, 49000, "PTS_OFFICER"),
+      ).rejects.toThrow(
+        "You do not have permission to view this eligibility record",
+      );
+    });
   });
 });
