@@ -23,9 +23,10 @@ import {
 import type { RequestWithDetails } from '@/types/request.types';
 import { useRequestDetail, useProcessAction } from '@/features/request';
 import { useRateHierarchy } from '@/features/master-data/hooks';
+import { RequestSectionCard } from '@/features/request/components/patterns';
 import { RequestDetailPageShell } from '@/features/request/detail/shell/RequestDetailPageShell';
 import { RequestTimelineCard } from '@/features/request/detail/timeline';
-import { SectionHeader, InfoItem } from '@/features/request/detail/utils';
+import { InfoItem } from '@/features/request/detail/utils';
 import { AttachmentPreviewDialog } from '@/components/common/attachment-preview-dialog';
 import { AssignmentOrderSummaryCard, MemoSummaryCard } from '@/features/request/detail/cards';
 import { getAttachmentLabel } from '@/features/request/detail/utils';
@@ -280,9 +281,7 @@ export default function HeadFinanceRequestDetailPage({ params }: { params: Promi
       left={
         request ? (
           <>
-            <Card className="scroll-mt-20 shadow-sm transition-all duration-300 border-border/60">
-              <CardContent className="p-6">
-                <SectionHeader title="ข้อมูลผู้ยื่นคำขอ" icon={User} />
+            <RequestSectionCard title="ข้อมูลผู้ยื่นคำขอ" icon={User}>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
                   <InfoItem label="ชื่อ-นามสกุล" value={requesterName} icon={User} className="sm:col-span-2" />
                   <InfoItem label="เลขประจำตัวประชาชน" value={request.citizen_id ?? '-'} />
@@ -295,12 +294,9 @@ export default function HeadFinanceRequestDetailPage({ params }: { params: Promi
                   <InfoItem label="กลุ่มงาน" value={department} icon={Building2} />
                   <InfoItem label="หน่วยงาน" value={subDepartment} />
                 </dl>
-              </CardContent>
-            </Card>
+            </RequestSectionCard>
 
-            <Card className="scroll-mt-20 shadow-sm transition-all duration-300 border-border/60">
-              <CardContent className="p-6">
-                <SectionHeader title="รายละเอียดสิทธิ พ.ต.ส." icon={CreditCard} />
+            <RequestSectionCard title="รายละเอียดสิทธิ พ.ต.ส." icon={CreditCard}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4 mb-6">
                   <InfoItem label="ประเภทคำขอ" value={requestTypeLabel} className="sm:col-span-2" />
                   <InfoItem label="ประเภทบุคลากร" value={personnelTypeLabel} />
@@ -352,12 +348,9 @@ export default function HeadFinanceRequestDetailPage({ params }: { params: Promi
                     </dl>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+            </RequestSectionCard>
 
-            <Card className="scroll-mt-20 shadow-sm transition-all duration-300 border-border/60">
-              <CardContent className="p-6">
-                <SectionHeader title={`ไฟล์แนบ (${attachments.length})`} icon={FileText} />
+            <RequestSectionCard title={`ไฟล์แนบ (${attachments.length})`} icon={FileText}>
                 {memoSummary ? <MemoSummaryCard summary={memoSummary} /> : null}
                 {assignmentOrderSummary ? (
                   <div className="mt-4">
@@ -436,8 +429,7 @@ export default function HeadFinanceRequestDetailPage({ params }: { params: Promi
                     })}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </RequestSectionCard>
           </>
         ) : null
       }
