@@ -4,9 +4,8 @@ import type { ReactNode } from "react"
 import Link from "next/link"
 import { ArrowLeft, AlertCircle, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { RequestStatusBadge } from "@/features/request/components/patterns"
 import { formatThaiDateTime } from "@/features/request/detail/utils"
-import { getStatusColor, getStatusLabel } from "@/features/request/detail/utils"
 
 type ShellState = "loading" | "notFound" | "ready"
 
@@ -91,12 +90,11 @@ export function RequestDetailPageShell({
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-3xl font-bold tracking-tight text-foreground">{displayId}</h1>
               {status && (
-                <Badge
-                  variant="outline"
-                  className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${getStatusColor(status)}`}
-                >
-                  {getStatusLabel(status, currentStep)}
-                </Badge>
+                <RequestStatusBadge
+                  status={status}
+                  currentStep={currentStep}
+                  className="px-3 py-1 text-xs font-semibold uppercase tracking-wider"
+                />
               )}
             </div>
             <p className="text-muted-foreground text-sm">
@@ -117,4 +115,3 @@ export function RequestDetailPageShell({
     </div>
   )
 }
-

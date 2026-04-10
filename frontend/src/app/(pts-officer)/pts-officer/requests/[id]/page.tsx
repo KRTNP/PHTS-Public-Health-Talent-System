@@ -54,15 +54,12 @@ import {
 import { useRateHierarchy } from "@/features/master-data/hooks";
 import { AttachmentPreviewDialog } from "@/components/common/attachment-preview-dialog";
 import { AttachmentListCard, AttachmentListItemCard } from "@/components/common";
+import { RequestMetaRow, RequestStatusBadge } from "@/features/request/components/patterns";
 import type { RequestWithDetails } from "@/types/request.types";
 import {
   formatThaiDate,
   formatThaiDateTime,
   toDateOnly,
-} from "@/features/request/detail/utils";
-import {
-  getStatusColor,
-  getStatusLabel,
 } from "@/features/request/detail/utils";
 import { getAttachmentLabel } from "@/features/request/detail/utils";
 import {
@@ -1054,12 +1051,11 @@ export default function RequestDetailPage({
               <h1 className="text-3xl font-bold tracking-tight text-foreground">
                 {displayId}
               </h1>
-              <Badge
-                variant="outline"
-                className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${getStatusColor(request.status)}`}
-              >
-                {getStatusLabel(request.status, request.current_step)}
-              </Badge>
+              <RequestStatusBadge
+                status={request.status}
+                currentStep={request.current_step}
+                className="px-3 py-1 text-xs font-semibold uppercase tracking-wider"
+              />
               {onBehalfMeta.isOfficerCreated ? (
                 <Badge
                   variant="outline"
@@ -1689,20 +1685,11 @@ export default function RequestDetailPage({
               </div>
               <Separator className="my-4 bg-primary/10" />
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">เลขที่คำขอ</span>
-                  <span className="font-mono text-foreground">{displayId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    วันที่ยื่นเรื่อง
-                  </span>
-                  <span className="text-foreground">
-                    {submitAction?.action_date
-                      ? formatThaiDate(submitAction.action_date)
-                      : "-"}
-                  </span>
-                </div>
+                <RequestMetaRow label="เลขที่คำขอ" value={displayId} valueClassName="font-mono" />
+                <RequestMetaRow
+                  label="วันที่ยื่นเรื่อง"
+                  value={submitAction?.action_date ? formatThaiDate(submitAction.action_date) : "-"}
+                />
               </div>
             </CardContent>
           </Card>
