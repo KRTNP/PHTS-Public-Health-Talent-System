@@ -173,7 +173,6 @@ export async function getPendingRequestsWithSLA(params?: {
       last_name: req.last_name ?? null,
       current_step: req.current_step,
       step_started_at: req.step_started_at,
-      assigned_officer_id: req.assigned_officer_id ?? null,
       business_days_elapsed: elapsedDays,
       sla_days: config.sla_days,
       is_approaching_sla: isApproaching,

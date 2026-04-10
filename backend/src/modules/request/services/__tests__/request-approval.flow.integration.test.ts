@@ -151,7 +151,6 @@ const seedRequest = async (data: {
   citizenId: string;
   status: "PENDING" | "RETURNED" | "REJECTED" | "DRAFT";
   currentStep: number;
-  assignedOfficerId?: number | null;
   requestNo?: string;
 }): Promise<number> => {
   const conn = await getTestConnection();
@@ -159,8 +158,8 @@ const seedRequest = async (data: {
     const [result] = await conn.execute<any>(
       `INSERT INTO req_submissions (
         user_id, citizen_id, request_no, personnel_type, status, current_step,
-        assigned_officer_id, requested_amount, effective_date, submission_data, step_started_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        requested_amount, effective_date, submission_data, step_started_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         data.userId,
         data.citizenId,
@@ -168,7 +167,6 @@ const seedRequest = async (data: {
         "CIVIL_SERVANT",
         data.status,
         data.currentStep,
-        data.assignedOfficerId ?? null,
         1000,
         "2026-01-01",
         JSON.stringify({}),
@@ -344,7 +342,6 @@ describe("Request & Approval flow integration", () => {
     const returned = await getRequestRow(returnRequestId);
     expect(returned.status).toBe("RETURNED");
     expect(returned.current_step).toBe(1);
-    expect(returned.assigned_officer_id).toBeNull();
 
     const rejectRequestId = await seedRequest({
       userId: requesterId,
@@ -372,7 +369,6 @@ describe("Request & Approval flow integration", () => {
       citizenId: "1000000000001",
       status: "PENDING",
       currentStep: 3,
-      assignedOfficerId: officerAId,
       requestNo: "REQ-APPROVAL-SHARED-001",
     });
 

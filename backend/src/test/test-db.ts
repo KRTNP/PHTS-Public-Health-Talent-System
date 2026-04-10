@@ -417,7 +417,6 @@ export async function resetRequestSchema(): Promise<void> {
         current_department VARCHAR(255) NULL,
         status VARCHAR(20) NOT NULL,
         current_step INT NOT NULL,
-        assigned_officer_id INT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -513,7 +512,6 @@ export async function resetPayrollSchema(): Promise<void> {
         current_department VARCHAR(255) NULL,
         status VARCHAR(20) NOT NULL,
         current_step INT NOT NULL,
-        assigned_officer_id INT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       )

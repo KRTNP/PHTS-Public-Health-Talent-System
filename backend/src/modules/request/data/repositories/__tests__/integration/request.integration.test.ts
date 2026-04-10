@@ -114,14 +114,14 @@ describe("RequestRepository (integration)", () => {
       officerId = Number(userRes.insertId);
       await conn.execute(
         `INSERT INTO req_submissions
-         (user_id, citizen_id, status, current_step, assigned_officer_id, created_at, updated_at)
-         VALUES (?, '501', 'PENDING', 3, ?, NOW(), NOW())`,
-        [officerId, officerId],
+         (user_id, citizen_id, status, current_step, created_at, updated_at)
+         VALUES (?, '501', 'PENDING', 3, NOW(), NOW())`,
+        [officerId],
       );
       await conn.execute(
         `INSERT INTO req_submissions
-         (user_id, citizen_id, status, current_step, assigned_officer_id, created_at, updated_at)
-         VALUES (?, '501', 'PENDING', 3, NULL, NOW(), NOW())`,
+         (user_id, citizen_id, status, current_step, created_at, updated_at)
+         VALUES (?, '501', 'PENDING', 3, NOW(), NOW())`,
         [officerId],
       );
     } finally {

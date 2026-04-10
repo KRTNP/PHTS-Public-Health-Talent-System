@@ -26,7 +26,6 @@ export interface RequestSubmissionEntity {
   submission_data: any; // JSON
   status: string;
   current_step: number;
-  assigned_officer_id: number | null;
   created_at: Date;
   updated_at: Date;
   step_started_at: Date | null;

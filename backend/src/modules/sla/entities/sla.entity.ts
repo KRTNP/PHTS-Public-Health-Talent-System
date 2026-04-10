@@ -26,7 +26,6 @@ export interface RequestSLAInfo {
   last_name?: string | null;
   current_step: number;
   step_started_at: Date;
-  assigned_officer_id: number | null;
   business_days_elapsed: number;
   sla_days: number;
   is_approaching_sla: boolean;

@@ -258,13 +258,12 @@ describe("RequestQueryService query methods", () => {
       ).resolves.toMatchObject({ request_id: 67918 });
     });
 
-    it("allows PTS_OFFICER to read pending request regardless of assigned officer", async () => {
+    it("allows PTS_OFFICER to read pending request in shared queue", async () => {
       jest.spyOn(requestRepository, "findById").mockResolvedValue({
         request_id: 67919,
         user_id: 12345,
         status: "PENDING",
         current_step: 3,
-        assigned_officer_id: 70000,
         submission_data: JSON.stringify({}),
       } as any);
       jest
