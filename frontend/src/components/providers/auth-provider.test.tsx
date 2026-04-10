@@ -37,7 +37,7 @@ describe("AuthProvider role access guard", () => {
     cleanup();
     vi.clearAllMocks();
     localStorage.clear();
-    localStorage.setItem("phts_token", "test-token");
+    sessionStorage.clear();
     mocked.responseUser = {
       id: 999,
       citizen_id: "1000000000999",

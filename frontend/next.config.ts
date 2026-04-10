@@ -11,6 +11,31 @@ const resolveBackendApiTarget = (): string => {
 };
 
 const backendApiTarget = resolveBackendApiTarget();
+const resolveOrigin = (value: string): string | null => {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+};
+const backendApiOrigin = resolveOrigin(backendApiTarget);
+const defaultDevConnectOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+];
+const extraDevConnectOrigins = (process.env.NEXT_CSP_DEV_CONNECT_SRC ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedDevConnectOrigins = [
+  ...new Set(
+    [backendApiOrigin, ...defaultDevConnectOrigins, ...extraDevConnectOrigins].filter(
+      (origin): origin is string => Boolean(origin),
+    ),
+  ),
+];
 const extraDevOrigins = (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -34,6 +59,9 @@ const nextConfig: NextConfig = {
     const scriptSrc = isProduction
       ? "script-src 'self' 'unsafe-inline' https:"
       : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:";
+    const connectSrc = isProduction
+      ? "connect-src 'self' https:"
+      : `connect-src 'self' https: ${allowedDevConnectOrigins.join(' ')}`;
     const securityHeaders = [
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
@@ -45,7 +73,7 @@ const nextConfig: NextConfig = {
       {
         key: 'Content-Security-Policy',
         value:
-          `default-src 'self' https: data: blob:; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https:`,
+          `default-src 'self' https: data: blob:; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; ${connectSrc}`,
       },
     ];
     if (isProduction) {
