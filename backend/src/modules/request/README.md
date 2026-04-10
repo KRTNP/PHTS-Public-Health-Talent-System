@@ -4,7 +4,6 @@
 `request` is the core workflow module for allowance request lifecycle:
 - create/update/cancel/submit request
 - approval actions (approve/reject/return)
-- reassignment
 - eligibility management and exports
 
 ## Current Route Surface (High-Level)
@@ -114,4 +113,4 @@ Phase 10 update:
 ## Deferred To Later Phases
 - deeper decomposition of large request controller/service flows
 - endpoint surface consolidation after deprecation window
-- broader folder cleanup across request subdomains (`data/read/reassign/scope`)
+- broader folder cleanup across request subdomains (`data/read/scope`)

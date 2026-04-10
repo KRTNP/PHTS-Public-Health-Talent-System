@@ -187,7 +187,7 @@ export class RequestCommandService {
 
   private assertOfficerAccessToRequestRow(
     requestRow: unknown,
-    actorId: number,
+    _actorId: number,
   ): void {
     const row = requestRow as any;
     const isOfficerStep =
@@ -196,10 +196,7 @@ export class RequestCommandService {
     if (!isOfficerStep) {
       return;
     }
-    const assignedOfficerId = Number(row?.assigned_officer_id ?? 0) || null;
-    if (assignedOfficerId !== null && assignedOfficerId !== actorId) {
-      throw new AuthorizationError("คุณไม่มีสิทธิ์จัดการคำขอนี้");
-    }
+    return;
   }
 
   private async assertOfficerAccessToEligibility(
@@ -1015,9 +1012,6 @@ export class RequestCommandService {
     if (!isOfficerStep) {
       throw new Error("Request is not at PTS officer step");
     }
-    if (request.assigned_officer_id && request.assigned_officer_id !== userId) {
-      throw new Error("Request is assigned to another officer");
-    }
   }
 
   // --- Helpers (Internal) ---
@@ -1277,7 +1271,6 @@ export class RequestCommandService {
     requestEntity: NonNullable<
       Awaited<ReturnType<typeof requestRepository.findById>>
     >,
-    userId: number,
     data: UpdateRequestDTO,
     files?: Express.Multer.File[],
     signatureFile?: Express.Multer.File,
@@ -1288,12 +1281,6 @@ export class RequestCommandService {
       requestEntity.current_step !== officerStep
     ) {
       throw new Error("คำขอนี้ไม่อยู่ในขั้นตอนที่เจ้าหน้าที่สามารถแก้ไขได้");
-    }
-    if (
-      requestEntity.assigned_officer_id &&
-      requestEntity.assigned_officer_id !== userId
-    ) {
-      throw new Error("คำขอนี้ถูกมอบหมายให้เจ้าหน้าที่ท่านอื่นแล้ว");
     }
     if ((files && files.length > 0) || signatureFile) {
       throw new Error("PTS_OFFICER cannot modify attachments or signature");
@@ -1349,7 +1336,6 @@ export class RequestCommandService {
       }
       this.assertOfficerCanEditRequest(
         requestEntity,
-        userId,
         data,
         files,
         signatureFile,

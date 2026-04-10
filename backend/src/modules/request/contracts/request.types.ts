@@ -46,7 +46,6 @@ export enum ActionType {
   REJECT = "REJECT",
   RETURN = "RETURN",
   CANCEL = "CANCEL",
-  REASSIGN = "REASSIGN",
 }
 
 /**

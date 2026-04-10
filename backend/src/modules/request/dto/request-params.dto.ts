@@ -179,14 +179,6 @@ export const requestEligibilityManageSchema = z.object({
     .default({}),
 });
 
-export const requestReassignSchema = z.object({
-  params: idParam,
-  body: z.object({
-    target_officer_id: z.coerce.number().int().positive(),
-    remark: z.string().min(1).max(1000),
-  }),
-});
-
 export const requestApproveBatchSchema = z.object({
   body: z.object({
     requestIds: z.array(z.coerce.number().int()).min(1),

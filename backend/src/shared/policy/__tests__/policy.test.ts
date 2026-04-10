@@ -12,7 +12,6 @@ import {
   getStepForRole,
   canApproveAtStep,
   canBatchApprove,
-  canReassign,
   canAdjustLeave,
   canViewScopes,
 } from "@shared/policy/request.policy.js";
@@ -74,9 +73,7 @@ describe("shared policy", () => {
       expect(canBatchApprove(UserRole.PTS_OFFICER)).toBe(false);
     });
 
-    test("reassign/adjust leave only allowed for PTS_OFFICER", () => {
-      expect(canReassign(UserRole.PTS_OFFICER)).toBe(true);
-      expect(canReassign(UserRole.HEAD_HR)).toBe(false);
+    test("adjust leave only allowed for PTS_OFFICER", () => {
       expect(canAdjustLeave(UserRole.PTS_OFFICER)).toBe(true);
       expect(canAdjustLeave(UserRole.HEAD_HR)).toBe(false);
     });

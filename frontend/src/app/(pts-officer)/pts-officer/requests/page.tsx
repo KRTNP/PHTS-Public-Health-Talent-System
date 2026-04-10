@@ -48,14 +48,11 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import type { AxiosError } from 'axios';
 import { TableRowMoreActionsTrigger, TableRowViewAction } from '@/components/common';
 import { getOnBehalfMetadata } from '@/features/request';
 import {
-  useAvailableOfficers,
   usePendingApprovals,
   useProcessAction,
-  useReassignRequest,
 } from '@/features/request';
 import { usePendingWithSla } from '@/features/sla/hooks';
 import type { RequestWithDetails } from '@/types/request.types';
@@ -192,17 +189,12 @@ export default function RequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'return' | null>(null);
   const [comment, setComment] = useState('');
-  const [reassignTargetRequest, setReassignTargetRequest] = useState<Request | null>(null);
-  const [selectedOfficerId, setSelectedOfficerId] = useState<number | null>(null);
-  const [reassignRemark, setReassignRemark] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [slaFilter, setSlaFilter] = useState<'all' | 'normal' | 'warning' | 'danger'>('all');
 
   const { data: requestsData, isLoading } = usePendingApprovals();
   const { data: slaData } = usePendingWithSla();
   const processAction = useProcessAction();
-  const { data: availableOfficers = [], isLoading: isLoadingOfficers } = useAvailableOfficers();
-  const reassignMutation = useReassignRequest();
 
   const slaMap = useMemo(() => {
     const map = new Map<number, SlaInfo>();
@@ -326,42 +318,6 @@ export default function RequestsPage() {
       setComment('');
     } catch {
       toast.error('ไม่สามารถดำเนินการคำขอได้');
-    }
-  };
-
-  const openReassignDialog = (request: Request) => {
-    setReassignTargetRequest(request);
-    setSelectedOfficerId(null);
-    setReassignRemark('');
-  };
-
-  const handleReassign = async () => {
-    if (!reassignTargetRequest) return;
-    if (!selectedOfficerId) {
-      toast.error('กรุณาเลือกเจ้าหน้าที่ปลายทาง');
-      return;
-    }
-    if (!reassignRemark.trim()) {
-      toast.error('กรุณาระบุเหตุผลการโยกงาน');
-      return;
-    }
-
-    try {
-      await reassignMutation.mutateAsync({
-        id: reassignTargetRequest.id,
-        payload: {
-          target_officer_id: selectedOfficerId,
-          remark: reassignRemark.trim(),
-        },
-      });
-      toast.success('โยกงานสำเร็จ');
-      setReassignTargetRequest(null);
-      setSelectedOfficerId(null);
-      setReassignRemark('');
-    } catch (error: unknown) {
-      const apiError = error as AxiosError<{ error?: string; message?: string }>;
-      const apiMessage = apiError.response?.data?.error || apiError.response?.data?.message;
-      toast.error(apiMessage || 'ไม่สามารถโยกงานได้');
     }
   };
 
@@ -549,16 +505,6 @@ export default function RequestsPage() {
                                   <Eye className="mr-2 h-4 w-4" /> ดูรายละเอียด
                                 </Link>
                               </DropdownMenuItem>
-                              {request.status === 'pending' && (
-                                <>
-                                  <DropdownMenuItem
-                                    className="cursor-pointer"
-                                    onClick={() => openReassignDialog(request)}
-                                  >
-                                    <UserPlus className="mr-2 h-4 w-4" /> โยกงานให้เจ้าหน้าที่คนอื่น
-                                  </DropdownMenuItem>
-                                </>
-                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -655,99 +601,6 @@ export default function RequestsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={!!reassignTargetRequest}
-        onOpenChange={(open) => {
-          if (!open) {
-            setReassignTargetRequest(null);
-            setSelectedOfficerId(null);
-            setReassignRemark('');
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>โยกงาน</DialogTitle>
-            <DialogDescription>
-              {reassignTargetRequest ? (
-                <span>
-                  คำขอ:{' '}
-                  <span className="font-mono text-foreground">
-                    {reassignTargetRequest.requestNo}
-                  </span>
-                </span>
-              ) : (
-                'เลือกเจ้าหน้าที่ปลายทาง'
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-              <p className="font-medium mb-1 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" /> เงื่อนไขการโยกงาน
-              </p>
-              <ul className="list-disc list-inside space-y-0.5 opacity-90">
-                <li>คำขอต้องมีสถานะ `PENDING` และอยู่ขั้น `PTS_OFFICER`</li>
-                <li>ระบบต้องมีเจ้าหน้าที่ `PTS_OFFICER` ที่ active อย่างน้อย 2 คน</li>
-                <li>ห้ามโยกงานให้ตัวเอง</li>
-              </ul>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                เลือกเจ้าหน้าที่ปลายทาง <span className="text-destructive">*</span>
-              </label>
-              <Select
-                value={selectedOfficerId ? String(selectedOfficerId) : ''}
-                onValueChange={(val) => setSelectedOfficerId(Number(val))}
-                disabled={isLoadingOfficers || reassignMutation.isPending}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="-- เลือกเจ้าหน้าที่ --" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableOfficers.map((officer) => (
-                    <SelectItem key={officer.id} value={String(officer.id)}>
-                      {officer.name} (ภาระงาน: {officer.workload})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                เหตุผลการโยกงาน <span className="text-destructive">*</span>
-              </label>
-              <Textarea
-                rows={3}
-                placeholder="ระบุเหตุผล เช่น ภาระงานสูง/มอบหมายใหม่"
-                value={reassignRemark}
-                onChange={(e) => setReassignRemark(e.target.value)}
-                disabled={reassignMutation.isPending}
-                className="resize-none"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setReassignTargetRequest(null);
-                setSelectedOfficerId(null);
-                setReassignRemark('');
-              }}
-            >
-              ยกเลิก
-            </Button>
-            <Button onClick={handleReassign} disabled={reassignMutation.isPending}>
-              ยืนยันโยกงาน
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

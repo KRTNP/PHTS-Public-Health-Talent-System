@@ -41,10 +41,6 @@ export function canBatchApprove(role: UserRole): boolean {
   return role === UserRole.DIRECTOR;
 }
 
-export function canReassign(role: UserRole): boolean {
-  return role === UserRole.PTS_OFFICER;
-}
-
 export function canAdjustLeave(role: UserRole): boolean {
   return role === UserRole.PTS_OFFICER;
 }

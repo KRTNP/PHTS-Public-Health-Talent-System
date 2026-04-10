@@ -1060,37 +1060,6 @@ export class RequestRepository {
     return rows as RequestSubmissionEntity[];
   }
 
-  async findPendingByStepForOfficer(
-    stepNo: number,
-    officerId: number,
-  ): Promise<RequestSubmissionEntity[]> {
-    const baseSelect = `
-      SELECT r.*,
-             e.department AS emp_department,
-             e.sub_department AS emp_sub_department,
-             CASE WHEN vs.snapshot_id IS NULL THEN 0 ELSE 1 END AS has_verification_snapshot
-      FROM req_submissions r
-      LEFT JOIN emp_profiles e ON r.citizen_id = e.citizen_id
-      LEFT JOIN (
-        SELECT request_id, MAX(snapshot_id) AS snapshot_id
-        FROM req_verification_snapshots
-        GROUP BY request_id
-      ) vs ON vs.request_id = r.request_id
-      WHERE r.status = 'PENDING' AND r.current_step = ?
-    `;
-
-    const sql = `
-      (${baseSelect} AND r.assigned_officer_id = ?)
-      UNION ALL
-      (${baseSelect} AND r.assigned_officer_id IS NULL)
-      ORDER BY created_at ASC
-    `;
-
-    const params = [stepNo, officerId, stepNo];
-    const [rows] = await pool.query<RowDataPacket[]>(sql, params);
-    return rows as RequestSubmissionEntity[];
-  }
-
   async findAttachments(requestId: number): Promise<RequestAttachmentEntity[]> {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT * FROM req_attachments WHERE request_id = ? ORDER BY uploaded_at DESC`,
@@ -1756,93 +1725,6 @@ export class RequestRepository {
     await db.execute(`DELETE FROM req_submissions WHERE request_id = ?`, [
       requestId,
     ]);
-  }
-
-  // --- REASSIGN Operations ---
-
-  async findAvailableOfficers(excludeUserId: number): Promise<
-    {
-      id: number;
-      citizen_id: string;
-      first_name: string;
-      last_name: string;
-      workload_count: number;
-    }[]
-  > {
-    // Query finds other PTS_OFFICERs with their current workload
-    const sql = `
-      SELECT u.id, u.citizen_id, s.first_name, s.last_name,
-             (SELECT COUNT(*) FROM req_submissions r
-              WHERE r.assigned_officer_id = u.id
-                AND r.status = 'PENDING') as workload_count
-      FROM users u
-      JOIN emp_support_staff s ON u.citizen_id = s.citizen_id
-      WHERE u.role = 'PTS_OFFICER'
-        AND u.is_active = 1
-        AND u.id != ?
-      ORDER BY workload_count ASC
-    `;
-    const [rows] = await pool.query<RowDataPacket[]>(sql, [excludeUserId]);
-    return rows as any[];
-  }
-
-  async countActiveOfficers(): Promise<number> {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT COUNT(*) AS total
-       FROM users
-       WHERE role = 'PTS_OFFICER'
-         AND is_active = 1`,
-    );
-    return rows.length ? Number(rows[0].total) : 0;
-  }
-
-  async isActivePtsOfficer(
-    userId: number,
-    connection?: PoolConnection,
-  ): Promise<boolean> {
-    const db = this.getDb(connection);
-    const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT id
-       FROM users
-       WHERE id = ?
-         AND role = 'PTS_OFFICER'
-         AND is_active = 1
-       LIMIT 1`,
-      [userId],
-    );
-    return rows.length > 0;
-  }
-
-  async findLeastLoadedOfficer(): Promise<number | null> {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `
-      SELECT u.id,
-             (
-               SELECT COUNT(*)
-               FROM req_submissions r
-               WHERE r.assigned_officer_id = u.id
-                 AND r.status = 'PENDING'
-             ) AS workload_count
-      FROM users u
-      WHERE u.role = 'PTS_OFFICER'
-        AND u.is_active = 1
-      ORDER BY workload_count ASC, u.id ASC
-      LIMIT 1
-      `,
-    );
-    return rows.length ? (rows[0].id as number) : null;
-  }
-
-  async updateAssignedOfficer(
-    requestId: number,
-    officerId: number,
-    connection?: PoolConnection,
-  ): Promise<void> {
-    const db = this.getDb(connection);
-    await db.execute(
-      "UPDATE req_submissions SET assigned_officer_id = ?, updated_at = NOW() WHERE request_id = ?",
-      [officerId, requestId],
-    );
   }
 
   // --- Scope Resolution ---

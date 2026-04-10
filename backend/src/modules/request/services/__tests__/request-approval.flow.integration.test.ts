@@ -1,6 +1,5 @@
 import { getTestConnection, resetRequestSchema } from "@/test/test-db.js";
 import { requestApprovalService } from "@/modules/request/services/approval.service.js";
-import { reassignRequest } from "@/modules/request/reassign/application/reassign.service.js";
 
 jest.mock("@/modules/notification/services/notification.service.js", () => ({
   NotificationService: {
@@ -263,7 +262,6 @@ describe("Request & Approval flow integration", () => {
     current = await getRequestRow(requestId);
     expect(current.status).toBe("PENDING");
     expect(current.current_step).toBe(3);
-    expect(current.assigned_officer_id).not.toBeNull();
 
     await requestApprovalService.approveRequest(
       requestId,
@@ -368,65 +366,24 @@ describe("Request & Approval flow integration", () => {
     expect(await listActions(rejectRequestId)).toEqual(["REJECT"]);
   });
 
-  test("reassigns pending officer-stage request and writes REASSIGN action", async () => {
+  test("allows any PTS_OFFICER to approve in shared officer queue", async () => {
     const requestId = await seedRequest({
       userId: requesterId,
       citizenId: "1000000000001",
       status: "PENDING",
       currentStep: 3,
       assignedOfficerId: officerAId,
-      requestNo: "REQ-REASSIGN-001",
+      requestNo: "REQ-APPROVAL-SHARED-001",
     });
 
-    const result = await reassignRequest(requestId, officerAId, {
-      targetOfficerId: officerBId,
-      reason: "balance workload",
-    });
-
-    expect(result.fromOfficerId).toBe(officerAId);
-    expect(result.toOfficerId).toBe(officerBId);
-
+    await requestApprovalService.approveRequest(
+      requestId,
+      officerBId,
+      "PTS_OFFICER",
+      "shared queue",
+      Buffer.from("sig"),
+    );
     const current = await getRequestRow(requestId);
-    expect(current.assigned_officer_id).toBe(officerBId);
-    expect(await listActions(requestId)).toEqual(["REASSIGN"]);
-  });
-
-  test("blocks officer from approving request assigned to another officer", async () => {
-    const requestId = await seedRequest({
-      userId: requesterId,
-      citizenId: "1000000000001",
-      status: "PENDING",
-      currentStep: 3,
-      assignedOfficerId: officerAId,
-      requestNo: "REQ-APPROVAL-BLOCK-001",
-    });
-
-    await expect(
-      requestApprovalService.approveRequest(
-        requestId,
-        officerBId,
-        "PTS_OFFICER",
-        "should fail",
-        Buffer.from("sig"),
-      ),
-    ).rejects.toThrow("คุณไม่มีสิทธิ์ดำเนินการคำขอนี้");
-  });
-
-  test("blocks reassignment by non-assigned officer", async () => {
-    const requestId = await seedRequest({
-      userId: requesterId,
-      citizenId: "1000000000001",
-      status: "PENDING",
-      currentStep: 3,
-      assignedOfficerId: officerAId,
-      requestNo: "REQ-REASSIGN-BLOCK-001",
-    });
-
-    await expect(
-      reassignRequest(requestId, officerBId, {
-        targetOfficerId: officerAId,
-        reason: "not assignee",
-      }),
-    ).rejects.toMatchObject({ code: "REASSIGN_NOT_ASSIGNEE" });
+    expect(current.current_step).toBe(4);
   });
 });

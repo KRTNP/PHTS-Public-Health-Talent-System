@@ -146,13 +146,6 @@ export class RequestQueryService {
     if (userRole === "HEAD_SCOPE" && hasScopeAccess) {
       isApprover = true;
     }
-    if (userRole === "PTS_OFFICER" && isApprover) {
-      const assignedOfficerId =
-        Number((request as any).assigned_officer_id ?? 0) || null;
-      if (assignedOfficerId !== null && assignedOfficerId !== userId) {
-        isApprover = false;
-      }
-    }
     if (isOwner || isCreatorOfficer || isApprover || isAdmin) {
       return;
     }
@@ -168,7 +161,6 @@ export class RequestQueryService {
 
   private async ensureEligibilityReadAccess(
     row: Record<string, unknown>,
-    userId: number,
     userRole: string,
   ): Promise<void> {
     if (userRole !== "PTS_OFFICER") {
@@ -192,13 +184,7 @@ export class RequestQueryService {
       return;
     }
 
-    const assignedOfficerId =
-      Number((linkedRequest as any).assigned_officer_id ?? 0) || null;
-    if (assignedOfficerId !== null && assignedOfficerId !== userId) {
-      throw new AuthorizationError(
-        "You do not have permission to view this eligibility record",
-      );
-    }
+    return;
   }
 
   async getEligibilityList(
@@ -346,14 +332,14 @@ export class RequestQueryService {
 
   async getEligibilityById(
     eligibilityId: number,
-    userId: number,
+    _userId: number,
     userRole: string,
   ): Promise<Record<string, unknown>> {
     const row = await requestRepository.findEligibilityById(eligibilityId);
     if (!row) {
       throw new Error("Eligibility not found");
     }
-    await this.ensureEligibilityReadAccess(row as Record<string, unknown>, userId, userRole);
+    await this.ensureEligibilityReadAccess(row as Record<string, unknown>, userRole);
 
     const requestId = (row as any).request_id
       ? Number((row as any).request_id)
@@ -519,9 +505,11 @@ export class RequestQueryService {
       if (userId === undefined || userId === null) {
         throw new Error("User ID is required for PTS_OFFICER");
       }
-      const requestRows = await requestRepository.findPendingByStepForOfficer(
+      const requestRows = await requestRepository.findPendingByStep(
         stepNo,
         userId,
+        "",
+        [],
       );
       return await hydrateRequests(requestRows as any[]);
     }
@@ -550,7 +538,7 @@ export class RequestQueryService {
     const view = options?.view ?? "team";
     const includeAllActions = options?.includeAllActions ?? false;
     const actions = includeAllActions
-      ? ["SUBMIT", "APPROVE", "REJECT", "RETURN", "CANCEL", "REASSIGN"]
+      ? ["SUBMIT", "APPROVE", "REJECT", "RETURN", "CANCEL"]
       : ["APPROVE", "REJECT", "RETURN"];
 
     if (view === "mine") {

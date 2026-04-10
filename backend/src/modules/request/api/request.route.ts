@@ -33,7 +33,6 @@ import {
   requestManualOcrSchema,
   requestOcrHistoryQuerySchema,
   requestRateMappingSchema,
-  requestReassignSchema,
   requestEligibilityManageSchema,
 } from "@/modules/request/dto/request-params.dto.js";
 import { UserRole } from "@/types/auth.js";
@@ -278,13 +277,6 @@ router.get(
   requestController.getOcrPrecheckHistory,
 );
 
-// Get list of available PTS_OFFICER users for reassignment
-router.get(
-  "/pts-officers",
-  restrictTo(UserRole.PTS_OFFICER),
-  requestController.getAvailableOfficers,
-);
-
 // Get request details by ID or request_no
 router.get(
   "/:id",
@@ -377,25 +369,5 @@ registerLegacyActionAlias("/:id/reject", requestController.rejectRequest);
 // Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
 // Controller delegates through shared action dispatcher for parity with `/:id/action`.
 registerLegacyActionAlias("/:id/return", requestController.returnRequest);
-
-/**
- * Reassign Routes
- * PTS_OFFICER only - transfer pending requests to another officer
- */
-
-// Reassign a request to another PTS_OFFICER
-router.post(
-  "/:id/reassign",
-  restrictTo(UserRole.PTS_OFFICER),
-  validate(requestReassignSchema),
-  requestController.reassignRequest,
-);
-
-// Get reassignment history for a request
-router.get(
-  "/:id/reassign-history",
-  validate(requestIdParamSchema),
-  requestController.getReassignHistory,
-);
 
 export default router;

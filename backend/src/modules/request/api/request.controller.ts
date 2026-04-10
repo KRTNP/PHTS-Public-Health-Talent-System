@@ -12,7 +12,6 @@ import { ApiResponse, UserRole } from "@/types/auth.js";
 import { requestQueryService } from "@/modules/request/read/services/query.service.js";
 import { requestCommandService } from "@/modules/request/services/command.service.js";
 import { requestApprovalService } from "@/modules/request/services/approval.service.js";
-import * as reassignService from "@/modules/request/reassign/application/reassign.service.js";
 import * as rateService from "@/modules/master-data/services/rate.service.js";
 
 import {
@@ -548,48 +547,6 @@ export class RequestController {
         comment,
       });
       res.json({ success: true, data: result });
-    },
-  );
-
-  // --- REASSIGN ---
-
-  reassignRequest = catchAsync(
-    async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
-      const requestId = parseInt(req.params.id);
-      const { target_officer_id, remark } = req.body;
-
-      await reassignService.reassignRequest(requestId, req.user.userId, {
-        targetOfficerId: target_officer_id,
-        reason: remark,
-      });
-
-      res.json({ success: true, message: "Request reassigned successfully" });
-    },
-  );
-
-  getReassignHistory = catchAsync(
-    async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
-      assertNotAdmin(req);
-      const requestId = parseInt(req.params.id);
-      await requestQueryService.getRequestById(
-        requestId,
-        req.user.userId,
-        req.user.role,
-      );
-      const history = await reassignService.getReassignmentHistory(requestId);
-      res.json({ success: true, data: history });
-    },
-  );
-
-  getAvailableOfficers = catchAsync(
-    async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
-      const officers = await reassignService.getAvailableOfficers(
-        req.user.userId,
-      );
-      res.json({ success: true, data: officers });
     },
   );
 

@@ -304,9 +304,6 @@ export default function LoginPage() {
 
               {/* Footer / Help */}
               <div className="text-center space-y-4 pt-2">
-                <a href="#" className="text-primary hover:text-primary/80 text-sm font-medium hover:underline">
-                  ลืมรหัสผ่าน?
-                </a>
                 <div className="text-xs text-muted-foreground px-4">
                   หากพบปัญหาในการใช้งาน กรุณาติดต่อกลุ่มงานทรัพยากรบุคคล <br/>
                   โทร. 055-xxx-xxx ต่อ 1234

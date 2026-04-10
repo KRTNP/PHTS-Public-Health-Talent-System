@@ -10,21 +10,6 @@ export interface MasterRate {
   condition_desc?: string | null;
 }
 
-export interface OfficerOption {
-  id: number;
-  name: string;
-  citizen_id: string;
-  workload: number;
-}
-
-export interface ReassignHistoryItem {
-  actionId: number;
-  actorId: number;
-  actorName: string;
-  reason?: string | null;
-  reassignedAt: string;
-}
-
 export interface PrefillProfile {
   citizen_id?: string;
   title?: string;

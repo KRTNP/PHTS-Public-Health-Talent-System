@@ -35,7 +35,6 @@ import {
   persistEligibilityManualOcrPrecheck,
   runEligibilityAttachmentsOcr,
   clearEligibilityAttachmentOcr,
-  getAvailableOfficers,
   confirmAttachments,
   updateRateMapping,
   updateVerificationChecks,
@@ -45,18 +44,14 @@ import {
   rejectRequest,
   returnRequest,
   approveBatch,
-  reassignRequest,
-  getReassignHistory,
 } from "./api";
 import type {
   EligibilityRecord,
   EligibilityPagedResult,
   EligibilitySummary,
   MasterRate,
-  OfficerOption,
   PersonnelOption,
   PrefillProfile,
-  ReassignHistoryItem,
   ScopeWithMembers,
 } from "./api";
 import type { RequestWithDetails } from "@/types/request.types";
@@ -465,14 +460,6 @@ export function useClearEligibilityAttachmentOcr() {
   });
 }
 
-export function useAvailableOfficers() {
-  return useQuery({
-    queryKey: ["available-officers"],
-    queryFn: getAvailableOfficers,
-    select: (data) => data as OfficerOption[],
-  });
-}
-
 export function useCreateRequest() {
   const qc = useQueryClient();
   return useMutation({
@@ -639,28 +626,5 @@ export function useApproveBatch() {
     mutationFn: (payload: { requestIds: number[]; comment?: string }) =>
       approveBatch(payload),
     onSuccess: () => invalidateNavigation(qc),
-  });
-}
-
-export function useReassignRequest() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number | string;
-      payload: { target_officer_id: number; remark?: string };
-    }) => reassignRequest(id, payload),
-    onSuccess: () => invalidateNavigation(qc),
-  });
-}
-
-export function useReassignHistory(id: number | string | undefined) {
-  return useQuery({
-    queryKey: ["reassign-history", id],
-    queryFn: () => getReassignHistory(id!),
-    enabled: !!id,
-    select: (data) => data as ReassignHistoryItem[],
   });
 }

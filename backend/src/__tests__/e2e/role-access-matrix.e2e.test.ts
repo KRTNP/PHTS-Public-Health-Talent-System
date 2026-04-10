@@ -311,11 +311,6 @@ describe("API role access matrix", () => {
       },
       {
         method: "post",
-        path: "/api/requests/100/reassign",
-        allowed: [UserRole.PTS_OFFICER],
-      },
-      {
-        method: "post",
         path: "/api/requests/100/verification-snapshot",
         allowed: [UserRole.PTS_OFFICER, UserRole.HEAD_HR],
       },

@@ -1,7 +1,6 @@
 import { requestController } from "@/modules/request/api/request.controller.js";
 import { requestRepository } from "@/modules/request/data/repositories/request.repository.js";
 import { requestQueryService } from "@/modules/request/read/services/query.service.js";
-import * as reassignService from "@/modules/request/reassign/application/reassign.service.js";
 import { requestCommandService } from "@/modules/request/services/command.service.js";
 import { requestApprovalService } from "@/modules/request/services/approval.service.js";
 import {
@@ -42,10 +41,6 @@ jest.mock("@/modules/request/data/repositories/request.repository.js", () => ({
     findEmployeeExists: jest.fn(),
     findUserCitizenId: jest.fn(),
   },
-}));
-
-jest.mock("@/modules/request/reassign/application/reassign.service.js", () => ({
-  getReassignmentHistory: jest.fn(),
 }));
 
 describe("request.controller", () => {
@@ -371,52 +366,6 @@ describe("request.controller", () => {
             people_with_alerts: 75,
           }),
         }),
-      });
-    });
-  });
-
-  describe("getReassignHistory", () => {
-    it("rejects ADMIN from request workflow history endpoint", async () => {
-      const req: any = {
-        params: { id: "123" },
-        user: makeUser({ userId: 1, role: "ADMIN" }),
-      };
-      const res: any = makeJsonRes();
-      const next = makeNext();
-
-      await (requestController.getReassignHistory as any)(req, res, next);
-
-      expect(next).toHaveBeenCalled();
-      const err = next.mock.calls[0][0];
-      expect(err?.message).toContain("ADMIN");
-    });
-
-    it("returns history for non-admin with access", async () => {
-      const req: any = {
-        params: { id: "123" },
-        user: makeUser({ userId: 10 }),
-      };
-      const res: any = makeJsonRes();
-      const next = makeNext();
-
-      (requestQueryService.getRequestById as jest.Mock).mockResolvedValue({
-        request_id: 123,
-      });
-      (reassignService.getReassignmentHistory as jest.Mock).mockResolvedValue([
-        { actionId: 1 },
-      ]);
-
-      await (requestController.getReassignHistory as any)(req, res, next);
-
-      expect(requestQueryService.getRequestById).toHaveBeenCalledWith(
-        123,
-        10,
-        "PTS_OFFICER",
-      );
-      expect(reassignService.getReassignmentHistory).toHaveBeenCalledWith(123);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        data: [{ actionId: 1 }],
       });
     });
   });

@@ -102,7 +102,7 @@ describe("RequestRepository (integration)", () => {
     expect((row as any).license_name).toBe("พยาบาลวิชาชีพ");
   });
 
-  test("findPendingByStepForOfficer returns assigned + unassigned", async () => {
+  test("findPendingByStep returns all pending requests in the target step", async () => {
     const conn = await getTestConnection();
     let officerId: number;
     try {
@@ -129,7 +129,7 @@ describe("RequestRepository (integration)", () => {
     }
 
     const repo = new RequestRepository();
-    const rows = await repo.findPendingByStepForOfficer(3, officerId);
+    const rows = await repo.findPendingByStep(3, officerId, "", []);
     expect(rows.length).toBe(2);
   });
 
