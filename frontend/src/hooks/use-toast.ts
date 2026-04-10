@@ -184,7 +184,7 @@ function useToast(): UseToastReturn {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+  }, [])
 
   return {
     ...state,
