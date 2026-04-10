@@ -32,11 +32,55 @@ import { AuthService } from "@/modules/auth/services/auth.service.js";
 import {
   getCurrentUser,
   login,
+  logout,
   updateCurrentUser,
 } from "@/modules/auth/api/auth.controller.js";
 import { AuthenticationError as ServiceAuthenticationError } from "@/modules/auth/services/auth.service.js";
 
 describe("auth controller", () => {
+  test("login sets httpOnly cookie and does not expose token in body", async () => {
+    const req: any = {
+      body: { citizen_id: "1234567890123", password: "correct-password" },
+      headers: {},
+      ip: "127.0.0.1",
+    };
+    const res: any = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      cookie: jest.fn(),
+    };
+
+    (AuthService.login as jest.Mock).mockResolvedValue({
+      token: "jwt-token-123",
+      user: {
+        id: 9,
+        citizen_id: "1234567890123",
+        role: "USER",
+        is_active: true,
+      },
+    });
+
+    await login(req, res);
+
+    expect(res.cookie).toHaveBeenCalledWith(
+      "phts_token",
+      "jwt-token-123",
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+      }),
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      user: expect.objectContaining({
+        id: 9,
+        citizen_id: "1234567890123",
+      }),
+    });
+  });
+
   test("login returns 401 for invalid credentials", async () => {
     const req: any = {
       body: { citizen_id: "1234567890123", password: "wrong-password" },
@@ -97,5 +141,28 @@ describe("auth controller", () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(next).toHaveBeenCalledWith(expect.any(NotFoundError));
+  });
+
+  test("logout clears auth cookie even when request has no authenticated user", async () => {
+    const req: any = { headers: {} };
+    const res: any = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      clearCookie: jest.fn(),
+    };
+    const next = jest.fn();
+
+    await logout(req, res, next);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      "phts_token",
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+      }),
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });
