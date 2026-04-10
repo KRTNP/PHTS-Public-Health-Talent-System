@@ -1,0 +1,102 @@
+name: DAST (OWASP ZAP Baseline)
+
+on:
+  pull_request:
+    branches: [main, dev]
+  schedule:
+    - cron: '30 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: dast-zap-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: phts_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    env:
+      NODE_ENV: test
+      TZ: Asia/Bangkok
+      PORT: 3001
+      FRONTEND_URL: http://localhost:3000
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rootpass
+      DB_NAME: phts_test
+      TEST_DB_NAME: phts_test
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      JWT_SECRET: ci-dast-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Prepare database schema
+        run: npm run db:setup --prefix backend
+
+      - name: Start backend
+        run: |
+          nohup npm run dev --prefix backend > /tmp/phts-backend.log 2>&1 &
+
+      - name: Wait for backend health
+        run: |
+          for i in {1..40}; do
+            if curl -fsS "http://127.0.0.1:3001/health" >/dev/null; then
+              echo "backend is ready";
+              exit 0;
+            fi
+            sleep 3;
+          done
+          echo "backend did not become healthy in time";
+          tail -n 200 /tmp/phts-backend.log || true
+          exit 1
+
+      - name: Run ZAP baseline scan
+        run: bash scripts/security/zap-baseline.sh http://127.0.0.1:3001 artifacts/zap
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: artifacts/zap/
+          if-no-files-found: warn
+
+      - name: Print backend logs (on failure)
+        if: failure()
+        run: tail -n 200 /tmp/phts-backend.log || true
