@@ -5,6 +5,7 @@ const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 type CsrfProtectionOptions = {
   isOriginAllowed: (origin: string) => boolean;
+  isTrustedNoOriginClient?: (req: Request) => boolean;
 };
 
 const getHeaderValue = (
@@ -31,6 +32,10 @@ export function createCsrfProtection(options: CsrfProtectionOptions) {
 
     const origin = getHeaderValue(req.headers.origin);
     if (!origin) {
+      if (options.isTrustedNoOriginClient?.(req)) {
+        next();
+        return;
+      }
       res.status(403).json({
         success: false,
         error: {

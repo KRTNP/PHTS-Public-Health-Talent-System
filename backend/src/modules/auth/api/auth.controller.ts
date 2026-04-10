@@ -45,6 +45,9 @@ const setAuthCookie = (
   });
 };
 
+const includeLegacyLoginToken = (): boolean =>
+  String(process.env.AUTH_LOGIN_INCLUDE_TOKEN || "").toLowerCase() === "true";
+
 const clearAuthCookie = (res: Response<ApiResponse>): void => {
   const isSecure = process.env.NODE_ENV === "production";
   res.clearCookie(TOKEN_COOKIE_KEY, {
@@ -75,10 +78,20 @@ export async function login(
     const result = await AuthService.login(citizen_id, password, requestInfo);
     setAuthCookie(res, result.token);
 
-    res.status(200).json({
+    const payload: LoginResponse = {
       success: true,
       user: result.user,
-    });
+    };
+
+    if (includeLegacyLoginToken()) {
+      payload.token = result.token;
+      res.setHeader(
+        "X-Deprecated-Auth-Mode",
+        "login-token-response; migrate to cookie session",
+      );
+    }
+
+    res.status(200).json(payload);
   } catch (error) {
     if (error instanceof InvalidCitizenIdError) {
       res.status(400).json({

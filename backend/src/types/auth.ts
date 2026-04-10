@@ -90,6 +90,7 @@ export interface UserProfile {
 export interface LoginResponse {
   success: boolean;
   user: UserProfile;
+  token?: string;
 }
 
 /**

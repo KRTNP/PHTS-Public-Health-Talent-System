@@ -56,6 +56,24 @@ describe("createCsrfProtection", () => {
     );
   });
 
+  it("allows trusted no-origin clients when explicitly configured", () => {
+    const next = jest.fn();
+    const req = makeReq({
+      headers: { cookie: "phts_token=abc", "x-client-id": "trusted-sync" },
+    });
+    const res = makeRes();
+    const middleware = createCsrfProtection({
+      isOriginAllowed: () => true,
+      isTrustedNoOriginClient: (request) =>
+        request.headers["x-client-id"] === "trusted-sync",
+    });
+
+    middleware(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
   it("blocks cookie-authenticated requests from forbidden origin", () => {
     const next = jest.fn();
     const req = makeReq({

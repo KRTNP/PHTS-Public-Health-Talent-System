@@ -91,6 +91,17 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       };
     })
     .filter((rule): rule is { isPrefix: boolean; path: string; methods: Set<string> | null } => Boolean(rule));
+  const csrfTrustedClientHeader = String(
+    process.env.CSRF_TRUSTED_CLIENT_HEADER || "x-client-id",
+  )
+    .trim()
+    .toLowerCase();
+  const csrfTrustedClientIds = (
+    process.env.CSRF_TRUSTED_CLIENT_IDS || ""
+  )
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
 
   const isOriginAllowed = (origin: string): boolean => {
     const normalizedOrigin = origin.trim();
@@ -355,7 +366,28 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
   });
 
   app.use("/api", apiRateLimiter, tokenBlacklistMiddleware);
-  app.use("/api", createCsrfProtection({ isOriginAllowed }));
+  app.use(
+    "/api",
+    createCsrfProtection({
+      isOriginAllowed,
+      isTrustedNoOriginClient: (req) => {
+        if (!csrfTrustedClientHeader || csrfTrustedClientIds.length === 0) {
+          return false;
+        }
+        const headerValueRaw = req.headers[csrfTrustedClientHeader];
+        const headerValue =
+          typeof headerValueRaw === "string"
+            ? headerValueRaw.trim()
+            : Array.isArray(headerValueRaw)
+              ? String(headerValueRaw[0] ?? "").trim()
+              : "";
+        return (
+          Boolean(headerValue) &&
+          csrfTrustedClientIds.includes(headerValue)
+        );
+      },
+    }),
+  );
   app.use("/api/auth", authRoutes);
   app.use("/api/requests", requestRoutes);
   app.use("/api/signatures", signatureRoutes);
