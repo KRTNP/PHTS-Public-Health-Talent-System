@@ -30,12 +30,27 @@ import { isMaintenanceModeEnabled } from "@/modules/system/services/maintenance.
 import { errorHandler, notFoundHandler } from "@middlewares/errorHandler.js";
 import { apiRateLimiter, securityRateLimiter } from "@middlewares/rateLimiter.js";
 import { protect } from "@middlewares/authMiddleware.js";
+import { createCsrfProtection } from "@middlewares/csrfProtection.js";
 import { tokenBlacklistMiddleware } from "@middlewares/tokenBlacklistMiddleware.js";
 import { authorizeUploadAccess } from "@middlewares/uploadAccessMiddleware.js";
+import { sanitizeUrlForLogs } from "@shared/utils/log-sanitizer.js";
 
 export const createConfiguredApp = (nodeEnv: string): Application => {
   const app: Application = express();
   app.disable("x-powered-by");
+
+  const trustProxyRaw = String(process.env.TRUST_PROXY || "").trim();
+  if (trustProxyRaw) {
+    if (trustProxyRaw.toLowerCase() === "true") {
+      app.set("trust proxy", true);
+    } else if (trustProxyRaw.toLowerCase() === "false") {
+      app.set("trust proxy", false);
+    } else if (/^\d+$/.test(trustProxyRaw)) {
+      app.set("trust proxy", Number(trustProxyRaw));
+    } else {
+      app.set("trust proxy", trustProxyRaw);
+    }
+  }
 
   const envOrigins = (process.env.FRONTEND_URL || "")
     .split(",")
@@ -294,11 +309,12 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     next();
   });
 
-  if (nodeEnv === "production") {
-    app.use(morgan("combined"));
-  } else {
-    app.use(morgan("dev"));
-  }
+  morgan.token("sanitized-url", (req) => sanitizeUrlForLogs(req.url || "/"));
+  const morganFormat =
+    nodeEnv === "production"
+      ? ':remote-addr :method :sanitized-url :status :res[content-length] - :response-time ms'
+      : ":method :sanitized-url :status :response-time ms";
+  app.use(morgan(morganFormat));
 
   app.use(initializePassport());
 
@@ -339,6 +355,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
   });
 
   app.use("/api", apiRateLimiter, tokenBlacklistMiddleware);
+  app.use("/api", createCsrfProtection({ isOriginAllowed }));
   app.use("/api/auth", authRoutes);
   app.use("/api/requests", requestRoutes);
   app.use("/api/signatures", signatureRoutes);

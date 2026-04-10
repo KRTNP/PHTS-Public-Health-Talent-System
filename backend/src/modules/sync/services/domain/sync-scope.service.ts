@@ -4,6 +4,7 @@ import {
   DB_HEAD_SCOPE_ROLE_DEPT,
   DB_HEAD_SCOPE_ROLE_WARD,
 } from "@/shared/utils/head-scope-category.js";
+import { maskIdentifierForLogs } from "@shared/utils/log-sanitizer.js";
 
 export const buildScopesFromSpecialPosition = (
   specialPosition: string | null,
@@ -123,7 +124,7 @@ export const syncSpecialPositionScopes = async (
 
     if (scopes.wardScopes.length === 0 && scopes.deptScopes.length === 0) {
       console.warn(
-        `[SyncService] special_position parse failed: citizen_id=${citizenId}, special_position="${specialPosition ?? ""}"`,
+        `[SyncService] special_position parse failed: citizen_id=${maskIdentifierForLogs(citizenId)}, special_position="${specialPosition ?? ""}"`,
       );
       continue;
     }

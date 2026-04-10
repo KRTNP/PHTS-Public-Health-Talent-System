@@ -7,6 +7,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import Logger from "@shared/utils/logger.js";
+import { sanitizeUrlForLogs } from "@shared/utils/log-sanitizer.js";
 
 const logger = Logger.create("HTTP");
 
@@ -21,6 +22,7 @@ export const loggingMiddleware = (
 ) => {
   const startTime = Date.now();
   const requestId = (req as any).requestId || "unknown";
+  const sanitizedPath = sanitizeUrlForLogs(req.originalUrl);
 
   // Capture the original res.json method
   const originalJson = res.json;
@@ -31,7 +33,7 @@ export const loggingMiddleware = (
     const statusCode = res.statusCode;
 
     // Log the request/response
-    logger.logRequest(req.method, req.originalUrl, statusCode, duration, {
+    logger.logRequest(req.method, sanitizedPath, statusCode, duration, {
       requestId,
       userId: (req as any).user?.userId,
     });
@@ -55,12 +57,13 @@ export const errorLoggingMiddleware = (
   next: NextFunction,
 ) => {
   const requestId = (req as any).requestId || "unknown";
+  const sanitizedPath = sanitizeUrlForLogs(req.originalUrl);
 
-  logger.error(`Request error: ${req.method} ${req.originalUrl}`, err, {
+  logger.error(`Request error: ${req.method} ${sanitizedPath}`, err, {
     requestId,
     userId: (req as any).user?.userId,
     method: req.method,
-    path: req.originalUrl,
+    path: sanitizedPath,
   });
 
   // Pass error to next middleware

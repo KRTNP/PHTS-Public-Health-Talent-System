@@ -8,7 +8,7 @@
 
 import { Router } from "express";
 import * as authController from "@/modules/auth/api/auth.controller.js";
-import { protect } from "@middlewares/authMiddleware.js";
+import { optionalAuth, protect } from "@middlewares/authMiddleware.js";
 import {
   authProbeRateLimiter,
   authRateLimiter,
@@ -23,10 +23,10 @@ const router = Router();
 
 /**
  * @route   POST /api/auth/login
- * @desc    Authenticate user and return JWT token
+ * @desc    Authenticate user and set HttpOnly JWT cookie
  * @access  Public
  * @body    { citizen_id: string, password: string }
- * @returns { success: boolean, token: string, user: UserProfile }
+ * @returns { success: boolean, user: UserProfile }
  */
 router.post(
   "/login",
@@ -61,9 +61,9 @@ router.patch(
 /**
  * @route   POST /api/auth/logout
  * @desc    Logout user (client-side token removal)
- * @access  Protected
+ * @access  Optional auth
  * @returns { success: boolean, message: string }
  */
-router.post("/logout", protect, authController.logout);
+router.post("/logout", optionalAuth, authController.logout);
 
 export default router;
