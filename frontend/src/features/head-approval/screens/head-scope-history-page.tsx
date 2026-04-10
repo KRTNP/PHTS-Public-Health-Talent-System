@@ -25,7 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useApprovalHistory } from '@/features/request/core/hooks';
 import { TableRowViewAction } from '@/components/common';
-import { mapRequestToFormData } from '@/features/request/create/hooks/request-form-mapper';
+import { mapRequestToFormData } from '@/features/request/create/hooks/requestFormMapper';
 import type { RequestWithDetails, ApprovalAction } from '@/types/request.types';
 import { STATUS_LABELS } from '@/types/request.types';
 import { formatThaiDateTime } from '@/shared/utils/thai-locale';
