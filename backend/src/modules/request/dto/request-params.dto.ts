@@ -178,10 +178,3 @@ export const requestEligibilityManageSchema = z.object({
     .optional()
     .default({}),
 });
-
-export const requestApproveBatchSchema = z.object({
-  body: z.object({
-    requestIds: z.array(z.coerce.number().int()).min(1),
-    comment: z.string().max(1000).optional(),
-  }),
-});

@@ -1,7 +1,7 @@
 /**
  * Request Module - Approval Service
  *
- * Approval workflow operations: approve, reject, return, batch approve
+ * Approval workflow operations: approve, reject, return
  */
 import { PoolConnection } from "mysql2/promise";
 import { getConnection } from "@config/database.js";
@@ -10,12 +10,7 @@ import {
   ActionType,
   PTSRequest,
   STEP_ROLE_MAP,
-  ROLE_STEP_MAP,
 } from "@/modules/request/contracts/request.types.js";
-import {
-  BatchApproveParams,
-  BatchApproveResult,
-} from "@/modules/request/dto/index.js";
 import { NotificationService } from "@/modules/notification/services/notification.service.js";
 import {
   mapRequestRow,
@@ -107,118 +102,6 @@ const finalizeRequest = async (
 // ============================================================================
 
 export class RequestApprovalService {
-  private resolveAllowedSteps(actorRole: string): number[] {
-    const expectedStep = ROLE_STEP_MAP[actorRole as keyof typeof ROLE_STEP_MAP];
-    if (actorRole === "DIRECTOR") {
-      return [5, 6];
-    }
-    if (expectedStep !== undefined) {
-      return [expectedStep];
-    }
-    return [];
-  }
-
-  private async getApproverSignature(
-    actorId: number,
-    connection: PoolConnection,
-  ): Promise<Buffer> {
-    const actorCitizenId =
-      (await requestRepository.findCitizenIdByUserId(actorId)) ??
-      (await requestRepository.findUserCitizenId(actorId));
-    const signatureSnapshot = actorCitizenId
-      ? await requestRepository.findSignatureSnapshot(
-          actorCitizenId,
-          connection,
-        )
-      : null;
-    if (!signatureSnapshot) {
-      throw new Error(
-        "ต้องมีลายเซ็นผู้อนุมัติก่อนดำเนินการ กรุณาตั้งค่าลายเซ็นก่อนอนุมัติ",
-      );
-    }
-    return signatureSnapshot;
-  }
-
-  private async processBatchRequest(
-    connection: PoolConnection,
-    params: {
-      requestId: number;
-      actorId: number;
-      actorRole: string;
-      allowedSteps: number[];
-      comment: string | undefined;
-      signatureSnapshot: Buffer;
-      result: BatchApproveResult;
-    },
-  ): Promise<void> {
-    const {
-      requestId,
-      actorId,
-      actorRole,
-      allowedSteps,
-      comment,
-      signatureSnapshot,
-      result,
-    } = params;
-    const requestEntity = await requestRepository.findById(
-      requestId,
-      connection,
-    );
-    if (!requestEntity) {
-      await connection.rollback();
-      result.failed.push({ id: requestId, reason: "Request not found" });
-      return;
-    }
-
-    const request = mapRequestRow(requestEntity);
-    if (!allowedSteps.includes(request.current_step)) {
-      await connection.rollback();
-      result.failed.push({
-        id: requestId,
-        reason: `Not at allowed step (${allowedSteps.join("/")}) (currently at Step ${request.current_step})`,
-      });
-      return;
-    }
-
-    if (request.status !== RequestStatus.PENDING) {
-      await connection.rollback();
-      result.failed.push({
-        id: requestId,
-        reason: `Status is ${request.status}, not PENDING`,
-      });
-      return;
-    }
-
-    await this.performApproval(
-      connection,
-      request,
-      requestId,
-      actorId,
-      comment || null,
-      signatureSnapshot,
-    );
-
-    await emitAuditEvent(
-      {
-        eventType: AuditEventType.REQUEST_APPROVE,
-        entityType: "request",
-        entityId: requestId,
-        actorId: actorId,
-        actorRole: actorRole,
-        actionDetail: {
-          request_no: request.request_no,
-          step: request.current_step,
-          comment: comment || null,
-          batch: true,
-        },
-      },
-      connection,
-    );
-
-    await connection.commit();
-    result.success.push(requestId);
-  }
-
   private async finalizeApprovedRequest(
     connection: PoolConnection,
     request: PTSRequest,
@@ -664,66 +547,6 @@ export class RequestApprovalService {
     } catch (error) {
       await connection.rollback();
       throw error;
-    } finally {
-      connection.release();
-    }
-  }
-
-  // ============================================================================
-  // Batch Approve (DIRECTOR)
-  // ============================================================================
-
-  async approveBatch(
-    actorId: number,
-    actorRole: string,
-    params: BatchApproveParams,
-  ): Promise<BatchApproveResult> {
-    const { requestIds, comment } = params;
-    const result: BatchApproveResult = { success: [], failed: [] };
-
-    const allowedSteps = this.resolveAllowedSteps(actorRole);
-
-    if (
-      allowedSteps.length === 0 ||
-      !allowedSteps.some((s) => s === 5 || s === 6)
-    ) {
-      throw new Error(`Batch approval not supported for role: ${actorRole}`);
-    }
-
-    const connection = await getConnection();
-
-    try {
-      const signatureSnapshot = await this.getApproverSignature(
-        actorId,
-        connection,
-      );
-
-      for (const requestId of requestIds) {
-        try {
-          await connection.beginTransaction();
-          await this.processBatchRequest(connection, {
-            requestId,
-            actorId,
-            actorRole,
-            allowedSteps,
-            comment,
-            signatureSnapshot,
-            result,
-          });
-        } catch (err) {
-          await connection.rollback();
-          console.error("Error processing request in batch", {
-            requestId,
-            error: err instanceof Error ? err.message : err,
-          });
-          result.failed.push({
-            id: requestId,
-            reason: "Database error or Finalization failed",
-          });
-        }
-      }
-
-      return result;
     } finally {
       connection.release();
     }

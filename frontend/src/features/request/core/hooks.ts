@@ -9,13 +9,10 @@ import { useAuth } from "@/components/providers/auth-provider";
 import {
   getMyRequests,
   getRequestById,
-  createRequest,
-  updateRequest,
   uploadEligibilityAttachments,
   deleteEligibilityAttachment,
   submitRequest,
   cancelRequest,
-  getMasterRates,
   getEligibilityById,
   getEligibilityList,
   getEligibilityPaged,
@@ -29,27 +26,17 @@ import {
   getMyScopeMembers,
   getPendingApprovals,
   getApprovalHistory,
-  persistManualOcrPrecheck,
   runRequestAttachmentsOcr,
   clearRequestAttachmentOcr,
-  persistEligibilityManualOcrPrecheck,
   runEligibilityAttachmentsOcr,
   clearEligibilityAttachmentOcr,
-  confirmAttachments,
-  updateRateMapping,
-  updateVerificationChecks,
   createVerificationSnapshot,
   processAction,
-  approveRequest,
-  rejectRequest,
-  returnRequest,
-  approveBatch,
 } from "./api";
 import type {
   EligibilityRecord,
   EligibilityPagedResult,
   EligibilitySummary,
-  MasterRate,
   PersonnelOption,
   PrefillProfile,
   ScopeWithMembers,
@@ -88,14 +75,6 @@ export function useRequestDetail(id: number | string | undefined) {
       }
       return failureCount < 2;
     },
-  });
-}
-
-export function useMasterRates() {
-  return useQuery({
-    queryKey: ["request-master-rates"],
-    queryFn: getMasterRates,
-    select: (data) => data as MasterRate[],
   });
 }
 
@@ -313,34 +292,6 @@ export function useApprovalHistory(params?: {
   });
 }
 
-export function usePersistManualOcrPrecheck() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number | string;
-      payload: {
-        worker?: string;
-        count?: number;
-        success_count?: number;
-        failed_count?: number;
-        error?: string | null;
-        results?: Array<{
-          name?: string;
-          ok?: boolean;
-          markdown?: string;
-          error?: string;
-        }>;
-      };
-    }) => persistManualOcrPrecheck(id, payload),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ["request", String(variables.id)] });
-    },
-  });
-}
-
 export function useRunRequestAttachmentsOcr() {
   const qc = useQueryClient();
   return useMutation({
@@ -375,44 +326,6 @@ export function useClearRequestAttachmentOcr() {
     }) => clearRequestAttachmentOcr(requestId, payload),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["request", String(variables.requestId)] });
-    },
-  });
-}
-
-export function usePersistEligibilityManualOcrPrecheck() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number | string;
-      payload: {
-        worker?: string;
-        count?: number;
-        success_count?: number;
-        failed_count?: number;
-        error?: string | null;
-        results?: Array<{
-          name?: string;
-          ok?: boolean;
-          markdown?: string;
-          error?: string;
-          document_kind?: string;
-          fields?: Record<string, unknown>;
-          missing_fields?: string[];
-          quality?: {
-            required_fields?: number;
-            captured_fields?: number;
-            passed?: boolean;
-          };
-        }>;
-      };
-    }) => persistEligibilityManualOcrPrecheck(id, payload),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ["eligibility-detail", String(variables.id)] });
-      qc.invalidateQueries({ queryKey: ["eligibility-paged"] });
-      qc.invalidateQueries({ queryKey: ["eligibility-summary"] });
     },
   });
 }
@@ -460,35 +373,6 @@ export function useClearEligibilityAttachmentOcr() {
   });
 }
 
-export function useCreateRequest() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: createRequest,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["my-requests"] });
-      invalidateNavigation(qc);
-    },
-  });
-}
-
-export function useUpdateRequest() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      formData,
-    }: {
-      id: number | string;
-      formData: FormData;
-    }) => updateRequest(id, formData),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: ["my-requests"] });
-      qc.invalidateQueries({ queryKey: ["request", String(variables.id)] });
-      invalidateNavigation(qc);
-    },
-  });
-}
-
 export function useSubmitRequest() {
   const qc = useQueryClient();
   return useMutation({
@@ -510,40 +394,6 @@ export function useCancelRequest() {
       qc.invalidateQueries({ queryKey: ["request", String(id)] });
       invalidateNavigation(qc);
     },
-  });
-}
-
-export function useConfirmAttachments() {
-  return useMutation({
-    mutationFn: (id: number | string) => confirmAttachments(id),
-  });
-}
-
-export function useUpdateRateMapping() {
-  return useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number | string;
-      payload: {
-        group_no: number;
-        item_no: string | null;
-        sub_item_no?: string | null;
-      };
-    }) => updateRateMapping(id, payload),
-  });
-}
-
-export function useUpdateVerificationChecks() {
-  return useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number | string;
-      payload: { qualification_ok: boolean; evidence_ok: boolean };
-    }) => updateVerificationChecks(id, payload),
   });
 }
 
@@ -583,48 +433,5 @@ export function useProcessAction() {
       qc.invalidateQueries({ queryKey: ["request", String(variables.id)] });
       invalidateNavigation(qc);
     },
-  });
-}
-
-export function useApproveRequest() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      comment,
-      signature_base64,
-    }: {
-      id: number | string;
-      comment?: string;
-      signature_base64?: string;
-    }) => approveRequest(id, comment, signature_base64),
-    onSuccess: () => invalidateNavigation(qc),
-  });
-}
-
-export function useRejectRequest() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, comment }: { id: number | string; comment?: string }) =>
-      rejectRequest(id, comment),
-    onSuccess: () => invalidateNavigation(qc),
-  });
-}
-
-export function useReturnRequest() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, comment }: { id: number | string; comment?: string }) =>
-      returnRequest(id, comment),
-    onSuccess: () => invalidateNavigation(qc),
-  });
-}
-
-export function useApproveBatch() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: { requestIds: number[]; comment?: string }) =>
-      approveBatch(payload),
-    onSuccess: () => invalidateNavigation(qc),
   });
 }

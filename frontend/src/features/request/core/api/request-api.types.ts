@@ -1,15 +1,5 @@
 import type { DisplayScope } from "../utils";
 
-export interface MasterRate {
-  rate_id: number;
-  group_no: number;
-  item_no: string | number | null;
-  sub_item_no?: string | number | null;
-  amount: number;
-  profession_code: string;
-  condition_desc?: string | null;
-}
-
 export interface PrefillProfile {
   citizen_id?: string;
   title?: string;

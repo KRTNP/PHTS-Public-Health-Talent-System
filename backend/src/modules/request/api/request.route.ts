@@ -6,7 +6,7 @@
  * Date: 2025-12-30
  */
 
-import { RequestHandler, Router } from "express";
+import { Router } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { idempotency } from "@middlewares/idempotency.js";
 import { requestUpload } from "@config/upload.js";
@@ -24,7 +24,6 @@ import {
   requestEligibilityOcrClearSchema,
   requestAttachmentOcrSchema,
   requestOcrClearSchema,
-  requestApproveBatchSchema,
   requestEligibilityIdParamSchema,
   requestEligibilityQuerySchema,
   requestHistoryQuerySchema,
@@ -47,42 +46,16 @@ const requestActionRoles = [
   UserRole.DIRECTOR,
   UserRole.HEAD_FINANCE,
 ] as const;
-
-const registerLegacyActionAlias = (
-  path: "/:id/approve" | "/:id/reject" | "/:id/return",
-  handler: RequestHandler,
-) => {
-  router.post(
-    path,
-    restrictTo(...requestActionRoles),
-    validate(requestIdParamSchema),
-    handler,
-  );
-};
-
 /**
  * All routes require authentication
  */
 router.use(protect);
 
 /**
- * Batch Approval Route
- * DIRECTOR only - must be before /:id routes to avoid conflicts
- */
-router.post(
-  "/batch-approve",
-  restrictTo(UserRole.DIRECTOR),
-  validate(requestApproveBatchSchema),
-  requestController.approveBatch,
-);
-
-/**
  * User Routes
  * Available to all authenticated users
  */
 
-// Master rates and recommended rate
-router.get("/master-rates", requestController.getMasterRates);
 router.get("/prefill", requestController.getPrefill);
 router.get(
   "/personnel-options",
@@ -328,8 +301,6 @@ router.post(
 );
 
 // Canonical action endpoint (APPROVE / REJECT / RETURN).
-// Legacy endpoints below are compatibility aliases and should not gain new behavior.
-// Delegation parity is locked by controller parity tests and dispatcher helper tests.
 router.post(
   "/:id/action",
   restrictTo(...requestActionRoles),
@@ -345,29 +316,5 @@ router.post(
   validate(requestIdParamSchema),
   requestController.submitRequest,
 );
-
-/**
- * Approver Routes
- * Restricted to users with approval roles
- */
-// Phase 7 note:
-// Legacy action endpoints are retained because frontend still contains direct callers
-// (see `frontend/src/features/request/core/api.ts`).
-// Keep these as compatibility aliases only.
-
-// Compatibility endpoint: kept for existing clients.
-// Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
-// Controller delegates through shared action dispatcher for parity with `/:id/action`.
-registerLegacyActionAlias("/:id/approve", requestController.approveRequest);
-
-// Compatibility endpoint: kept for existing clients.
-// Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
-// Controller delegates through shared action dispatcher for parity with `/:id/action`.
-registerLegacyActionAlias("/:id/reject", requestController.rejectRequest);
-
-// Compatibility endpoint: kept for existing clients.
-// Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
-// Controller delegates through shared action dispatcher for parity with `/:id/action`.
-registerLegacyActionAlias("/:id/return", requestController.returnRequest);
 
 export default router;

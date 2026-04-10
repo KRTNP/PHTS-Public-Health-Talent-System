@@ -12,16 +12,6 @@ Mounted under `/api/requests`.
 Canonical action endpoint:
 - `POST /:id/action` with `{ action: APPROVE|REJECT|RETURN, ... }`
 
-Legacy compatibility endpoints:
-- `POST /:id/approve`
-- `POST /:id/reject`
-- `POST /:id/return`
-
-Current policy:
-- keep legacy endpoints for compatibility
-- all action behavior must remain parity-aligned with `/:id/action`
-- canonical and legacy action handlers should use the same action dispatch helper
-
 ## Canonical File Locations
 - Route: `api/request.route.ts`
 - Controller: `api/request.controller.ts`
@@ -40,7 +30,7 @@ To reduce controller clutter without behavior changes:
 ## Additional Thin Extractions Added in Phase 5
 - `api/helpers/request-action-dispatcher.helper.ts`
   - central action delegation for `APPROVE` / `REJECT` / `RETURN`
-  - keeps unified and legacy action handlers aligned through one dispatch path
+  - keeps canonical action handling through one dispatch path
 - `api/helpers/request-upload-files.helper.ts`
   - shared request upload file collection for create/update flows
 
@@ -64,45 +54,9 @@ To reduce controller clutter without behavior changes:
     - scope-permission check reuse
   - reduced repeated logic across `approveRequest` / `rejectRequest` / `returnRequest`
 
-## Additional Thin Cleanup Added in Phase 8
-- `api/request.route.ts`
-  - introduced shared `requestActionRoles` and one legacy alias-registration helper
-  - reduced repeated legacy route wiring for:
-    - `POST /:id/approve`
-    - `POST /:id/reject`
-    - `POST /:id/return`
-  - preserved canonical ownership of `POST /:id/action`
-  - preserved shared dispatch parity path between canonical and legacy action surfaces
-
-## Legacy Endpoint Deprecation Notes
-Canonical endpoint for request actions is `POST /:id/action`.
-
-Legacy endpoints remain temporary compatibility surface and must not diverge.
-Removal conditions for a later phase (Phase 6+):
-1. usage verification shows no active legacy consumers (or consumers migrated)
-2. parity tests for unified/legacy action delegation and shared dispatcher remain green
-3. compatibility window and release notes are completed
-
-Phase 7 decision:
-- Legacy endpoints are retained because repo inspection shows active frontend callers in
-  `frontend/src/features/request/core/api.ts`.
-- Canonical endpoint ownership remains `POST /:id/action`.
-- Legacy endpoints must stay alias-only and delegate via shared dispatcher path.
-
-Phase 8 update:
-- Legacy endpoints are still retained after a fresh usage scan because frontend and tests
-  continue to reference them.
-- Legacy wiring in route registration is now centralized to reduce drift risk while compatibility remains.
-
-Phase 9 update:
-- Legacy endpoints remain retained after another usage scan confirmed active frontend usage.
-- Internal route-to-controller import now points to canonical `api/request.controller.ts` to reduce
-  shim dependence inside module wiring.
-
-Phase 10 update:
-- Legacy action endpoints remain retained after fresh usage evidence still shows active frontend hooks
-  and backend/e2e test coverage.
-- Canonical endpoint ownership remains `POST /:id/action`; legacy routes stay compatibility aliases only.
+## Action Endpoint Notes
+- Canonical endpoint for request actions is `POST /:id/action`.
+- Non-canonical action aliases and batch-approve compatibility routes were removed.
 
 ## Guardrails For Contributors
 - Keep HTTP wiring in `api/` files.
@@ -112,5 +66,4 @@ Phase 10 update:
 
 ## Deferred To Later Phases
 - deeper decomposition of large request controller/service flows
-- endpoint surface consolidation after deprecation window
 - broader folder cleanup across request subdomains (`data/read/scope`)

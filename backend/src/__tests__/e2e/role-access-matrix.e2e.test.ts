@@ -262,45 +262,7 @@ describe("API role access matrix", () => {
       },
       {
         method: "post",
-        path: "/api/requests/batch-approve",
-        allowed: [UserRole.DIRECTOR],
-      },
-      {
-        method: "post",
-        path: "/api/requests/100/approve",
-        allowed: [
-          UserRole.HEAD_SCOPE,
-          UserRole.PTS_OFFICER,
-          UserRole.HEAD_HR,
-          UserRole.HEAD_FINANCE,
-          UserRole.DIRECTOR,
-        ],
-      },
-      {
-        method: "post",
         path: "/api/requests/100/action",
-        allowed: [
-          UserRole.HEAD_SCOPE,
-          UserRole.PTS_OFFICER,
-          UserRole.HEAD_HR,
-          UserRole.HEAD_FINANCE,
-          UserRole.DIRECTOR,
-        ],
-      },
-      {
-        method: "post",
-        path: "/api/requests/100/reject",
-        allowed: [
-          UserRole.HEAD_SCOPE,
-          UserRole.PTS_OFFICER,
-          UserRole.HEAD_HR,
-          UserRole.HEAD_FINANCE,
-          UserRole.DIRECTOR,
-        ],
-      },
-      {
-        method: "post",
-        path: "/api/requests/100/return",
         allowed: [
           UserRole.HEAD_SCOPE,
           UserRole.PTS_OFFICER,
