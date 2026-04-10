@@ -499,6 +499,60 @@ export class RequestController {
     },
   );
 
+  batchApproveCompat = catchAsync(
+    async (req: Request, res: Response<ApiResponse>) => {
+      if (!req.user) throw new AuthenticationError("Unauthorized access");
+      const requestIds = Array.isArray(req.body?.request_ids)
+        ? (req.body.request_ids as unknown[])
+            .map((id) => Number(id))
+            .filter((id) => Number.isInteger(id) && id > 0)
+        : [];
+
+      if (requestIds.length === 0) {
+        throw new ValidationError("request_ids must include at least one id");
+      }
+
+      const comment =
+        typeof req.body?.comment === "string" ? req.body.comment : undefined;
+      const signatureBase64 =
+        typeof req.body?.signature_base64 === "string"
+          ? req.body.signature_base64
+          : undefined;
+
+      const succeeded: number[] = [];
+      const failed: Array<{ request_id: number; error: string }> = [];
+
+      for (const requestId of requestIds) {
+        try {
+          await dispatchRequestAction({
+            action: "APPROVE",
+            requestId,
+            userId: req.user.userId,
+            userRole: req.user.role,
+            comment,
+            signatureBase64,
+          });
+          succeeded.push(requestId);
+        } catch (error) {
+          const message =
+            error instanceof Error && error.message
+              ? error.message
+              : "Unknown error";
+          failed.push({ request_id: requestId, error: message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          total: requestIds.length,
+          succeeded,
+          failed,
+        },
+      });
+    },
+  );
+
   // --- OTHER ---
 
   getPrefill = catchAsync(async (req: Request, res: Response<ApiResponse>) => {

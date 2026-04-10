@@ -57,6 +57,12 @@ To reduce controller clutter without behavior changes:
 ## Action Endpoint Notes
 - Canonical endpoint for request actions is `POST /:id/action`.
 - Non-canonical action aliases and batch-approve compatibility routes were removed.
+- Temporary compatibility mode can be re-enabled via
+  `REQUEST_ENABLE_LEGACY_ACTION_ENDPOINTS=true` to expose:
+  - `POST /:id/approve`
+  - `POST /:id/reject`
+  - `POST /:id/return`
+  - `POST /batch-approve`
 
 ## Guardrails For Contributors
 - Keep HTTP wiring in `api/` files.

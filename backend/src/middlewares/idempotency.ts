@@ -28,6 +28,39 @@ const stableStringify = (value: unknown) => {
   }
 };
 
+type MulterFileLike = {
+  fieldname?: string;
+  originalname?: string;
+  size?: number;
+  mimetype?: string;
+};
+
+const toMulterFileList = (files: unknown): MulterFileLike[] => {
+  if (!files) return [];
+  if (Array.isArray(files)) return files as MulterFileLike[];
+  if (typeof files !== "object") return [];
+
+  return Object.values(files as Record<string, unknown>).flatMap((entry) =>
+    Array.isArray(entry) ? (entry as MulterFileLike[]) : [],
+  );
+};
+
+const buildRequestFingerprint = (req: Request): string => {
+  const fileFingerprints = toMulterFileList(
+    (req as Request & { files?: unknown }).files,
+  ).map((file) => ({
+    field: String(file.fieldname ?? ""),
+    name: String(file.originalname ?? ""),
+    size: Number(file.size ?? 0),
+    type: String(file.mimetype ?? ""),
+  }));
+
+  return stableStringify({
+    body: req.body ?? null,
+    files: fileFingerprints,
+  });
+};
+
 export function idempotency(ttlSeconds: number = DEFAULT_TTL_SECONDS) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const rawKey = req.header(IDEM_HEADER);
@@ -44,7 +77,7 @@ export function idempotency(ttlSeconds: number = DEFAULT_TTL_SECONDS) {
     const cacheKey = buildKey(req, key);
     const lockKey = buildLockKey(cacheKey);
 
-    const requestHash = stableStringify(req.body);
+    const requestHash = buildRequestFingerprint(req);
 
     try {
       const cached = await redis.get(cacheKey);
