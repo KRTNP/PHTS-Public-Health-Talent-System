@@ -1,6 +1,6 @@
 import type {
   RequestApprovalDetailComputed,
-  RequestApprovalDetailConfig,
+  RequestApprovalDetailCoreConfig,
 } from "./requestApprovalDetail.types";
 
 const DEFAULT_HISTORY_BACK_LABEL = "ประวัติการอนุมัติ";
@@ -11,7 +11,7 @@ function createFixedPendingStepCanAct(step: number) {
     !isHistoryView && request?.status === "PENDING" && request?.current_step === step;
 }
 
-function createRoleConfig(basePath: string, step: number): RequestApprovalDetailConfig {
+function createRoleConfig(basePath: string, step: number): RequestApprovalDetailCoreConfig {
   return {
     backHref: (isHistoryView) =>
       isHistoryView ? `${basePath}/history` : `${basePath}/requests`,

@@ -66,6 +66,30 @@ type UseRequestApprovalDetailComputedParams = {
   isHistoryView: boolean;
 };
 
+type SubmissionFields = {
+  submissionTitle?: string;
+  submissionFirstName?: string;
+  submissionLastName?: string;
+  submissionPositionName?: string;
+  submissionDepartment?: string;
+  submissionSubDepartment?: string;
+  submissionPositionNumber?: string;
+};
+
+function deriveSubmissionFields(
+  submission: Record<string, unknown>,
+): SubmissionFields {
+  return {
+    submissionTitle: getSubmissionString(submission, ["title"]),
+    submissionFirstName: getSubmissionString(submission, ["first_name", "firstName"]),
+    submissionLastName: getSubmissionString(submission, ["last_name", "lastName"]),
+    submissionPositionName: getSubmissionString(submission, ["position_name", "positionName"]),
+    submissionDepartment: getSubmissionString(submission, ["department"]),
+    submissionSubDepartment: getSubmissionString(submission, ["sub_department", "subDepartment"]),
+    submissionPositionNumber: getSubmissionString(submission, ["position_number", "positionNumber"]),
+  };
+}
+
 export function useRequestApprovalDetailComputed({
   requestId,
   isHistoryView,
@@ -73,17 +97,20 @@ export function useRequestApprovalDetailComputed({
   const { data: request, isLoading } = useRequestDetail(requestId);
   const { data: rateHierarchy } = useRateHierarchy();
 
+  // submission-derived
   const submission = useMemo(
     () => parseSubmission(request?.submission_data) as Record<string, unknown>,
     [request?.submission_data],
   );
-  const submissionTitle = getSubmissionString(submission, ["title"]);
-  const submissionFirstName = getSubmissionString(submission, ["first_name", "firstName"]);
-  const submissionLastName = getSubmissionString(submission, ["last_name", "lastName"]);
-  const submissionPositionName = getSubmissionString(submission, ["position_name", "positionName"]);
-  const submissionDepartment = getSubmissionString(submission, ["department"]);
-  const submissionSubDepartment = getSubmissionString(submission, ["sub_department", "subDepartment"]);
-  const submissionPositionNumber = getSubmissionString(submission, ["position_number", "positionNumber"]);
+  const {
+    submissionTitle,
+    submissionFirstName,
+    submissionLastName,
+    submissionPositionName,
+    submissionDepartment,
+    submissionSubDepartment,
+    submissionPositionNumber,
+  } = useMemo(() => deriveSubmissionFields(submission), [submission]);
 
   const requesterName = useMemo(() => {
     const firstName = submissionFirstName ?? request?.requester?.first_name;
@@ -98,6 +125,7 @@ export function useRequestApprovalDetailComputed({
   const requestSubDepartmentValue = submissionSubDepartment ?? null;
   const displayId = request ? (request.request_no ?? "-") : requestId;
 
+  // rate-derived
   const rateMapping = useMemo(
     () => normalizeRateMapping(request?.submission_data ?? null),
     [request?.submission_data],
@@ -112,6 +140,7 @@ export function useRequestApprovalDetailComputed({
     ? formatThaiDate(request.effective_date, { month: "long" })
     : null;
 
+  // ocr-derived
   const attachments = useMemo(() => request?.attachments ?? [], [request?.attachments]);
   const ocrPrecheck = request?.ocr_precheck ?? null;
   const visibleAttachmentFileNames = useMemo(
@@ -143,6 +172,7 @@ export function useRequestApprovalDetailComputed({
     return findMemoSummary(ocrDocuments, requesterName);
   }, [ocrDocuments, requesterName]);
 
+  // display-metadata
   const personnelTypeLabel = request?.personnel_type
     ? PERSONNEL_TYPE_LABELS[request.personnel_type] || request.personnel_type
     : "-";

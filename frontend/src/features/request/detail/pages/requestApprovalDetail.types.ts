@@ -10,10 +10,20 @@ export type RequestApprovalDetailComputed = {
   requestSubDepartmentValue: string | null;
 };
 
-export type RequestApprovalDetailConfig = {
+export type RequestApprovalDetailCoreConfig = {
   backHref: (isHistoryView: boolean) => string;
   backLabel?: (isHistoryView: boolean) => string;
   redirectAfterAction: string | ((ctx: RequestApprovalDetailComputed) => string);
   canAct: (ctx: RequestApprovalDetailComputed) => boolean;
+};
+
+export type RequestApprovalDetailUiSlots = {
   leftTopSlot?: (ctx: RequestApprovalDetailComputed) => ReactNode;
 };
+
+// Guardrails:
+// - Keep core config minimal and behavior-driven.
+// - Add optional slots only when reused across roles.
+// - Prefer role-level adapters before expanding shared config surface.
+export type RequestApprovalDetailConfig = RequestApprovalDetailCoreConfig &
+  RequestApprovalDetailUiSlots;
