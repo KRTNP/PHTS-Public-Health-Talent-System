@@ -90,7 +90,7 @@ import {
   buildAllowanceAttachmentOcrResultMap,
   buildAllowanceClearableOcrFileNameSet,
   buildAllowanceOcrDocuments,
-} from "@/app/(pts-officer)/pts-officer/allowance-list/attachments";
+} from "@/features/request/shared/ocr/allowanceAttachments";
 
 type AssessmentVerdict = "correct" | "incorrect";
 

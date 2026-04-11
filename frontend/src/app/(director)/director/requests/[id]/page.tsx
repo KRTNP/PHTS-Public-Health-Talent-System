@@ -37,7 +37,7 @@ import {
   buildAllowanceAttachmentOcrPolicy,
   buildAllowanceAttachmentOcrResultMap,
   buildAllowanceOcrDocuments,
-} from '@/app/(pts-officer)/pts-officer/allowance-list/attachments';
+} from '@/features/request/shared/ocr/allowanceAttachments';
 
 const parseSubmission = (value: RequestWithDetails['submission_data']) => {
   if (!value) return {};
