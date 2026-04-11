@@ -6,6 +6,7 @@ import {
   PayoutRow,
   PROFESSION_NAME_MAP,
 } from "@/modules/report/entities/report.entity.js";
+import { escapeCsvCell } from "@shared/utils/csv.js";
 
 // Re-export entities for backward compatibility
 export * from "@/modules/report/entities/report.entity.js";
@@ -45,24 +46,12 @@ const formatThaiReportMonth = (month: number, year: number): string => {
   return `${monthLabel}-${buddhistYearShort}`;
 };
 
-const escapeCsvValue = (value: string | number | null | undefined): string => {
-  const normalized = value === null || value === undefined ? "" : String(value);
-  if (
-    normalized.includes(",") ||
-    normalized.includes('"') ||
-    normalized.includes("\n")
-  ) {
-    return `"${normalized.replace(/"/g, '""')}"`;
-  }
-  return normalized;
-};
-
 const buildCsv = (
   headers: string[],
   rows: Array<Array<string | number | null | undefined>>,
 ): Buffer => {
   const csv = [headers, ...rows]
-    .map((line) => line.map((cell) => escapeCsvValue(cell)).join(","))
+    .map((line) => line.map((cell) => escapeCsvCell(cell)).join(","))
     .join("\n");
   return Buffer.from(`\uFEFF${csv}`, "utf-8");
 };
