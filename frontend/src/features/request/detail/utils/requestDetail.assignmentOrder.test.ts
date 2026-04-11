@@ -1,4 +1,4 @@
-import { parseAssignmentOrderSummary } from './requestDetail.assignmentOrder'
+import { parseAssignmentOrderSummary } from '@/features/request/shared/ocr/assignmentOrder'
 
 describe('parseAssignmentOrderSummary', () => {
   const FULL_ASSIGNMENT_TEXT = [

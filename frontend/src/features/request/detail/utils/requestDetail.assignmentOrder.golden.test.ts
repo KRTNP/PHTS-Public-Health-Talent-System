@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { parseAssignmentOrderSummary } from './requestDetail.assignmentOrder'
+import { parseAssignmentOrderSummary } from '@/features/request/shared/ocr/assignmentOrder'
 
 const extractDocumentMarkdown = (text: string, fileName: string): string => {
   const escapedName = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

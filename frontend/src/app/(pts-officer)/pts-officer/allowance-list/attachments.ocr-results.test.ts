@@ -2,7 +2,7 @@ import {
   buildAllowanceAttachmentOcrResultMap,
   buildAllowanceClearableOcrFileNameSet,
   buildAllowanceOcrDocuments,
-} from './attachments'
+} from '@/features/request/shared/ocr/allowanceAttachments'
 
 describe('allowance attachment OCR result collections', () => {
   test('prefers latest OCR result immediately over stored results with same file name', () => {

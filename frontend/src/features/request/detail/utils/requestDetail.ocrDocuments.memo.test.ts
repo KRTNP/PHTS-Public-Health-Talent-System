@@ -1,4 +1,4 @@
-import { parseMemoSummary } from './requestDetail.ocrDocuments'
+import { parseMemoSummary } from '@/features/request/shared/ocr/ocrDocuments'
 
 describe('parseMemoSummary normalization', () => {
   test('normalizes memo core fields from noisy OCR (page-1 style)', () => {
@@ -27,4 +27,3 @@ describe('parseMemoSummary normalization', () => {
     expect(summary?.personMatched).toBe(true)
   })
 })
-
