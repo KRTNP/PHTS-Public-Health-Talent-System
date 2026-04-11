@@ -45,7 +45,8 @@ import { InfoItem } from '@/features/request/detail/utils';
 import { RequestDetailPageShell } from '@/features/request/detail/shell/RequestDetailPageShell';
 import { AssignmentOrderSummaryCard, MemoSummaryCard } from '@/features/request/detail/cards';
 import { RequestMetaRow, RequestSectionCard } from '@/features/request/components/patterns';
-import { findAssignmentOrderSummary, findMemoSummary } from '@/features/request/detail/utils';
+import { findAssignmentOrderSummary } from '@/features/request/shared/ocr/assignmentOrder';
+import { findMemoSummary } from '@/features/request/shared/ocr/ocrDocuments';
 import { formatThaiDate, formatThaiNumber } from '@/shared/utils/thai-locale';
 import {
   buildAllowanceAttachmentOcrPolicy,

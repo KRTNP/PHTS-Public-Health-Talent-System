@@ -26,12 +26,12 @@ import { AssignmentOrderSummaryCard, MemoSummaryCard } from '@/features/request/
 import { getAttachmentLabel } from '@/features/request/detail/utils';
 import { buildAttachmentUrl, isPreviewableFile } from '@/features/request/detail/utils';
 import {
-  findAssignmentOrderSummary,
-  findMemoSummary,
   isEmptyRateMapping,
   normalizeRateMapping,
   resolveRateMappingDisplay,
 } from '@/features/request/detail/utils';
+import { findAssignmentOrderSummary } from '@/features/request/shared/ocr/assignmentOrder';
+import { findMemoSummary } from '@/features/request/shared/ocr/ocrDocuments';
 import { formatThaiDate } from '@/shared/utils/thai-locale';
 import {
   buildAllowanceAttachmentOcrPolicy,

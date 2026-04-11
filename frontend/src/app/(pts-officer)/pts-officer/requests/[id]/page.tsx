@@ -77,10 +77,8 @@ import {
   isPreviewableFile,
 } from "@/features/request/detail/utils";
 import { AssignmentOrderSummaryCard } from "@/features/request/detail/cards";
-import { findAssignmentOrderSummary } from "@/features/request/detail/utils";
-import {
-  findMemoSummary,
-} from "@/features/request/detail/utils";
+import { findAssignmentOrderSummary } from "@/features/request/shared/ocr/assignmentOrder";
+import { findMemoSummary } from "@/features/request/shared/ocr/ocrDocuments";
 import { MemoSummaryCard } from "@/features/request/detail/cards";
 import { formatThaiNumber } from "@/shared/utils/thai-locale";
 import { isPermanentLicenseDate } from "@/shared/utils/license";

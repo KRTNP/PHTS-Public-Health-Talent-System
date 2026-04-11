@@ -6,6 +6,3 @@ export * from './requestDetail.ocrMeta';
 export * from './requestDetail.rateMapping';
 export * from './requestDetail.status';
 export * from './requestDetail.ui';
-export * from '@/features/request/shared/ocr/assignmentOrder';
-export * from '@/features/request/shared/ocr/licenseOcr';
-export * from '@/features/request/shared/ocr/ocrDocuments';

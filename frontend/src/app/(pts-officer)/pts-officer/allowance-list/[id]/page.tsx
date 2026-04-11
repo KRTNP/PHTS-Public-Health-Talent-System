@@ -54,9 +54,9 @@ import {
 import { formatRateItemLabel, resolveProfessionLabel } from '../utils';
 import { buildAttachmentUrl, isPreviewableFile } from '@/features/request/detail/utils';
 import { AssignmentOrderSummaryCard } from '@/features/request/detail/cards';
-import { findAssignmentOrderSummary } from '@/features/request/detail/utils';
-import { findMemoSummary } from '@/features/request/detail/utils';
 import { getStatusLabel } from '@/features/request/detail/utils';
+import { findAssignmentOrderSummary } from '@/features/request/shared/ocr/assignmentOrder';
+import { findMemoSummary } from '@/features/request/shared/ocr/ocrDocuments';
 import { MemoSummaryCard } from '@/features/request/detail/cards';
 import { ELIGIBILITY_EXPIRING_DAYS } from '@/features/request';
 import {
