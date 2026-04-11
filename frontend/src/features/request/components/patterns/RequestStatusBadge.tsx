@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import { getStatusColor, getStatusLabel } from "@/features/request/detail/utils";
+import { getRequestStatusColor, getRequestStatusLabel } from "@/features/request/shared/status";
 import { cn } from "@/lib/utils";
 
 type RequestStatusBadgeProps = {
@@ -21,9 +21,9 @@ export function RequestStatusBadge({
   if (!status) return null;
 
   return (
-    <Badge variant="outline" className={cn(getStatusColor(status), className)}>
+    <Badge variant="outline" className={cn(getRequestStatusColor(status), className)}>
       {icon ? <span className="shrink-0">{icon}</span> : null}
-      {label ?? getStatusLabel(status, currentStep)}
+      {label ?? getRequestStatusLabel(status, currentStep)}
     </Badge>
   );
 }
