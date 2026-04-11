@@ -160,47 +160,61 @@ export function HeadScopeRequestDetailPage({ params, basePath }: HeadScopeReques
   const { data: myScopes } = useMyScopes();
 
   const config = useMemo<RequestApprovalDetailConfig>(
-    () => ({
-      backHref: (isHistoryView) => (isHistoryView ? `${basePath}/history` : `${basePath}/requests`),
-      backLabel: (isHistoryView) => (isHistoryView ? 'ประวัติการอนุมัติ' : 'รายการรออนุมัติ'),
-      redirectAfterAction: `${basePath}/requests`,
-      canAct: (ctx) => resolveHeadScopeApproval(ctx, user, myScopes).canAct,
-      leftTopSlot: (ctx) => {
-        const { actingHeadScopeRole, canResolveActingRole, matchedScopes } =
-          resolveHeadScopeApproval(ctx, user, myScopes);
+    () => {
+      const resolveByContext = (() => {
+        const cache = new WeakMap<RequestApprovalDetailComputed, HeadScopeResolve>();
 
-        if (!actingHeadScopeRole) return null;
+        return (ctx: RequestApprovalDetailComputed): HeadScopeResolve => {
+          const cached = cache.get(ctx);
+          if (cached) return cached;
 
-        return (
-          <Card className="scroll-mt-20 shadow-sm transition-all duration-300 border-primary/30 bg-primary/5">
-            <CardContent className="p-6 space-y-3">
-              <SectionHeader title="บริบทการอนุมัติ" icon={Building2} />
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-muted-foreground">กำลังอนุมัติในฐานะ</span>
-                <Badge variant="secondary" className="font-medium">
-                  {HEAD_SCOPE_ROLE_LABELS[actingHeadScopeRole]}
-                </Badge>
-                {!canResolveActingRole ? (
-                  <span className="text-destructive text-xs">(บัญชีนี้ไม่ได้ถือบทบาทนี้อยู่)</span>
-                ) : null}
-              </div>
-              <div className="text-sm text-muted-foreground">ขอบเขตที่ตรงกับคำขอ:</div>
-              {matchedScopes.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {matchedScopes.map((scope) => (
-                    <Badge key={`${scope.type}:${scope.value}`} variant="outline">
-                      {scope.type === 'DEPT' ? 'กลุ่มงาน' : 'หน่วยงาน'}: {scope.label}
-                    </Badge>
-                  ))}
+          const resolved = resolveHeadScopeApproval(ctx, user, myScopes);
+          cache.set(ctx, resolved);
+          return resolved;
+        };
+      })();
+
+      return {
+        backHref: (isHistoryView) => (isHistoryView ? `${basePath}/history` : `${basePath}/requests`),
+        backLabel: (isHistoryView) => (isHistoryView ? 'ประวัติการอนุมัติ' : 'รายการรออนุมัติ'),
+        redirectAfterAction: `${basePath}/requests`,
+        canAct: (ctx) => resolveByContext(ctx).canAct,
+        leftTopSlot: (ctx) => {
+          const { actingHeadScopeRole, canResolveActingRole, matchedScopes } = resolveByContext(ctx);
+
+          if (!actingHeadScopeRole) return null;
+
+          return (
+            <Card className="scroll-mt-20 shadow-sm transition-all duration-300 border-primary/30 bg-primary/5">
+              <CardContent className="p-6 space-y-3">
+                <SectionHeader title="บริบทการอนุมัติ" icon={Building2} />
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">กำลังอนุมัติในฐานะ</span>
+                  <Badge variant="secondary" className="font-medium">
+                    {HEAD_SCOPE_ROLE_LABELS[actingHeadScopeRole]}
+                  </Badge>
+                  {!canResolveActingRole ? (
+                    <span className="text-destructive text-xs">(บัญชีนี้ไม่ได้ถือบทบาทนี้อยู่)</span>
+                  ) : null}
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">ไม่พบขอบเขตที่ตรงแบบตรงตัวกับข้อมูลคำขอนี้</p>
-              )}
-            </CardContent>
-          </Card>
-        );
-      },
-    }),
+                <div className="text-sm text-muted-foreground">ขอบเขตที่ตรงกับคำขอ:</div>
+                {matchedScopes.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {matchedScopes.map((scope) => (
+                      <Badge key={`${scope.type}:${scope.value}`} variant="outline">
+                        {scope.type === 'DEPT' ? 'กลุ่มงาน' : 'หน่วยงาน'}: {scope.label}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">ไม่พบขอบเขตที่ตรงแบบตรงตัวกับข้อมูลคำขอนี้</p>
+                )}
+              </CardContent>
+            </Card>
+          );
+        },
+      };
+    },
     [basePath, myScopes, user],
   );
 
