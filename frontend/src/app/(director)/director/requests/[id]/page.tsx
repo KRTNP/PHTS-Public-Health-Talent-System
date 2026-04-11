@@ -3,30 +3,24 @@
 import { use, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import {
-  Briefcase,
-  Building2,
   CheckCircle2,
-  CreditCard,
-  ExternalLink,
-  Eye,
-  FileText,
   RefreshCw,
-  User,
   XCircle,
 } from 'lucide-react';
 import type { RequestWithDetails } from '@/types/request.types';
 import { useRequestDetail, useProcessAction } from '@/features/request';
 import { useRateHierarchy } from '@/features/master-data/hooks';
-import { RequestSectionCard } from '@/features/request/components/patterns';
+import {
+  RequestAmountSummaryCard,
+  RequestAttachmentsSection,
+  RequestDecisionDialog,
+  RequestEligibilityInfoSection,
+  RequestRequesterInfoSection,
+} from '@/features/request/components/patterns';
 import { RequestDetailPageShell } from '@/features/request/detail/shell/RequestDetailPageShell';
 import { RequestTimelineCard } from '@/features/request/detail/timeline';
-import { InfoItem } from '@/features/request/detail/utils';
 import { AttachmentPreviewDialog } from '@/components/common/attachment-preview-dialog';
 import { AssignmentOrderSummaryCard, MemoSummaryCard } from '@/features/request/detail/cards';
 import { getAttachmentLabel } from '@/features/request/detail/utils';
@@ -38,7 +32,7 @@ import {
   normalizeRateMapping,
   resolveRateMappingDisplay,
 } from '@/features/request/detail/utils';
-import { formatThaiDate, formatThaiNumber } from '@/shared/utils/thai-locale';
+import { formatThaiDate } from '@/shared/utils/thai-locale';
 import {
   buildAllowanceAttachmentOcrPolicy,
   buildAllowanceAttachmentOcrResultMap,
@@ -279,173 +273,59 @@ export default function DirectorRequestDetailPage({ params }: { params: Promise<
       left={
         request ? (
           <>
-            <RequestSectionCard title="ข้อมูลผู้ยื่นคำขอ" icon={User}>
-                <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
-                  <InfoItem label="ชื่อ-นามสกุล" value={requesterName} icon={User} className="sm:col-span-2" />
-                  <InfoItem label="เลขประจำตัวประชาชน" value={request.citizen_id ?? '-'} />
-                  <div className="col-span-full border-t border-border/50 my-2"></div>
-                  <InfoItem label="ตำแหน่ง" value={positionName} icon={Briefcase} className="sm:col-span-2" />
-                  <InfoItem
-                    label="เลขที่ตำแหน่ง"
-                    value={submissionPositionNumber || request.current_position_number || '-'}
-                  />
-                  <InfoItem label="กลุ่มงาน" value={department} icon={Building2} />
-                  <InfoItem label="หน่วยงาน" value={subDepartment} />
-                </dl>
-            </RequestSectionCard>
+            <RequestRequesterInfoSection
+              requesterName={requesterName}
+              citizenId={request.citizen_id}
+              positionName={positionName}
+              positionNumber={submissionPositionNumber || request.current_position_number || '-'}
+              department={department}
+              subDepartment={subDepartment}
+            />
 
-            <RequestSectionCard title="รายละเอียดสิทธิ พ.ต.ส." icon={CreditCard}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4 mb-6">
-                  <InfoItem label="ประเภทคำขอ" value={requestTypeLabel} className="sm:col-span-2" />
-                  <InfoItem label="ประเภทบุคลากร" value={personnelTypeLabel} />
-                  <InfoItem label="วันที่เริ่มมีสิทธิ" value={effectiveDateLabel || '-'} />
-                  <InfoItem label="งานที่ได้รับมอบหมาย" value={mainDuty} className="sm:col-span-2" />
-                  <InfoItem
-                    label="ลักษณะงาน"
-                    value={workAttributes.length > 0 ? workAttributes.join(', ') : '-'}
-                    className="sm:col-span-2"
-                  />
-                </div>
+            <RequestEligibilityInfoSection
+              requestTypeLabel={requestTypeLabel}
+              personnelTypeLabel={personnelTypeLabel}
+              effectiveDateLabel={effectiveDateLabel}
+              mainDuty={mainDuty}
+              workAttributes={workAttributes}
+              isRateMappingEmpty={isRateMappingEmpty}
+              rateDisplay={rateDisplay}
+              rateAmount={rateAmount}
+            />
 
-                <div className="bg-muted/30 rounded-lg p-5 border border-border/50">
-                  <h4 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <span className="w-1 h-4 bg-primary rounded-full"></span>
-                    ผลการประเมินสิทธิ พ.ต.ส.
-                  </h4>
-
-                  {isRateMappingEmpty ? (
-                    <div className="text-sm text-muted-foreground text-center py-4 italic">
-                      ยังไม่มีผลการประเมินสิทธิ
-                    </div>
-                  ) : (
-                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-4">
-                      <InfoItem label="วิชาชีพ" value={rateDisplay?.professionLabel || '-'} />
-                      <InfoItem label="กลุ่ม" value={rateDisplay?.groupLabel || '-'} />
-                      <InfoItem
-                        label="เงื่อนไขหลัก"
-                        value={rateDisplay?.criteriaLabel || '-'}
-                        className="sm:col-span-2"
-                      />
-                      <InfoItem
-                        label="เงื่อนไขย่อย"
-                        value={rateDisplay?.subCriteriaLabel || '-'}
-                        className="sm:col-span-2"
-                      />
-
-                      <div className="sm:col-span-2 mt-2 pt-4 border-t border-border/50 flex justify-between items-center">
-                        <span className="text-sm font-medium">อัตราเงินตามสิทธิ</span>
-                        <span className="text-lg font-bold text-primary">
-                          {rateAmount !== null
-                            ? formatThaiNumber(Number(rateAmount))
-                            : '-'}
-                          <span className="text-sm font-normal text-muted-foreground ml-1">
-                            บาท/เดือน
-                          </span>
-                        </span>
-                      </div>
-                    </dl>
-                  )}
-                </div>
-            </RequestSectionCard>
-
-            <RequestSectionCard title={`ไฟล์แนบ (${attachments.length})`} icon={FileText}>
-                {memoSummary ? <MemoSummaryCard summary={memoSummary} /> : null}
-                {assignmentOrderSummary ? (
+            <RequestAttachmentsSection
+              attachments={attachments}
+              memoSummary={memoSummary ? <MemoSummaryCard summary={memoSummary} /> : null}
+              assignmentOrderSummary={
+                assignmentOrderSummary ? (
                   <div className="mt-4">
                     <AssignmentOrderSummaryCard summary={assignmentOrderSummary} />
                   </div>
-                ) : null}
-                {attachments.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-                    <FileText className="h-8 w-8 mb-2 opacity-20" />
-                    <p className="text-sm">ไม่มีไฟล์เอกสารแนบ</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    {attachments.map((file) => {
-                      const fileUrl = buildAttachmentUrl(file.file_path);
-                      const previewable = isPreviewableFile(file.file_name);
-                      const ocrResult = requestOcrResultMap.get(file.file_name) ?? null;
-                      const {
-                        documentLabel: ocrDocumentLabel,
-                        notice: ocrNotice,
-                      } = buildAllowanceAttachmentOcrPolicy({
-                        fileName: file.file_name,
-                        result: ocrResult,
-                        personName: requesterName,
-                        suppressActions: true,
-                        clearableFileNames: new Set<string>(),
-                      });
-                      return (
-                        <div
-                          key={file.attachment_id}
-                          className="group relative flex items-start gap-3 p-3 rounded-lg border border-border bg-card hover:bg-muted/30 hover:border-primary/30 transition-all duration-200"
-                        >
-                          <div className="h-10 w-10 shrink-0 rounded bg-primary/10 flex items-center justify-center">
-                            <FileText className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate pr-6" title={file.file_name}>
-                              {file.file_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {getAttachmentLabel(file.file_name, file.file_type)}
-                            </p>
-                            {ocrDocumentLabel ? (
-                              <div className="mt-2">
-                                <Badge variant="outline" className="text-[11px]">
-                                  {ocrDocumentLabel}
-                                </Badge>
-                              </div>
-                            ) : null}
-                            {ocrNotice ? (
-                              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-                                {ocrNotice}
-                              </p>
-                            ) : null}
-                            <div className="flex items-center gap-2 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                              {previewable && (
-                                <button
-                                  onClick={() => handlePreview(fileUrl, file.file_name)}
-                                  className="text-xs flex items-center hover:text-primary transition-colors hover:underline"
-                                >
-                                  <Eye className="w-3 h-3 mr-1" /> ดูตัวอย่าง
-                                </button>
-                              )}
-                              <a
-                                href={fileUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs flex items-center hover:text-primary transition-colors hover:underline"
-                              >
-                                <ExternalLink className="w-3 h-3 mr-1" /> เปิดไฟล์
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-            </RequestSectionCard>
+                ) : null
+              }
+              getFileUrl={(file) => buildAttachmentUrl(file.file_path)}
+              isPreviewable={isPreviewableFile}
+              getAttachmentLabel={getAttachmentLabel}
+              getOcrMeta={(fileName) => {
+                const ocrResult = requestOcrResultMap.get(fileName) ?? null;
+                const { documentLabel, notice } = buildAllowanceAttachmentOcrPolicy({
+                  fileName,
+                  result: ocrResult,
+                  personName: requesterName,
+                  suppressActions: true,
+                  clearableFileNames: new Set<string>(),
+                });
+                return { documentLabel, notice };
+              }}
+              onPreview={handlePreview}
+            />
           </>
         ) : null
       }
       right={
         request ? (
           <>
-            <Card className="shadow-sm border-primary/20 bg-primary/5 overflow-hidden">
-              <CardContent className="p-6">
-                <p className="text-sm font-medium text-primary/80 mb-1">ยอดเงินเบิกจ่าย</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-primary">
-                    {formatThaiNumber(request.requested_amount ?? 0)}
-                  </span>
-                  <span className="text-sm text-primary/80">บาท</span>
-                </div>
-              </CardContent>
-            </Card>
-
+            <RequestAmountSummaryCard amount={request.requested_amount} />
             <RequestTimelineCard request={request} />
           </>
         ) : null
@@ -459,9 +339,12 @@ export default function DirectorRequestDetailPage({ params }: { params: Promise<
               previewUrl={previewUrl}
               previewName={previewName}
             />
-
-            <Dialog
-              open={!!actionType}
+            <RequestDecisionDialog
+              actionType={actionType}
+              requestLabel={`คำขอ ${displayId} - ${requesterName}`}
+              comment={comment}
+              error={actionError}
+              isPending={processAction.isPending}
               onOpenChange={(open) => {
                 if (!open) {
                   setActionType(null);
@@ -469,67 +352,9 @@ export default function DirectorRequestDetailPage({ params }: { params: Promise<
                   setActionError(null);
                 }
               }}
-            >
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {actionType === 'approve' && 'อนุมัติคำขอ'}
-                    {actionType === 'reject' && 'ไม่อนุมัติคำขอ'}
-                    {actionType === 'return' && 'ส่งกลับแก้ไข'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    คำขอ {displayId} - {requesterName}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div>
-                    <label className="text-sm font-medium text-foreground">
-                      {actionType === 'approve' ? 'หมายเหตุ (ไม่บังคับ)' : 'เหตุผล'}
-                    </label>
-                    <Textarea
-                      placeholder={
-                        actionType === 'approve'
-                          ? 'ระบุหมายเหตุเพิ่มเติม (ถ้ามี)'
-                          : actionType === 'reject'
-                            ? 'ระบุเหตุผลที่ไม่อนุมัติ'
-                            : 'ระบุสิ่งที่ต้องแก้ไข'
-                      }
-                      value={comment}
-                      onChange={(event) => setComment(event.target.value)}
-                      className="mt-2"
-                    />
-                    {actionError && <p className="mt-2 text-sm text-destructive">{actionError}</p>}
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setActionType(null);
-                      setComment('');
-                      setActionError(null);
-                    }}
-                  >
-                    ยกเลิก
-                  </Button>
-                  <Button
-                    onClick={handleAction}
-                    disabled={processAction.isPending}
-                    variant={
-                      actionType === 'approve'
-                        ? 'success'
-                        : actionType === 'return'
-                          ? 'warning'
-                          : 'destructive'
-                    }
-                  >
-                    {actionType === 'approve' && 'อนุมัติ'}
-                    {actionType === 'reject' && 'ไม่อนุมัติ'}
-                    {actionType === 'return' && 'ส่งกลับแก้ไข'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+              onCommentChange={setComment}
+              onConfirm={handleAction}
+            />
           </>
         ) : null
       }
