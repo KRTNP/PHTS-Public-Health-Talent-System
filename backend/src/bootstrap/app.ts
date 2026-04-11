@@ -34,6 +34,7 @@ import { createCsrfProtection } from "@middlewares/csrfProtection.js";
 import { tokenBlacklistMiddleware } from "@middlewares/tokenBlacklistMiddleware.js";
 import { authorizeUploadAccess } from "@middlewares/uploadAccessMiddleware.js";
 import { sanitizeUrlForLogs } from "@shared/utils/log-sanitizer.js";
+import { applyUploadResponseSecurityHeaders } from "@config/upload-guard.js";
 
 export const createConfiguredApp = (nodeEnv: string): Application => {
   const app: Application = express();
@@ -339,7 +340,11 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       next();
     },
-    express.static(path.join(process.cwd(), "uploads")),
+    express.static(path.join(process.cwd(), "uploads"), {
+      setHeaders: (res, filePath) => {
+        applyUploadResponseSecurityHeaders(res, filePath);
+      },
+    }),
   );
 
   app.use("/", healthRoutes);

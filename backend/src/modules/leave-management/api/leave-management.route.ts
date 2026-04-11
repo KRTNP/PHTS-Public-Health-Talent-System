@@ -5,7 +5,7 @@
 import { Router } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { validate } from "@shared/validate.middleware.js";
-import { upload } from "@config/upload.js";
+import { upload } from "@config/upload-storage.js";
 import { UserRole } from "@/types/auth.js";
 import { apiRateLimiter } from "@middlewares/rateLimiter.js";
 import {

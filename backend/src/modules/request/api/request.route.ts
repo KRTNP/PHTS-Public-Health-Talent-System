@@ -9,7 +9,8 @@
 import { Router, type RequestHandler } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { idempotency } from "@middlewares/idempotency.js";
-import { requestUpload } from "@config/upload.js";
+import { requestUpload } from "@config/upload-storage.js";
+import { enforceUploadedFilesAreSafe } from "@config/upload-guard.js";
 import { requestController } from "@/modules/request/api/request.controller.js";
 import { validate } from "@shared/validate.middleware.js";
 import {
@@ -159,6 +160,7 @@ router.post(
     { name: "license_file", maxCount: 1 },
     { name: "applicant_signature", maxCount: 1 },
   ]),
+  enforceUploadedFilesAreSafe,
   idempotency(),
   requestController.createRequest,
 );
@@ -215,6 +217,7 @@ router.post(
     { name: "files[]", maxCount: 10 },
     { name: "license_file", maxCount: 1 },
   ]),
+  enforceUploadedFilesAreSafe,
   validate(requestEligibilityIdParamSchema),
   requestController.uploadEligibilityAttachments,
 );
@@ -299,6 +302,7 @@ router.put(
     { name: "license_file", maxCount: 1 },
     { name: "applicant_signature", maxCount: 1 },
   ]),
+  enforceUploadedFilesAreSafe,
   requestController.updateRequest,
 );
 
