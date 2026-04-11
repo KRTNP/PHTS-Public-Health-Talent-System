@@ -3,14 +3,14 @@ import {
   getOcrDocumentTypeLabel,
   isLikelyOcrNoiseLine,
   normalizeOcrAnalysisText,
-} from "@/features/request/detail/utils";
-import { parseAssignmentOrderSummary } from "@/features/request/detail/utils";
-import { shouldSuppressAssignmentOrderOcrUi } from "@/features/request/detail/utils";
+} from "./ocrDocuments";
+import { parseAssignmentOrderSummary } from "./assignmentOrder";
+import { shouldSuppressAssignmentOrderOcrUi } from "./assignmentOrder";
 import {
   getLicenseOcrNotice,
   shouldSuppressLicenseOcrUi,
-} from "@/features/request/detail/utils";
-import { shouldSuppressMemoOcrActions } from "@/features/request/detail/utils";
+} from "./licenseOcr";
+import { shouldSuppressMemoOcrActions } from "./ocrDocuments";
 
 export type AllowanceAttachmentSource = "request" | "eligibility";
 

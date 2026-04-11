@@ -1,4 +1,4 @@
-import { parseAssignmentOrderSummary } from "@/features/request/detail/utils/requestDetail.assignmentOrder";
+import { parseAssignmentOrderSummary } from "@/features/request/shared/ocr/assignmentOrder";
 import type { PrefillProfile } from "@/features/request/core/api";
 import type { RequestFormData, RequestWithDetails } from "@/types/request.types";
 

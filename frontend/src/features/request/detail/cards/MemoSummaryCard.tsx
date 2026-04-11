@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { FileText, Sparkles } from 'lucide-react';
 
-import type { MemoSummary } from '../utils/requestDetail.ocrDocuments';
+import type { MemoSummary } from '@/features/request/shared/ocr/ocrDocuments';
 
 const Field = ({
   label,

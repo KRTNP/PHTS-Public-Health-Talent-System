@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { FileText, Sparkles } from 'lucide-react';
 
-import type { AssignmentOrderSummary } from '../utils/requestDetail.assignmentOrder';
+import type { AssignmentOrderSummary } from '@/features/request/shared/ocr/assignmentOrder';
 
 const Field = ({
   label,

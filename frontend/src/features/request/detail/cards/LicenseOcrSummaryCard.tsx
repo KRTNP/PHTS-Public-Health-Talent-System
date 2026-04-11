@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { FileText, Sparkles, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 
-import type { LicenseOcrSummary } from '../utils/requestDetail.licenseOcr';
+import type { LicenseOcrSummary } from '@/features/request/shared/ocr/licenseOcr';
 
 export function LicenseOcrSummaryCard({ summary }: { summary: LicenseOcrSummary }) {
   return (

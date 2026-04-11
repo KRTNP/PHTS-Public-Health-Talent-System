@@ -1,8 +1,8 @@
-import type { AssignmentOrderSummary } from './requestDetail.assignmentOrder';
+import type { AssignmentOrderSummary } from './assignmentOrder';
 import {
   normalizeAssignmentOrderWhitespace,
   splitAssignmentOrderLines,
-} from './requestDetail.assignmentOrder.normalizer';
+} from './assignmentOrder.normalizer';
 
 export type OcrAssignmentCanonicalDocument = {
   fileName?: string | null;
