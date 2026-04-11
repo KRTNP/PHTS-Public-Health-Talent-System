@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AttachmentPreviewDialog } from "@/components/common/attachment-preview-dialog";
 import {
@@ -21,9 +20,9 @@ import {
   getAttachmentLabel,
   isPreviewableFile,
 } from "@/features/request/detail/utils";
-import { useProcessAction } from "@/features/request/core/hooks";
 import { buildAllowanceAttachmentOcrPolicy } from "@/features/request/shared/ocr/allowanceAttachments";
 import type { RequestApprovalDetailConfig } from "./requestApprovalDetail.types";
+import { useRequestApprovalActionFlow } from "./useRequestApprovalActionFlow";
 import { useRequestApprovalDetailComputed } from "./useRequestApprovalDetailComputed";
 
 type RequestApprovalDetailPageProps = {
@@ -32,17 +31,12 @@ type RequestApprovalDetailPageProps = {
 };
 
 export function RequestApprovalDetailPage({ requestId, config }: RequestApprovalDetailPageProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const isHistoryView = searchParams.get("from") === "history";
-  const processAction = useProcessAction();
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewName, setPreviewName] = useState("");
-  const [actionType, setActionType] = useState<"approve" | "reject" | "return" | null>(null);
-  const [comment, setComment] = useState("");
-  const [actionError, setActionError] = useState<string | null>(null);
   const {
     request,
     isLoading,
@@ -69,6 +63,20 @@ export function RequestApprovalDetailPage({ requestId, config }: RequestApproval
     requestId,
     isHistoryView,
   });
+  const {
+    actionType,
+    comment,
+    actionError,
+    isPending,
+    openActionDialog,
+    handleActionDialogOpenChange,
+    setComment,
+    handleActionConfirm,
+  } = useRequestApprovalActionFlow({
+    requestId: request?.request_id,
+    config,
+    computed,
+  });
 
   const canAct = config.canAct(computed);
   const backHref = config.backHref(isHistoryView);
@@ -82,39 +90,6 @@ export function RequestApprovalDetailPage({ requestId, config }: RequestApproval
     setPreviewUrl(url);
     setPreviewName(name);
     setPreviewOpen(true);
-  };
-
-  const handleAction = async () => {
-    if (!request || !actionType) return;
-    const trimmed = comment.trim();
-    if (actionType !== "approve" && !trimmed) {
-      setActionError("กรุณาระบุเหตุผลก่อนดำเนินการ");
-      return;
-    }
-    setActionError(null);
-    const actionMap = {
-      approve: "APPROVE",
-      reject: "REJECT",
-      return: "RETURN",
-    } as const;
-
-    try {
-      await processAction.mutateAsync({
-        id: request.request_id,
-        payload: { action: actionMap[actionType], comment: trimmed || undefined },
-      });
-      toast.success("ดำเนินการคำขอเรียบร้อย");
-      setActionType(null);
-      setComment("");
-      const redirectPath =
-        typeof config.redirectAfterAction === "function"
-          ? config.redirectAfterAction(computed)
-          : config.redirectAfterAction;
-      router.push(redirectPath);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "เกิดข้อผิดพลาด";
-      setActionError(message);
-    }
   };
 
   return (
@@ -132,8 +107,8 @@ export function RequestApprovalDetailPage({ requestId, config }: RequestApproval
             <Button
               size="action"
               variant="success"
-              disabled={!canAct || processAction.isPending}
-              onClick={() => setActionType("approve")}
+              disabled={!canAct || isPending}
+              onClick={() => openActionDialog("approve")}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               อนุมัติ
@@ -141,8 +116,8 @@ export function RequestApprovalDetailPage({ requestId, config }: RequestApproval
             <Button
               variant="outline"
               size="action"
-              disabled={!canAct || processAction.isPending}
-              onClick={() => setActionType("return")}
+              disabled={!canAct || isPending}
+              onClick={() => openActionDialog("return")}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               ส่งกลับแก้ไข
@@ -150,8 +125,8 @@ export function RequestApprovalDetailPage({ requestId, config }: RequestApproval
             <Button
               variant="dangerGhost"
               size="action"
-              disabled={!canAct || processAction.isPending}
-              onClick={() => setActionType("reject")}
+              disabled={!canAct || isPending}
+              onClick={() => openActionDialog("reject")}
             >
               <XCircle className="mr-2 h-4 w-4" />
               ไม่อนุมัติ
@@ -232,16 +207,10 @@ export function RequestApprovalDetailPage({ requestId, config }: RequestApproval
               requestLabel={`คำขอ ${displayId} - ${requesterName}`}
               comment={comment}
               error={actionError}
-              isPending={processAction.isPending}
-              onOpenChange={(open) => {
-                if (!open) {
-                  setActionType(null);
-                  setComment("");
-                  setActionError(null);
-                }
-              }}
+              isPending={isPending}
+              onOpenChange={handleActionDialogOpenChange}
               onCommentChange={setComment}
-              onConfirm={handleAction}
+              onConfirm={handleActionConfirm}
             />
           </>
         ) : null
