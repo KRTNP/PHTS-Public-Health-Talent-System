@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +22,7 @@ import {
 import { buildAllowanceAttachmentOcrPolicy } from "@/features/request/shared/ocr/allowanceAttachments";
 import type { RequestApprovalDetailConfig } from "./requestApprovalDetail.types";
 import { useRequestApprovalActionFlow } from "./useRequestApprovalActionFlow";
+import { useRequestAttachmentPreviewState } from "./useRequestAttachmentPreviewState";
 import { useRequestApprovalDetailComputed } from "./useRequestApprovalDetailComputed";
 
 type RequestApprovalDetailPageProps = {
@@ -33,10 +33,8 @@ type RequestApprovalDetailPageProps = {
 export function RequestApprovalDetailPage({ requestId, config }: RequestApprovalDetailPageProps) {
   const searchParams = useSearchParams();
   const isHistoryView = searchParams.get("from") === "history";
-
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [previewName, setPreviewName] = useState("");
+  const { previewOpen, previewUrl, previewName, setPreviewOpen, handlePreview } =
+    useRequestAttachmentPreviewState();
   const {
     request,
     isLoading,
@@ -85,12 +83,6 @@ export function RequestApprovalDetailPage({ requestId, config }: RequestApproval
     : isHistoryView
       ? "ประวัติการอนุมัติ"
       : "รายการรออนุมัติ";
-
-  const handlePreview = (url: string, name: string) => {
-    setPreviewUrl(url);
-    setPreviewName(name);
-    setPreviewOpen(true);
-  };
 
   return (
     <RequestDetailPageShell
