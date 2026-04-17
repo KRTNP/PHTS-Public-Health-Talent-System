@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
 
@@ -27,11 +28,22 @@ jest.mock("@/modules/auth/services/auth.service.js", () => ({
 import { AuthService } from "@/modules/auth/services/auth.service.js";
 import { login, logout } from "@/modules/auth/api/auth.controller.js";
 
+const testRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const buildApp = () => {
   const app = express();
   app.use(express.json());
-  app.post("/api/auth/login", (req, res) => void login(req as never, res as never));
-  app.post("/api/auth/logout", logout);
+  app.post(
+    "/api/auth/login",
+    testRateLimiter,
+    (req, res) => void login(req as never, res as never),
+  );
+  app.post("/api/auth/logout", testRateLimiter, logout);
   return app;
 };
 

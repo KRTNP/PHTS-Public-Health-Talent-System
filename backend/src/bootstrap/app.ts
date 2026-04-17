@@ -298,8 +298,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   app.use((req, res, next) => {
-    const cacheablePublicPaths = new Set(["/sitemap.xml"]);
-    if (!req.path.startsWith("/uploads") && !cacheablePublicPaths.has(req.path)) {
+    if (!req.path.startsWith("/uploads")) {
       res.setHeader(
         "Cache-Control",
         "no-store, no-cache, must-revalidate, private",

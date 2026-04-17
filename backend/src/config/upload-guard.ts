@@ -5,7 +5,6 @@ import { ValidationError } from "@shared/utils/errors.js";
 
 const UPLOAD_ROOT = resolve(process.cwd(), "uploads");
 const DOCUMENT_UPLOAD_ROOT = resolve(process.cwd(), "uploads/documents");
-
 const PDF_SIGNATURE = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d]); // %PDF-
 const PNG_SIGNATURE = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -20,6 +19,8 @@ const UPLOAD_TYPE_BY_EXTENSION: Record<string, "application/pdf" | "image/png" |
 };
 
 const INLINE_PREVIEW_EXTENSIONS = new Set([".pdf", ".png", ".jpg", ".jpeg"]);
+const UPLOAD_SESSION_REGEX = /^[a-f0-9-]{36}$/i;
+const UPLOAD_FILENAME_REGEX = /^[a-zA-Z0-9._-]{1,180}$/;
 
 type UploadedRequestFile =
   | Express.Multer.File
@@ -44,6 +45,12 @@ function normalizeExtension(fileName: string): string {
   return extname(String(fileName ?? "").trim()).toLowerCase();
 }
 
+function normalizeMimeType(value: string | undefined): string {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "image/jpg") return "image/jpeg";
+  return normalized;
+}
+
 function isWithinAllowedUploadRoot(targetPath: string): boolean {
   const resolved = resolve(targetPath);
   return (
@@ -51,6 +58,41 @@ function isWithinAllowedUploadRoot(targetPath: string): boolean {
     resolved.startsWith(`${UPLOAD_ROOT}/`) ||
     resolved.startsWith(`${UPLOAD_ROOT}\\`)
   );
+}
+
+function isWithinDocumentUploadRoot(targetPath: string): boolean {
+  const resolved = resolve(targetPath);
+  return (
+    resolved === DOCUMENT_UPLOAD_ROOT ||
+    resolved.startsWith(`${DOCUMENT_UPLOAD_ROOT}/`) ||
+    resolved.startsWith(`${DOCUMENT_UPLOAD_ROOT}\\`)
+  );
+}
+
+function assertSafeDocumentPath(targetPath: string): string {
+  const resolved = resolve(targetPath);
+  if (!isWithinAllowedUploadRoot(resolved) || !isWithinDocumentUploadRoot(resolved)) {
+    throw new ValidationError("Invalid upload file path.");
+  }
+  return resolved;
+}
+
+function resolveSafeStoredUploadPath(file: Express.Multer.File): string {
+  const safeDirectory = assertSafeDocumentPath(file.destination || "");
+  const safeFilename = String(file.filename || "").trim();
+  if (
+    !safeFilename ||
+    !UPLOAD_FILENAME_REGEX.test(safeFilename) ||
+    safeFilename.includes("..")
+  ) {
+    throw new ValidationError("Invalid upload filename.");
+  }
+
+  const safePath = resolve(safeDirectory, safeFilename);
+  if (!isWithinDocumentUploadRoot(safePath) || dirname(safePath) !== safeDirectory) {
+    throw new ValidationError("Invalid upload file path.");
+  }
+  return safePath;
 }
 
 function flattenUploadedFiles(req: Request): Express.Multer.File[] {
@@ -75,40 +117,56 @@ async function cleanupUploadedFiles(files: Express.Multer.File[]): Promise<void>
   const directories = new Set<string>();
 
   for (const file of files) {
-    const filePath = resolve(file.path);
-    if (!isWithinAllowedUploadRoot(filePath)) continue;
-    directories.add(dirname(filePath));
+    if (!file.destination) continue;
+    try {
+      const safeDirectory = assertSafeDocumentPath(file.destination);
+      const sessionDir = basename(safeDirectory);
+      if (!UPLOAD_SESSION_REGEX.test(sessionDir)) continue;
+      directories.add(resolve(DOCUMENT_UPLOAD_ROOT, sessionDir));
+    } catch {
+      continue;
+    }
   }
 
   await Promise.all(
     Array.from(directories).map(async (directory) => {
-      const resolvedDirectory = resolve(directory);
-      if (
-        resolvedDirectory === DOCUMENT_UPLOAD_ROOT ||
-        !resolvedDirectory.startsWith(`${DOCUMENT_UPLOAD_ROOT}/`) &&
-          !resolvedDirectory.startsWith(`${DOCUMENT_UPLOAD_ROOT}\\`)
-      ) {
+      try {
+        const resolvedDirectory = assertSafeDocumentPath(directory);
+        if (
+          resolvedDirectory === DOCUMENT_UPLOAD_ROOT ||
+          !isWithinDocumentUploadRoot(resolvedDirectory)
+        ) {
+          return;
+        }
+        await rm(resolvedDirectory, { recursive: true, force: true }).catch(
+          () => undefined,
+        );
+      } catch {
         return;
       }
-      await rm(resolvedDirectory, { recursive: true, force: true }).catch(
-        () => undefined,
-      );
     }),
   );
 }
 
 export async function validateStoredUploadFile(
-  filePath: string,
-  originalName: string,
+  file: Express.Multer.File,
 ): Promise<void> {
-  const extension = normalizeExtension(originalName);
+  const extension = normalizeExtension(file.originalname);
   const expectedMime = UPLOAD_TYPE_BY_EXTENSION[extension];
   if (!expectedMime) {
     throw new ValidationError("รองรับเฉพาะไฟล์ PDF, JPG และ PNG");
   }
 
-  const fileBuffer = await readFile(filePath);
+  const safePath = resolveSafeStoredUploadPath(file);
+  const declaredMime = normalizeMimeType(file.mimetype);
+  const fileBuffer = await readFile(safePath);
   const detectedMime = detectMimeFromBuffer(fileBuffer);
+
+  if (declaredMime && declaredMime !== expectedMime) {
+    throw new ValidationError(
+      "Invalid file metadata. Uploaded file does not match an allowed PDF/JPG/PNG document.",
+    );
+  }
 
   if (!detectedMime || detectedMime !== expectedMime) {
     throw new ValidationError(
@@ -130,7 +188,7 @@ export async function enforceUploadedFilesAreSafe(
 
   try {
     for (const file of uploadedFiles) {
-      await validateStoredUploadFile(file.path, file.originalname);
+      await validateStoredUploadFile(file);
     }
     next();
   } catch (error) {

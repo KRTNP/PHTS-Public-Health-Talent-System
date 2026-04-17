@@ -1,5 +1,5 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import crypto from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "@jest/globals";
 import {
@@ -10,38 +10,65 @@ import {
 const PNG_1X1_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRXcAAAAASUVORK5CYII=";
 
+async function createUploadedFileFixture(options: {
+  originalName: string;
+  mimetype: string;
+  body: Buffer | string;
+}) {
+  const sessionId = crypto.randomUUID();
+  const documentsRoot = path.resolve(process.cwd(), "uploads/documents");
+  const destination = path.join(documentsRoot, sessionId);
+  await mkdir(destination, { recursive: true });
+
+  const extension = path.extname(options.originalName) || ".bin";
+  const filename = `${Date.now()}_${crypto.randomBytes(8).toString("hex")}${extension}`;
+  const filePath = path.join(destination, filename);
+  await writeFile(filePath, options.body);
+
+  const file = {
+    destination,
+    filename,
+    originalname: options.originalName,
+    mimetype: options.mimetype,
+    path: filePath,
+  } as Express.Multer.File;
+
+  return {
+    file,
+    cleanup: async () => rm(destination, { recursive: true, force: true }),
+  };
+}
+
 describe("upload security", () => {
   test("rejects html content even when named as an allowed image extension", async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), "phts-upload-test-"));
-    const filePath = path.join(dir, "proof.png");
+    const fixture = await createUploadedFileFixture({
+      originalName: "proof.png",
+      mimetype: "image/png",
+      body: "<!doctype html><html><body>owned</body></html>",
+    });
 
     try {
-      await writeFile(
-        filePath,
-        "<!doctype html><html><body>owned</body></html>",
-        "utf8",
-      );
-
       await expect(
-        validateStoredUploadFile(filePath, "proof.png"),
+        validateStoredUploadFile(fixture.file),
       ).rejects.toThrow(/invalid file contents/i);
     } finally {
-      await rm(dir, { recursive: true, force: true });
+      await fixture.cleanup();
     }
   });
 
   test("accepts real png content with an allowed extension", async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), "phts-upload-test-"));
-    const filePath = path.join(dir, "proof.png");
+    const fixture = await createUploadedFileFixture({
+      originalName: "proof.png",
+      mimetype: "image/png",
+      body: Buffer.from(PNG_1X1_BASE64, "base64"),
+    });
 
     try {
-      await writeFile(filePath, Buffer.from(PNG_1X1_BASE64, "base64"));
-
       await expect(
-        validateStoredUploadFile(filePath, "proof.png"),
+        validateStoredUploadFile(fixture.file),
       ).resolves.toBeUndefined();
     } finally {
-      await rm(dir, { recursive: true, force: true });
+      await fixture.cleanup();
     }
   });
 

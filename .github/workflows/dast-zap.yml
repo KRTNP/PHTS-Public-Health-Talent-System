@@ -54,6 +54,7 @@ jobs:
       REDIS_PORT: 6379
       REDIS_DB: 0
       JWT_SECRET: ci-dast-secret
+      START_SERVER: "true"
     steps:
       - uses: actions/checkout@v4
 

@@ -16,6 +16,10 @@ loadEnv();
 const PORT = process.env.PORT || 3001;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const app = createConfiguredApp(NODE_ENV);
+const START_SERVER = String(process.env.START_SERVER || "").toLowerCase();
+const shouldStartServer =
+  START_SERVER === "true" ||
+  (NODE_ENV !== "test" && START_SERVER !== "false");
 
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
@@ -33,7 +37,7 @@ async function gracefulShutdown(signal: string) {
 
 registerProcessHandlers(NODE_ENV, gracefulShutdown);
 
-if (process.env.NODE_ENV !== "test" && process.env.START_SERVER !== "false") {
+if (shouldStartServer) {
   try {
     console.log("[Server] Verifying database connection...");
     await testConnection();
@@ -52,4 +56,3 @@ if (process.env.NODE_ENV !== "test" && process.env.START_SERVER !== "false") {
 }
 
 export default app;
-
