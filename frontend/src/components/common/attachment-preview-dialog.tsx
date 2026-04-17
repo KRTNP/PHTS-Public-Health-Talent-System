@@ -1,6 +1,12 @@
 'use client';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, FileText, Image as ImageIcon, FileQuestion, Download } from 'lucide-react';
 import Image from 'next/image';
@@ -92,6 +98,9 @@ export function AttachmentPreviewDialog({
               {safePreviewName}
             </span>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            แสดงตัวอย่างไฟล์แนบและเปิดไฟล์ในแท็บใหม่ได้
+          </DialogDescription>
 
           <div className="flex items-center shrink-0">
             <Button asChild variant="outline" size="sm" className="h-8 text-xs">

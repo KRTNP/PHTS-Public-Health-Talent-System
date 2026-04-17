@@ -6,7 +6,8 @@ import { Router } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { validate } from "@shared/validate.middleware.js";
 import { UserRole } from "@/types/auth.js";
-import { requestUpload } from "@config/upload.js";
+import { requestUpload } from "@config/upload-storage.js";
+import { enforceUploadedFilesAreSafe } from "@config/upload-guard.js";
 import {
   createSupportTicketSchema,
   listSupportTicketsSchema,
@@ -26,6 +27,7 @@ router.post(
     { name: "attachments", maxCount: 10 },
     { name: "attachments[]", maxCount: 10 },
   ]),
+  enforceUploadedFilesAreSafe,
   validate(createSupportTicketSchema),
   supportController.createTicket,
 );
@@ -57,6 +59,7 @@ router.post(
     { name: "attachments", maxCount: 10 },
     { name: "attachments[]", maxCount: 10 },
   ]),
+  enforceUploadedFilesAreSafe,
   validate(supportTicketMessageSchema),
   supportController.createMessage,
 );

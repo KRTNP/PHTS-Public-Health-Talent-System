@@ -21,30 +21,3 @@ export const ROLE_STEP_MAP: Record<UserRole, number> = {
   [UserRole.USER]: 0,
   [UserRole.FINANCE_OFFICER]: 0,
 };
-
-export const TOTAL_APPROVAL_STEPS = 6;
-
-export function getRoleForStep(step: number): UserRole | undefined {
-  return STEP_ROLE_MAP[step];
-}
-
-export function getStepForRole(role: UserRole): number | undefined {
-  const step = ROLE_STEP_MAP[role];
-  return step > 0 ? step : undefined;
-}
-
-export function canApproveAtStep(role: UserRole, step: number): boolean {
-  return STEP_ROLE_MAP[step] === role;
-}
-
-export function canBatchApprove(role: UserRole): boolean {
-  return role === UserRole.DIRECTOR;
-}
-
-export function canAdjustLeave(role: UserRole): boolean {
-  return role === UserRole.PTS_OFFICER;
-}
-
-export function canViewScopes(role: UserRole): boolean {
-  return role === UserRole.HEAD_SCOPE;
-}

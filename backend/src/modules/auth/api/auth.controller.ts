@@ -24,6 +24,39 @@ import {
   InvalidCitizenIdError,
 } from "@/modules/auth/services/auth.service.js";
 import { tokenBlacklist } from "@shared/services/tokenBlacklist.js";
+import { TOKEN_COOKIE_KEY, extractAuthToken } from "@shared/utils/authToken.js";
+
+const setAuthCookie = (
+  res: Response<LoginResponse | ApiResponse>,
+  token: string,
+): void => {
+  const decoded = jwt.decode(token) as { exp?: number } | null;
+  const expMs = Number(decoded?.exp ?? 0) * 1000;
+  const nowMs = Date.now();
+  const maxAge = Number.isFinite(expMs) && expMs > nowMs ? expMs - nowMs : undefined;
+  const isSecure = process.env.NODE_ENV === "production";
+
+  res.cookie(TOKEN_COOKIE_KEY, token, {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: "lax",
+    path: "/",
+    ...(maxAge ? { maxAge } : {}),
+  });
+};
+
+const includeLegacyLoginToken = (): boolean =>
+  String(process.env.AUTH_LOGIN_INCLUDE_TOKEN || "").toLowerCase() === "true";
+
+const clearAuthCookie = (res: Response<ApiResponse>): void => {
+  const isSecure = process.env.NODE_ENV === "production";
+  res.clearCookie(TOKEN_COOKIE_KEY, {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: "lax",
+    path: "/",
+  });
+};
 
 /**
  * Login Handler
@@ -43,12 +76,22 @@ export async function login(
     const requestInfo = extractRequestInfo(req);
 
     const result = await AuthService.login(citizen_id, password, requestInfo);
+    setAuthCookie(res, result.token);
 
-    res.status(200).json({
+    const payload: LoginResponse = {
       success: true,
-      token: result.token,
       user: result.user,
-    });
+    };
+
+    if (includeLegacyLoginToken()) {
+      payload.token = result.token;
+      res.setHeader(
+        "X-Deprecated-Auth-Mode",
+        "login-token-response; migrate to cookie session",
+      );
+    }
+
+    res.status(200).json(payload);
   } catch (error) {
     if (error instanceof InvalidCitizenIdError) {
       res.status(400).json({
@@ -162,11 +205,7 @@ export const updateCurrentUser = asyncHandler(
  */
 export const logout = asyncHandler(
   async (req: Request, res: Response<ApiResponse>): Promise<void> => {
-    const authHeader = req.headers.authorization;
-    const token =
-      typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-        ? authHeader.slice("Bearer ".length)
-        : null;
+    const token = extractAuthToken(req);
 
     if (token) {
       const decoded = jwt.decode(token) as { exp?: number } | null;
@@ -182,6 +221,7 @@ export const logout = asyncHandler(
       const requestInfo = extractRequestInfo(req);
       await AuthService.logout(req.user.userId, req.user.role, requestInfo);
     }
+    clearAuthCookie(res);
 
     res.status(200).json({
       success: true,

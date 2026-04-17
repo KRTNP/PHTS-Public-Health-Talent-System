@@ -30,12 +30,28 @@ import { isMaintenanceModeEnabled } from "@/modules/system/services/maintenance.
 import { errorHandler, notFoundHandler } from "@middlewares/errorHandler.js";
 import { apiRateLimiter, securityRateLimiter } from "@middlewares/rateLimiter.js";
 import { protect } from "@middlewares/authMiddleware.js";
+import { createCsrfProtection } from "@middlewares/csrfProtection.js";
 import { tokenBlacklistMiddleware } from "@middlewares/tokenBlacklistMiddleware.js";
 import { authorizeUploadAccess } from "@middlewares/uploadAccessMiddleware.js";
+import { sanitizeUrlForLogs } from "@shared/utils/log-sanitizer.js";
+import { applyUploadResponseSecurityHeaders } from "@config/upload-guard.js";
 
 export const createConfiguredApp = (nodeEnv: string): Application => {
   const app: Application = express();
   app.disable("x-powered-by");
+
+  const trustProxyRaw = String(process.env.TRUST_PROXY || "").trim();
+  if (trustProxyRaw) {
+    if (trustProxyRaw.toLowerCase() === "true") {
+      app.set("trust proxy", true);
+    } else if (trustProxyRaw.toLowerCase() === "false") {
+      app.set("trust proxy", false);
+    } else if (/^\d+$/.test(trustProxyRaw)) {
+      app.set("trust proxy", Number(trustProxyRaw));
+    } else {
+      app.set("trust proxy", trustProxyRaw);
+    }
+  }
 
   const envOrigins = (process.env.FRONTEND_URL || "")
     .split(",")
@@ -76,6 +92,17 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       };
     })
     .filter((rule): rule is { isPrefix: boolean; path: string; methods: Set<string> | null } => Boolean(rule));
+  const csrfTrustedClientHeader = String(
+    process.env.CSRF_TRUSTED_CLIENT_HEADER || "x-client-id",
+  )
+    .trim()
+    .toLowerCase();
+  const csrfTrustedClientIds = (
+    process.env.CSRF_TRUSTED_CLIENT_IDS || ""
+  )
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
 
   const isOriginAllowed = (origin: string): boolean => {
     const normalizedOrigin = origin.trim();
@@ -271,8 +298,7 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   app.use((req, res, next) => {
-    const cacheablePublicPaths = new Set(["/sitemap.xml"]);
-    if (!req.path.startsWith("/uploads") && !cacheablePublicPaths.has(req.path)) {
+    if (!req.path.startsWith("/uploads")) {
       res.setHeader(
         "Cache-Control",
         "no-store, no-cache, must-revalidate, private",
@@ -294,11 +320,12 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     next();
   });
 
-  if (nodeEnv === "production") {
-    app.use(morgan("combined"));
-  } else {
-    app.use(morgan("dev"));
-  }
+  morgan.token("sanitized-url", (req) => sanitizeUrlForLogs(req.url || "/"));
+  const morganFormat =
+    nodeEnv === "production"
+      ? ':remote-addr :method :sanitized-url :status :res[content-length] - :response-time ms'
+      : ":method :sanitized-url :status :response-time ms";
+  app.use(morgan(morganFormat));
 
   app.use(initializePassport());
 
@@ -312,7 +339,11 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
       next();
     },
-    express.static(path.join(process.cwd(), "uploads")),
+    express.static(path.join(process.cwd(), "uploads"), {
+      setHeaders: (res, filePath) => {
+        applyUploadResponseSecurityHeaders(res, filePath);
+      },
+    }),
   );
 
   app.use("/", healthRoutes);
@@ -339,6 +370,28 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
   });
 
   app.use("/api", apiRateLimiter, tokenBlacklistMiddleware);
+  app.use(
+    "/api",
+    createCsrfProtection({
+      isOriginAllowed,
+      isTrustedNoOriginClient: (req) => {
+        if (!csrfTrustedClientHeader || csrfTrustedClientIds.length === 0) {
+          return false;
+        }
+        const headerValueRaw = req.headers[csrfTrustedClientHeader];
+        const headerValue =
+          typeof headerValueRaw === "string"
+            ? headerValueRaw.trim()
+            : Array.isArray(headerValueRaw)
+              ? String(headerValueRaw[0] ?? "").trim()
+              : "";
+        return (
+          Boolean(headerValue) &&
+          csrfTrustedClientIds.includes(headerValue)
+        );
+      },
+    }),
+  );
   app.use("/api/auth", authRoutes);
   app.use("/api/requests", requestRoutes);
   app.use("/api/signatures", signatureRoutes);

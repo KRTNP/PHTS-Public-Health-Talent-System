@@ -7,7 +7,6 @@ import { ApiResponse } from "@/shared/api/types";
 import type { User } from "@/types/auth";
 
 export interface LoginResponse {
-  token: string;
   user: User;
 }
 

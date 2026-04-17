@@ -1,7 +1,7 @@
 import {
   normalizeAssignmentOrderMarkdown,
   splitAssignmentOrderLines,
-} from './requestDetail.assignmentOrder.normalizer'
+} from '@/features/request/shared/ocr/assignmentOrder.normalizer'
 
 describe('assignment order normalizer', () => {
   test('normalizes tesseract-specific noise for duty anchor and technique text', () => {

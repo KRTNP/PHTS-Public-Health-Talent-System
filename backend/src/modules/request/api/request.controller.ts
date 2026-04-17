@@ -11,8 +11,6 @@ import { ApiResponse, UserRole } from "@/types/auth.js";
 // Services
 import { requestQueryService } from "@/modules/request/read/services/query.service.js";
 import { requestCommandService } from "@/modules/request/services/command.service.js";
-import { requestApprovalService } from "@/modules/request/services/approval.service.js";
-import * as rateService from "@/modules/master-data/services/rate.service.js";
 
 import {
   getUserScopesForDisplay,
@@ -501,66 +499,61 @@ export class RequestController {
     },
   );
 
-  approveRequest = catchAsync(
+  batchApproveCompat = catchAsync(
     async (req: Request, res: Response<ApiResponse>) => {
       if (!req.user) throw new AuthenticationError("Unauthorized access");
-      const requestId = parseInt(req.params.id);
-      const { comment, signature_base64 } = req.body;
-      const result = await dispatchRequestAction({
-        action: "APPROVE",
-        requestId,
-        userId: req.user.userId,
-        userRole: req.user.role,
-        comment,
-        signatureBase64: signature_base64,
-      });
-      res.json({ success: true, data: result });
-    },
-  );
+      const requestIds = Array.isArray(req.body?.request_ids)
+        ? (req.body.request_ids as unknown[])
+            .map((id) => Number(id))
+            .filter((id) => Number.isInteger(id) && id > 0)
+        : [];
 
-  rejectRequest = catchAsync(
-    async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
-      const requestId = parseInt(req.params.id);
-      const { comment } = req.body;
-      const result = await dispatchRequestAction({
-        action: "REJECT",
-        requestId,
-        userId: req.user.userId,
-        userRole: req.user.role,
-        comment,
-      });
-      res.json({ success: true, data: result });
-    },
-  );
+      if (requestIds.length === 0) {
+        throw new ValidationError("request_ids must include at least one id");
+      }
 
-  returnRequest = catchAsync(
-    async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
-      const requestId = parseInt(req.params.id);
-      const { comment } = req.body;
-      const result = await dispatchRequestAction({
-        action: "RETURN",
-        requestId,
-        userId: req.user.userId,
-        userRole: req.user.role,
-        comment,
+      const comment =
+        typeof req.body?.comment === "string" ? req.body.comment : undefined;
+      const signatureBase64 =
+        typeof req.body?.signature_base64 === "string"
+          ? req.body.signature_base64
+          : undefined;
+
+      const succeeded: number[] = [];
+      const failed: Array<{ request_id: number; error: string }> = [];
+
+      for (const requestId of requestIds) {
+        try {
+          await dispatchRequestAction({
+            action: "APPROVE",
+            requestId,
+            userId: req.user.userId,
+            userRole: req.user.role,
+            comment,
+            signatureBase64,
+          });
+          succeeded.push(requestId);
+        } catch (error) {
+          const message =
+            error instanceof Error && error.message
+              ? error.message
+              : "Unknown error";
+          failed.push({ request_id: requestId, error: message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          total: requestIds.length,
+          succeeded,
+          failed,
+        },
       });
-      res.json({ success: true, data: result });
     },
   );
 
   // --- OTHER ---
-
-  getMasterRates = catchAsync(
-    async (_req: Request, res: Response<ApiResponse>) => {
-      const req = _req as Request;
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
-      assertNotAdmin(req);
-      const rates = await rateService.getMasterRates();
-      res.json({ success: true, data: rates });
-    },
-  );
 
   getPrefill = catchAsync(async (req: Request, res: Response<ApiResponse>) => {
     if (!req.user?.citizenId) throw new AuthenticationError("Unauthorized");
@@ -818,18 +811,6 @@ export class RequestController {
     },
   );
 
-  approveBatch = catchAsync(
-    async (req: Request, res: Response<ApiResponse>) => {
-      if (!req.user) throw new AuthenticationError("Unauthorized access");
-      const { requestIds, comment } = req.body;
-      const result = await requestApprovalService.approveBatch(
-        req.user.userId,
-        req.user.role,
-        { requestIds, comment },
-      );
-      res.json({ success: true, data: result });
-    },
-  );
 }
 
 const assertNotAdmin = (req: Request) => {

@@ -41,16 +41,18 @@ import { AttachmentPreviewDialog } from '@/components/common/attachment-preview-
 import { buildAttachmentUrl, isPreviewableFile } from '@/features/request/detail/utils';
 import { getAttachmentLabel } from '@/features/request/detail/utils';
 import { RequestTimelineCard } from '@/features/request/detail/timeline';
-import { InfoItem, SectionHeader } from '@/features/request/detail/utils';
+import { InfoItem } from '@/features/request/detail/utils';
 import { RequestDetailPageShell } from '@/features/request/detail/shell/RequestDetailPageShell';
 import { AssignmentOrderSummaryCard, MemoSummaryCard } from '@/features/request/detail/cards';
-import { findAssignmentOrderSummary, findMemoSummary } from '@/features/request/detail/utils';
+import { RequestMetaRow, RequestSectionCard } from '@/features/request/components/patterns';
+import { findAssignmentOrderSummary } from '@/features/request/shared/ocr/assignmentOrder';
+import { findMemoSummary } from '@/features/request/shared/ocr/ocrDocuments';
 import { formatThaiDate, formatThaiNumber } from '@/shared/utils/thai-locale';
 import {
   buildAllowanceAttachmentOcrPolicy,
   buildAllowanceAttachmentOcrResultMap,
   buildAllowanceOcrDocuments,
-} from '@/app/(pts-officer)/pts-officer/allowance-list/attachments';
+} from '@/features/request/shared/ocr/allowanceAttachments';
 
 const parseSubmission = (value: RequestWithDetails['submission_data']) => {
   if (!value) return {};
@@ -271,9 +273,7 @@ export function HeadScopeMyRequestDetailPage({
       left={
         request ? (
           <>
-            <Card className="scroll-mt-20 shadow-sm transition-all duration-300 border-border/60">
-              <CardContent className="p-6">
-                <SectionHeader title="ข้อมูลผู้ยื่นคำขอ" icon={User} />
+            <RequestSectionCard title="ข้อมูลผู้ยื่นคำขอ" icon={User}>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
                   <InfoItem label="ชื่อ-นามสกุล" value={requesterName} icon={User} className="sm:col-span-2" />
                   <InfoItem label="เลขประจำตัวประชาชน" value={request.citizen_id ?? '-'} />
@@ -283,12 +283,9 @@ export function HeadScopeMyRequestDetailPage({
                   <InfoItem label="กลุ่มงาน" value={department} icon={Building2} />
                   <InfoItem label="หน่วยงาน" value={subDepartment} />
                 </dl>
-              </CardContent>
-            </Card>
+            </RequestSectionCard>
 
-            <Card className="scroll-mt-20 shadow-sm transition-all duration-300 border-border/60">
-              <CardContent className="p-6">
-                <SectionHeader title="รายละเอียดสิทธิ พ.ต.ส." icon={CreditCard} />
+            <RequestSectionCard title="รายละเอียดสิทธิ พ.ต.ส." icon={CreditCard}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4 mb-6">
                   <InfoItem label="ประเภทคำขอ" value={requestTypeLabel} className="sm:col-span-2" />
                   <InfoItem label="ประเภทบุคลากร" value={personnelTypeLabel} />
@@ -322,12 +319,9 @@ export function HeadScopeMyRequestDetailPage({
                     </dl>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+            </RequestSectionCard>
 
-            <Card className="scroll-mt-20 shadow-sm transition-all duration-300 border-border/60">
-              <CardContent className="p-6">
-                <SectionHeader title={`ไฟล์แนบ (${attachments.length})`} icon={FileText} />
+            <RequestSectionCard title={`ไฟล์แนบ (${attachments.length})`} icon={FileText}>
                 {memoSummary ? <MemoSummaryCard summary={memoSummary} /> : null}
                 {assignmentOrderSummary ? (
                   <div className="mt-4">
@@ -406,8 +400,7 @@ export function HeadScopeMyRequestDetailPage({
                     })}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+            </RequestSectionCard>
           </>
         ) : null
       }
@@ -425,16 +418,11 @@ export function HeadScopeMyRequestDetailPage({
                 </div>
                 <Separator className="my-4 bg-primary/10" />
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">เลขที่คำขอ</span>
-                    <span className="font-mono text-foreground">{displayId}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">วันที่ยื่นเรื่อง</span>
-                    <span className="text-foreground">
-                      {submitAction?.action_date ? formatThaiDate(submitAction.action_date) : '-'}
-                    </span>
-                  </div>
+                  <RequestMetaRow label="เลขที่คำขอ" value={displayId} valueClassName="font-mono" />
+                  <RequestMetaRow
+                    label="วันที่ยื่นเรื่อง"
+                    value={submitAction?.action_date ? formatThaiDate(submitAction.action_date) : '-'}
+                  />
                 </div>
               </CardContent>
             </Card>

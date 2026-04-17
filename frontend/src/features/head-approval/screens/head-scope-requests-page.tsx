@@ -45,7 +45,7 @@ import {
 } from '@/components/common';
 import { usePendingApprovals, useProcessAction } from '@/features/request/core/hooks';
 import { usePendingWithSla } from '@/features/sla/hooks';
-import { mapRequestToFormData } from '@/features/request/create/hooks/request-form-mapper';
+import { mapRequestToFormData } from '@/features/request/create/hooks/requestFormMapper';
 import type { RequestWithDetails } from '@/types/request.types';
 import {
   normalizeRateMapping,

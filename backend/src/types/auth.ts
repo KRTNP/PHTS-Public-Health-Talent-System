@@ -89,8 +89,8 @@ export interface UserProfile {
  */
 export interface LoginResponse {
   success: boolean;
-  token: string;
   user: UserProfile;
+  token?: string;
 }
 
 /**

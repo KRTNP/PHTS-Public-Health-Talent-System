@@ -26,26 +26,14 @@ function ensureDirectoryExists(
 
 function buildSafeFilename(
   originalName: string,
-  userId: string | number,
   timestamp: number,
 ): string {
-  const ext = path.extname(originalName) || "";
-  const base = path.basename(originalName, ext);
-  const sanitizedBase = base.replaceAll(/[^a-zA-Z0-9.-]/g, "_");
-  const hash = crypto
-    .createHash("sha256")
-    .update(originalName)
-    .digest("hex")
-    .slice(0, 8);
-  const prefix = `${userId}_${timestamp}_`;
-  const suffix = `_${hash}${ext}`;
-  const maxTotalLength = 120;
-  const maxBaseLength = Math.max(
-    8,
-    maxTotalLength - prefix.length - suffix.length,
-  );
-  const trimmedBase = sanitizedBase.slice(0, maxBaseLength);
-  return `${prefix}${trimmedBase}${suffix}`;
+  const extension = path.extname(String(originalName || "")).toLowerCase();
+  const safeExtension = [".pdf", ".png", ".jpg", ".jpeg"].includes(extension)
+    ? extension
+    : ".bin";
+  const entropy = crypto.randomBytes(12).toString("hex");
+  return `${timestamp}_${entropy}${safeExtension}`;
 }
 
 /**
@@ -74,12 +62,10 @@ const documentStorage = multer.diskStorage({
     ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
-    // Get user ID from authenticated request
-    const userId = req.user?.userId || "anonymous";
-
-    // Generate filename: {userId}_{timestamp}_{originalname}
+    void req;
+    // Generate random filename with allowed extension only.
     const timestamp = Date.now();
-    const filename = buildSafeFilename(file.originalname, userId, timestamp);
+    const filename = buildSafeFilename(file.originalname, timestamp);
 
     cb(null, filename);
   },
@@ -139,9 +125,9 @@ const requestDocumentStorage = multer.diskStorage({
     ensureDirectoryExists(uploadPath, (err) => cb(err, uploadPath));
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
-    const userId = req.user?.userId || "anonymous";
+    void req;
     const timestamp = Date.now();
-    const filename = buildSafeFilename(file.originalname, userId, timestamp);
+    const filename = buildSafeFilename(file.originalname, timestamp);
     cb(null, filename);
   },
 });

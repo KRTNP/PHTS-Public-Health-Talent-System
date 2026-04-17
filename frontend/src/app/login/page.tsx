@@ -139,7 +139,7 @@ export default function LoginPage() {
           message === "Invalid citizen ID or password" ||
           message === "Login failed";
         if (!isExpectedAuthError && process.env.NODE_ENV !== "test") {
-          console.error(error);
+          console.error("Login failed with unexpected error type");
         }
       }
 

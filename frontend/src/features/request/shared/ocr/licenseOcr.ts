@@ -1,8 +1,8 @@
-import { formatThaiDate } from './requestDetail.format';
+import { formatThaiDate as formatThaiDateCore } from '@/shared/utils/thai-locale';
 import {
   detectOcrDocumentKind,
   normalizeOcrAnalysisText,
-} from './requestDetail.ocrDocuments';
+} from './ocrDocuments';
 
 type OcrResultLike = {
   name?: string;
@@ -32,6 +32,9 @@ type LicenseCandidate = LicenseOcrSummary & {
   nearCount: number;
   extractedValueCount: number;
 };
+
+const formatThaiDate = (value?: string | Date | null) =>
+  formatThaiDateCore(value, { month: 'long' });
 
 const THAI_DIGITS = '๐๑๒๓๔๕๖๗๘๙';
 const THAI_MONTHS = [

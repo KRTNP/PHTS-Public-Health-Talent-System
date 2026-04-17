@@ -1,11 +1,6 @@
-export const buildEligibilityCsv = (rows: Array<Record<string, unknown>>): string => {
-  const escapeCsv = (value: unknown) => {
-    if (value === null || value === undefined) return "";
-    const s = String(value);
-    if (/[\",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
+import { escapeCsvCell } from "@shared/utils/csv.js";
 
+export const buildEligibilityCsv = (rows: Array<Record<string, unknown>>): string => {
   const header = [
     "eligibility_id",
     "request_no",
@@ -45,7 +40,11 @@ export const buildEligibilityCsv = (rows: Array<Record<string, unknown>>): strin
         row.effective_date,
         row.expiry_date,
       ]
-        .map(escapeCsv)
+        .map((value) =>
+          escapeCsvCell(
+            value as string | number | null | undefined,
+          ),
+        )
         .join(","),
     );
   }

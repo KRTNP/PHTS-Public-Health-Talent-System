@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   clearAuthSession,
+  hasAuthSessionHint,
   persistAuthSession,
-  readAuthSessionToken,
   setStoredAuthUser,
-  syncAuthTokenCookie,
 } from '@/shared/auth/session';
 import {
-  AUTH_TOKEN_COOKIE_NAME,
+  AUTH_SESSION_HINT_STORAGE_NAME,
   AUTH_TOKEN_STORAGE_NAME,
   AUTH_USER_STORAGE_NAME,
 } from '@/shared/auth/storage';
@@ -15,42 +14,36 @@ import {
 describe('auth session utilities', () => {
   beforeEach(() => {
     localStorage.clear();
-    document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
+    sessionStorage.clear();
   });
 
-  it('persists and reads auth session token/user', () => {
-    const token = 'token-123';
+  it('persists session hint/user without storing auth token in browser storage', () => {
     const user = { id: 1, role: 'HEAD_HR' };
 
-    persistAuthSession(token, user);
+    persistAuthSession('token-123', user);
 
-    expect(readAuthSessionToken()).toBe(token);
-    expect(localStorage.getItem(AUTH_TOKEN_STORAGE_NAME)).toBe(token);
-    expect(localStorage.getItem(AUTH_USER_STORAGE_NAME)).toBe(JSON.stringify(user));
-    expect(document.cookie).toContain(`${AUTH_TOKEN_COOKIE_NAME}=token-123`);
+    expect(hasAuthSessionHint()).toBe(true);
+    expect(sessionStorage.getItem(AUTH_SESSION_HINT_STORAGE_NAME)).toBe('1');
+    expect(localStorage.getItem(AUTH_TOKEN_STORAGE_NAME)).toBeNull();
+    expect(sessionStorage.getItem(AUTH_USER_STORAGE_NAME)).toBe(JSON.stringify(user));
   });
 
-  it('can update stored user without overwriting token', () => {
+  it('can update stored user payload in session storage', () => {
     persistAuthSession('token-x', { id: 1 });
     setStoredAuthUser({ id: 2, role: 'HEAD_FINANCE' });
 
-    expect(readAuthSessionToken()).toBe('token-x');
-    expect(localStorage.getItem(AUTH_USER_STORAGE_NAME)).toBe(
+    expect(sessionStorage.getItem(AUTH_USER_STORAGE_NAME)).toBe(
       JSON.stringify({ id: 2, role: 'HEAD_FINANCE' }),
     );
   });
 
-  it('clears auth session token/user and cookie', () => {
+  it('clears session hint/user and legacy local storage token', () => {
+    localStorage.setItem(AUTH_TOKEN_STORAGE_NAME, 'legacy-token');
     persistAuthSession('token-y', { id: 99 });
     clearAuthSession();
 
-    expect(readAuthSessionToken()).toBeNull();
+    expect(hasAuthSessionHint()).toBe(false);
     expect(localStorage.getItem(AUTH_TOKEN_STORAGE_NAME)).toBeNull();
-    expect(localStorage.getItem(AUTH_USER_STORAGE_NAME)).toBeNull();
-  });
-
-  it('syncs cookie from existing token value', () => {
-    syncAuthTokenCookie('abc-999');
-    expect(document.cookie).toContain(`${AUTH_TOKEN_COOKIE_NAME}=abc-999`);
+    expect(sessionStorage.getItem(AUTH_USER_STORAGE_NAME)).toBeNull();
   });
 });

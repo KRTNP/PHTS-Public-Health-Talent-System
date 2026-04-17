@@ -1,45 +1,37 @@
 import {
-  AUTH_TOKEN_COOKIE_NAME,
+  AUTH_SESSION_HINT_STORAGE_NAME,
   AUTH_TOKEN_STORAGE_NAME,
   AUTH_USER_STORAGE_NAME,
 } from '@/shared/auth/storage';
 
 const isBrowser = (): boolean => typeof window !== 'undefined';
 
-const setTokenCookie = (token: string) => {
-  if (typeof document === 'undefined') return;
-  document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Secure`;
-};
-
-const clearTokenCookie = () => {
-  if (typeof document === 'undefined') return;
-  document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
-};
-
 export const readAuthSessionToken = (): string | null => {
-  if (!isBrowser()) return null;
-  return localStorage.getItem(AUTH_TOKEN_STORAGE_NAME);
+  return null;
 };
 
-export const syncAuthTokenCookie = (token: string) => {
-  setTokenCookie(token);
+export const hasAuthSessionHint = (): boolean => {
+  if (!isBrowser()) return false;
+  return sessionStorage.getItem(AUTH_SESSION_HINT_STORAGE_NAME) === '1';
 };
 
 export const setStoredAuthUser = (user: unknown) => {
   if (!isBrowser()) return;
-  localStorage.setItem(AUTH_USER_STORAGE_NAME, JSON.stringify(user));
+  sessionStorage.setItem(AUTH_USER_STORAGE_NAME, JSON.stringify(user));
 };
 
 export const persistAuthSession = (token: string, user: unknown) => {
   if (!isBrowser()) return;
-  localStorage.setItem(AUTH_TOKEN_STORAGE_NAME, token);
-  localStorage.setItem(AUTH_USER_STORAGE_NAME, JSON.stringify(user));
-  setTokenCookie(token);
+  void token; // preserved for backward-compatible function signature
+  sessionStorage.setItem(AUTH_SESSION_HINT_STORAGE_NAME, '1');
+  sessionStorage.setItem(AUTH_USER_STORAGE_NAME, JSON.stringify(user));
 };
 
 export const clearAuthSession = () => {
   if (!isBrowser()) return;
+  sessionStorage.removeItem(AUTH_SESSION_HINT_STORAGE_NAME);
+  sessionStorage.removeItem(AUTH_USER_STORAGE_NAME);
+  // Cleanup legacy browser-stored token/user from previous versions.
   localStorage.removeItem(AUTH_TOKEN_STORAGE_NAME);
   localStorage.removeItem(AUTH_USER_STORAGE_NAME);
-  clearTokenCookie();
 };

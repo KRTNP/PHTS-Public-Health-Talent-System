@@ -1,8 +1,9 @@
 import type { Request } from "express";
 
-const TOKEN_COOKIE_KEY = "phts_token";
+export const TOKEN_COOKIE_KEY = "phts_token";
 const isCookieTokenEnabled = (): boolean =>
-  String(process.env.AUTH_ALLOW_COOKIE_TOKEN || "").toLowerCase() === "true";
+  String(process.env.AUTH_ALLOW_COOKIE_TOKEN || "true").toLowerCase() !==
+  "false";
 
 function parseCookieValue(rawCookie: string, key: string): string | null {
   const parts = rawCookie.split(";");
@@ -21,6 +22,14 @@ function parseCookieValue(rawCookie: string, key: string): string | null {
   return null;
 }
 
+export function hasAuthCookieToken(req: Request): boolean {
+  const cookieHeader = req.headers.cookie;
+  if (typeof cookieHeader !== "string" || !cookieHeader.trim()) {
+    return false;
+  }
+  return Boolean(parseCookieValue(cookieHeader, TOKEN_COOKIE_KEY));
+}
+
 export function extractAuthToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
@@ -28,15 +37,19 @@ export function extractAuthToken(req: Request): string | null {
     if (token) return token;
   }
 
-  // Cookie-based auth is disabled by default to reduce CSRF attack surface.
+  // Cookie-based auth is enabled by default because token is set as HttpOnly.
   if (!isCookieTokenEnabled()) {
     return null;
   }
 
-  const cookieHeader = req.headers.cookie;
-  if (typeof cookieHeader === "string" && cookieHeader.trim()) {
-    const tokenFromCookie = parseCookieValue(cookieHeader, TOKEN_COOKIE_KEY);
-    if (tokenFromCookie) return tokenFromCookie;
+  if (hasAuthCookieToken(req)) {
+    const tokenFromCookie = parseCookieValue(
+      String(req.headers.cookie),
+      TOKEN_COOKIE_KEY,
+    );
+    if (tokenFromCookie) {
+      return tokenFromCookie;
+    }
   }
 
   return null;

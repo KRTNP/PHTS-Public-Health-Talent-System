@@ -8,10 +8,9 @@ import { User } from "@/types/auth"
 import type { ApiResponse } from "@/shared/api/types"
 import {
   clearAuthSession,
+  hasAuthSessionHint,
   persistAuthSession,
-  readAuthSessionToken,
   setStoredAuthUser,
-  syncAuthTokenCookie,
 } from "@/shared/auth/session"
 import { redirectToLogin } from "@/shared/auth/redirect-policy"
 import {
@@ -86,20 +85,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const logout = React.useCallback(() => {
+  const finalizeLogout = React.useCallback(() => {
     clearAuthSession()
     setUser(null)
     redirectToLogin({ pathname, navigate: (target) => router.push(target) })
   }, [pathname, router])
 
-  const refreshCurrentUser = React.useCallback(async () => {
-    const token = readAuthSessionToken()
-    if (!token) {
-      setUser(null)
-      return null
-    }
-    syncAuthTokenCookie(token)
+  const logout = React.useCallback(() => {
+    void api.post("/auth/logout").catch(() => null).finally(() => {
+      finalizeLogout()
+    })
+  }, [finalizeLogout])
 
+  const refreshCurrentUser = React.useCallback(async () => {
     const { data } = await api.get<ApiResponse<AuthUserPayload>>("/auth/me")
     if (!data.success || !data.data) {
       throw new Error("Failed to fetch user")
@@ -126,18 +124,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!isExpectedAuthRefreshError(error)) {
           console.error("Failed to initialize auth:", error)
         }
-        logout()
+        finalizeLogout()
       } finally {
         setIsLoading(false)
       }
     }
 
     void initAuth()
-  }, [isExpectedAuthRefreshError, logout, refreshCurrentUser])
+  }, [finalizeLogout, isExpectedAuthRefreshError, refreshCurrentUser])
 
   // 2. Refresh user on tab focus / visibility to detect role changes from backend.
   React.useEffect(() => {
-    const shouldSkip = !readAuthSessionToken() || isLoading
+    const shouldSkip = isLoading || !user || !hasAuthSessionHint()
     if (shouldSkip) return
 
     const syncUser = async () => {
@@ -163,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [isLoading, logout, refreshCurrentUser])
+  }, [isLoading, logout, refreshCurrentUser, user])
 
   // 3. Enforce route by current role so layout/sidebar always match active user.
   React.useEffect(() => {
@@ -181,18 +179,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 4. Login Function
   const login = async (credentials: LoginCredentials) => {
     // credentials should contain { citizen_id, password }
-    const { data } = await api.post<ApiResponse<{ token: string; user: AuthUserPayload }>>("/auth/login", credentials)
+    const { data } = await api.post<ApiResponse<{ user: AuthUserPayload }>>("/auth/login", credentials)
 
-    // Backend returns { success, token, user } (no nested data)
+    // Backend returns { success, user } and sets HttpOnly auth cookie.
     if (data.success) {
-      const token = (data as unknown as { token?: string }).token ?? data.data?.token
       const user = (data as unknown as { user?: AuthUserPayload }).user ?? data.data?.user
-      if (!token || !user) {
-        throw new Error("Login response missing token or user")
+      if (!user) {
+        throw new Error("Login response missing user")
       }
 
       const normalizedUser = normalizeUser(user)
-      persistAuthSession(token, normalizedUser)
+      persistAuthSession("", normalizedUser)
 
       setUser(normalizedUser)
 

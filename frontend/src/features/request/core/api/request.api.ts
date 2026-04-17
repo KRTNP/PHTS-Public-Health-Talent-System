@@ -2,7 +2,6 @@ import api from "@/shared/api/axios";
 import { ApiPayload, ApiResponse } from "@/shared/api/types";
 import { RequestWithDetails } from "@/types/request.types";
 import type {
-  MasterRate,
   PersonnelOption,
   PrefillProfile,
   ScopeWithMembers,
@@ -57,13 +56,6 @@ export async function submitRequest(
 
 export async function cancelRequest(id: number | string): Promise<void> {
   await api.post(`/requests/${id}/cancel`);
-}
-
-export async function getMasterRates() {
-  const res = await api.get<ApiResponse<MasterRate[]>>(
-    "/requests/master-rates",
-  );
-  return res.data.data;
 }
 
 export async function getPrefill(targetUserId?: number | string) {

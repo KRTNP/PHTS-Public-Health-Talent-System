@@ -136,4 +136,39 @@ describe("report.service", () => {
     expect(flattened).not.toContain("ผู้จัดทำ");
     expect(flattened).not.toContain("ผู้ตรวจสอบ");
   });
+
+  test("generateDetailReportCsv neutralizes Excel formulas in exported cells", async () => {
+    getPeriodIdMock.mockResolvedValue(38);
+    getMasterRateMapMock.mockResolvedValue(new Map());
+    getPayoutDataForReportMock.mockResolvedValue({
+      data: [
+        {
+          first_name: "=1+1",
+          last_name: "Danger",
+          position_name: "@calc",
+          profession_code: "NURSE",
+          calculated_amount: "5000.00",
+          retroactive_amount: "0.00",
+          total_payable: "5000.00",
+          pts_rate_snapshot: "5000.00",
+          master_rate_id: null,
+          remark: "-payload",
+        },
+      ],
+    });
+
+    const { generateDetailReportCsv } =
+      await import("../services/report.service.js");
+    const buffer = await generateDetailReportCsv({
+      year: 2026,
+      month: 1,
+      professionCode: "NURSE",
+    });
+
+    const csv = buffer.toString("utf8");
+
+    expect(csv).toContain("'=1+1 Danger");
+    expect(csv).toContain(",'@calc,");
+    expect(csv).toContain(",'-payload");
+  });
 });

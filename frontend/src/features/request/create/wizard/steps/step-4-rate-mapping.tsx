@@ -29,7 +29,7 @@ import {
   PROFESSION_CODE_ALIASES,
   resolveProfessionLabel,
 } from '@/shared/constants/profession';
-import { normalizeOcrAnalysisText } from '@/features/request/detail/utils';
+import { normalizeOcrAnalysisText } from '@/features/request/shared/ocr/ocrDocuments';
 
 // Interfaces
 interface Criterion {

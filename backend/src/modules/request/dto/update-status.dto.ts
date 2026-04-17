@@ -9,6 +9,24 @@ export const actionSchema = z.object({
   }),
 });
 
+export const legacyActionAliasSchema = z.object({
+  body: z.object({
+    comment: z.string().max(1000).optional(),
+    signature_base64: z.string().optional(),
+  }),
+});
+
+export const batchApproveCompatSchema = z.object({
+  body: z.object({
+    request_ids: z
+      .array(z.coerce.number().int().positive())
+      .min(1)
+      .max(100),
+    comment: z.string().max(1000).optional(),
+    signature_base64: z.string().optional(),
+  }),
+});
+
 const verificationCheckSchema = z.object({
   status: z.enum(["PASS", "FAIL"]),
   start_date: z.string().optional(),

@@ -62,7 +62,6 @@ export enum FileType {
 export {
   STEP_ROLE_MAP,
   ROLE_STEP_MAP,
-  TOTAL_APPROVAL_STEPS,
 } from "@shared/policy/request.policy.js";
 
 /**
@@ -259,4 +258,4 @@ export interface OcrPrecheckHistoryResult {
 // Import from '@/modules/request/dto/index.js' instead:
 //   CreateRequestDTO, UpdateRequestDTO, CancelRequestDTO, SubmitRequestDTO,
 //   ApproveRequestDTO, RejectRequestDTO, ReturnRequestDTO,
-//   BatchApproveParams, BatchApproveResult, RequestFilters, PaginatedResult
+//   RequestFilters, PaginatedResult

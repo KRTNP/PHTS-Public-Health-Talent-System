@@ -1,132 +1,74 @@
-/**
- * CSRF Protection Middleware
- *
- * Implements token-based CSRF protection
- * For GET/HEAD/OPTIONS: Generates and returns CSRF token in response header
- * For POST/PUT/DELETE/PATCH: Validates CSRF token from request header
- *
- * Client should:
- * 1. Store token from X-CSRF-Token response header in localStorage/memory
- * 2. Send token in X-CSRF-Token request header for state-changing requests
- */
-
 import { Request, Response, NextFunction } from "express";
-import crypto from "node:crypto";
+import { hasAuthCookieToken } from "@shared/utils/authToken.js";
 
-const CSRF_TOKEN_LENGTH = 32;
-const CSRF_HEADER_NAME = "x-csrf-token";
-const SAFE_METHODS = ["GET", "HEAD", "OPTIONS"];
-const CSRF_TOKEN_CACHE = new Map<
-  string,
-  { token: string; timestamp: number }
->();
-const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-/**
- * Generate a random CSRF token
- */
-function generateToken(): string {
-  return crypto.randomBytes(CSRF_TOKEN_LENGTH).toString("hex");
-}
+type CsrfProtectionOptions = {
+  isOriginAllowed: (origin: string) => boolean;
+  isTrustedNoOriginClient?: (req: Request) => boolean;
+};
 
-/**
- * Get or create a CSRF token for a user session
- * Uses request ID as session identifier
- */
-function getSessionToken(requestId: string): string {
-  const cached = CSRF_TOKEN_CACHE.get(requestId);
-  const now = Date.now();
+const getHeaderValue = (
+  value: string | string[] | undefined,
+): string | null => {
+  if (Array.isArray(value)) return value[0]?.trim() || null;
+  if (typeof value === "string") return value.trim() || null;
+  return null;
+};
 
-  // Return cached token if not expired
-  if (cached && now - cached.timestamp < TOKEN_EXPIRY) {
-    return cached.token;
-  }
-
-  // Generate new token
-  const token = generateToken();
-  CSRF_TOKEN_CACHE.set(requestId, { token, timestamp: now });
-
-  // Cleanup old entries periodically
-  if (CSRF_TOKEN_CACHE.size > 10000) {
-    for (const [key, value] of CSRF_TOKEN_CACHE.entries()) {
-      if (now - value.timestamp > TOKEN_EXPIRY) {
-        CSRF_TOKEN_CACHE.delete(key);
-      }
+export function createCsrfProtection(options: CsrfProtectionOptions) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!UNSAFE_METHODS.has(req.method.toUpperCase())) {
+      next();
+      return;
     }
-  }
 
-  return token;
+    // Enforce CSRF checks only when auth comes from browser cookie.
+    // Non-browser/API clients that use Authorization: Bearer remain unaffected.
+    if (!hasAuthCookieToken(req)) {
+      next();
+      return;
+    }
+
+    const origin = getHeaderValue(req.headers.origin);
+    if (!origin) {
+      if (options.isTrustedNoOriginClient?.(req)) {
+        next();
+        return;
+      }
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "CSRF_ORIGIN_REQUIRED",
+          message: "Origin header is required for cookie-authenticated requests",
+        },
+      });
+      return;
+    }
+
+    if (!options.isOriginAllowed(origin)) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "CSRF_ORIGIN_FORBIDDEN",
+          message: "Cross-site request blocked",
+        },
+      });
+      return;
+    }
+
+    const secFetchSite = getHeaderValue(req.headers["sec-fetch-site"]);
+    if (secFetchSite === "cross-site") {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "CSRF_FETCH_SITE_FORBIDDEN",
+          message: "Cross-site request blocked",
+        },
+      });
+      return;
+    }
+
+    next();
+  };
 }
-
-/**
- * CSRF Protection Middleware
- *
- * For safe requests (GET, HEAD, OPTIONS): Returns CSRF token in header
- * For state-changing requests: Validates CSRF token from header
- */
-export const csrfProtection = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  const requestId = (req as any).requestId || "unknown";
-
-  // Skip CSRF validation for safe methods
-  if (SAFE_METHODS.includes(req.method)) {
-    const token = getSessionToken(requestId);
-    // Return token in response header for client to use
-    res.setHeader(CSRF_HEADER_NAME, token);
-    return next();
-  }
-
-  // For state-changing requests, validate CSRF token
-  const tokenFromHeader = req.headers[CSRF_HEADER_NAME] as string;
-
-  if (!tokenFromHeader) {
-    return res.status(403).json({
-      success: false,
-      error: {
-        code: "CSRF_TOKEN_MISSING",
-        message:
-          "CSRF token must be provided in X-CSRF-Token request header for state-changing operations",
-      },
-    });
-  }
-
-  // Get the stored token for this session
-  const storedToken = getSessionToken(requestId);
-
-  // Validate token using constant-time comparison
-  const storedBuffer = Buffer.from(storedToken);
-  const headerBuffer = Buffer.from(tokenFromHeader);
-
-  if (
-    storedBuffer.length !== headerBuffer.length ||
-    !crypto.timingSafeEqual(storedBuffer, headerBuffer)
-  ) {
-    return res.status(403).json({
-      success: false,
-      error: {
-        code: "CSRF_TOKEN_INVALID",
-        message: "CSRF token validation failed. Token may have expired.",
-      },
-    });
-  }
-
-  // Token is valid - generate new token for next request
-  getSessionToken(requestId); // Refresh token timestamp
-  next();
-};
-
-/**
- * Middleware to disable CSRF protection for specific routes
- * Useful for webhooks, API integrations, or endpoints that don't need CSRF protection
- */
-export const disableCsrf = (
-  _req: Request,
-  _res: Response,
-  next: NextFunction,
-) => {
-  (_req as any).skipCsrf = true;
-  next();
-};

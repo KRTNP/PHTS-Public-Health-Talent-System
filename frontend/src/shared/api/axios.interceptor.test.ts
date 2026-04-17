@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockClearAuthSession = vi.fn();
-const mockReadAuthSessionToken = vi.fn();
 const mockRedirectToLogin = vi.fn();
 const mockResolveApiBaseUrl = vi.fn();
 
@@ -25,7 +24,6 @@ vi.mock("axios", () => ({
 
 vi.mock("@/shared/auth/session", () => ({
   clearAuthSession: mockClearAuthSession,
-  readAuthSessionToken: mockReadAuthSessionToken,
 }));
 
 vi.mock("@/shared/auth/redirect-policy", () => ({

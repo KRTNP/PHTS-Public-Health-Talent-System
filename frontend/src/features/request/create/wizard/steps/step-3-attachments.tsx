@@ -8,11 +8,8 @@ import { AttachmentPreviewDialog } from '@/components/common';
 import { toast } from 'sonner';
 
 import { RequestFormData, RequestWithDetails } from '@/types/request.types';
-import {
-  buildAttachmentUrl,
-  detectOcrDocumentKind,
-  getOcrDocumentTypeLabel,
-} from '@/features/request/detail/utils';
+import { buildAttachmentUrl } from '@/features/request/detail/utils';
+import { detectOcrDocumentKind, getOcrDocumentTypeLabel } from '@/features/request/shared/ocr/ocrDocuments';
 
 interface Step3Props {
   data: RequestFormData;

@@ -130,8 +130,8 @@ describe("buildScopesFromSpecialPosition", () => {
     expect(deps.parseScopes).toHaveBeenCalledWith(null);
     expect(deps.insertScopeMappings).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "special_position parse failed: citizen_id=3102200342989",
+      expect.stringMatching(
+        /special_position parse failed: citizen_id=.*2989/,
       ),
     );
     warnSpy.mockRestore();

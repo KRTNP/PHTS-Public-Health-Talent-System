@@ -1,6 +1,6 @@
-import { parseCanonicalAssignmentOrderSummary } from './requestDetail.assignmentOrder.parser';
-import { normalizeAssignmentOrderMarkdown } from './requestDetail.assignmentOrder.normalizer';
-import { detectOcrDocumentKind } from './requestDetail.ocrDocuments';
+import { parseCanonicalAssignmentOrderSummary } from './assignmentOrder.parser';
+import { normalizeAssignmentOrderMarkdown } from './assignmentOrder.normalizer';
+import { detectOcrDocumentKind } from './ocrDocuments';
 
 type OcrAssignmentDocument = {
   fileName?: string | null;

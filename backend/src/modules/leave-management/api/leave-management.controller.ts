@@ -8,7 +8,7 @@ import type {
   CreateLeaveManagementBody,
   ReplaceLeaveReturnEventsBody,
 } from "../leave-management.schema.js";
-import { handleUploadError } from "@config/upload.js";
+import { handleUploadError } from "@config/upload-storage.js";
 import { asyncHandler } from "@middlewares/errorHandler.js";
 import { ValidationError } from "@shared/utils/errors.js";
 import { getAuthenticatedUserId } from "@/shared/http/authenticated-user.js";

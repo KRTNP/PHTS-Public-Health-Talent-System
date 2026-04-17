@@ -1,11 +1,19 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { nextMock, jsonMock } = vi.hoisted(() => ({
+const { nextMock, jsonMock, redirectMock } = vi.hoisted(() => ({
   nextMock: vi.fn(() => ({ type: "next" })),
   jsonMock: vi.fn((body: unknown, init?: { status?: number }) => ({
     type: "json",
     status: init?.status ?? 200,
     body,
+  })),
+  redirectMock: vi.fn((target: URL | { pathname?: string; search?: string }, status?: number) => ({
+    type: "redirect",
+    status: status ?? 307,
+    location:
+      target instanceof URL
+        ? `${target.pathname}${target.search ?? ""}`
+        : `${target.pathname ?? ""}${target.search ?? ""}`,
   })),
 }));
 
@@ -13,6 +21,7 @@ vi.mock("next/server", () => ({
   NextResponse: {
     next: nextMock,
     json: jsonMock,
+    redirect: redirectMock,
   },
 }));
 
@@ -22,6 +31,7 @@ const makeRequest = (input: {
   pathname: string;
   host: string;
   forwardedHost?: string;
+  query?: string;
 }) => {
   const headers = new Headers();
   headers.set("host", input.host);
@@ -29,12 +39,19 @@ const makeRequest = (input: {
     headers.set("x-forwarded-host", input.forwardedHost);
   }
 
+  const search = input.query ? `?${input.query}` : "";
+  const url = new URL(`http://${input.host}${input.pathname}${search}`);
+
   return {
     nextUrl: {
-      pathname: input.pathname,
+      pathname: url.pathname,
       host: input.host,
       hostname: input.host.split(":")[0],
+      search: url.search,
+      searchParams: url.searchParams,
+      clone: () => new URL(url.toString()),
     },
+    url: url.toString(),
     headers,
   } as unknown;
 };
@@ -61,6 +78,25 @@ describe("proxy host handling", () => {
     expect(response.type).toBe("json");
     expect(response.status).toBe(403);
     expect(response.body?.error?.code).toBe("DEV_PUBLIC_ACCESS_BLOCKED");
+    expect(nextMock).not.toHaveBeenCalled();
+  });
+
+  it("strips sensitive login query payload by redirecting to clean /login URL", () => {
+    const request = makeRequest({
+      pathname: "/login",
+      host: "localhost:3000",
+      query: "citizenId=1539900027713&password=secret",
+    });
+
+    const response = proxy(request as never) as {
+      type: string;
+      status?: number;
+      location?: string;
+    };
+
+    expect(response.type).toBe("redirect");
+    expect(response.status).toBe(307);
+    expect(response.location).toBe("/login");
     expect(nextMock).not.toHaveBeenCalled();
   });
 

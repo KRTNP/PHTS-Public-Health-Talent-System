@@ -2,12 +2,12 @@ import axios, { AxiosError } from 'axios';
 import { resolveApiBaseUrl } from '@/shared/api/base-url';
 import {
   clearAuthSession,
-  readAuthSessionToken,
 } from '@/shared/auth/session';
 import { redirectToLogin } from '@/shared/auth/redirect-policy';
 
 const api = axios.create({
   baseURL: resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL),
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -50,17 +50,6 @@ const toReadableErrorMessage = (body?: ApiErrorBody): string => {
 
   return body.message || 'เกิดข้อผิดพลาดจากการเชื่อมต่อระบบ';
 };
-
-// Interceptor: Attach Token
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = readAuthSessionToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  }
-  return config;
-});
 
 // Interceptor: Handle 401 Unauthorized
 api.interceptors.response.use(

@@ -1,8 +1,5 @@
 * @KRTNP
-
-# Optional finer-grain ownership (replace with your real team handles)
-# Example:
-# backend/** @KRTNP @teammate1 @teammate2
+# backend/** @KRTNP
 backend/** @KRTNP
 frontend/** @KRTNP
 .github/** @KRTNP

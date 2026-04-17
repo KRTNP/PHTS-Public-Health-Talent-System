@@ -2,8 +2,14 @@ import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const scriptDir = path.dirname(__filename);
+const backendRoot = path.resolve(scriptDir, "../../../");
+const migrationsDir = path.join(scriptDir, "migrations", "active");
 
 const dbConfig = {
   host: process.env.DB_HOST || "localhost",
@@ -11,45 +17,89 @@ const dbConfig = {
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "phts_system",
   port: Number.parseInt(process.env.DB_PORT || "3306", 10),
-  multipleStatements: true, // จำเป็นมาก เพื่อให้รัน SQL ก้อนใหญ่ได้
+  // Required for running SQL migration files containing multiple statements.
+  multipleStatements: true,
 };
 
+function listActiveMigrations(): string[] {
+  if (!fs.existsSync(migrationsDir)) {
+    throw new Error(`Migration directory not found: ${migrationsDir}`);
+  }
+
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((file) => file.toLowerCase().endsWith(".sql"))
+    .sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+    );
+
+  if (files.length === 0) {
+    throw new Error(`No SQL migration files found: ${migrationsDir}`);
+  }
+
+  return files;
+}
+
+function ensureUploadDirectories() {
+  const uploadDirs = ["uploads", "uploads/documents", "uploads/signatures"];
+
+  for (const dir of uploadDirs) {
+    const fullPath = path.join(backendRoot, dir);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+      console.log(`Created directory: ${dir}`);
+    }
+  }
+}
+
 async function setupDatabase() {
-  console.log("🚀 Starting PHTS System Setup...");
-  let connection;
+  console.log("Starting database setup...");
+  let connection: mysql.Connection | undefined;
+  const strictMode =
+    String(process.env.DB_SETUP_STRICT ?? "true").trim().toLowerCase() !==
+    "false";
 
   try {
-    // 1. ตรวจสอบไฟล์ SQL Master
-    const sqlPath = path.join(__dirname, "../database/phts_system.sql");
-    if (!fs.existsSync(sqlPath)) {
-      throw new Error(`❌ SQL file not found at: ${sqlPath}`);
-    }
-    const sqlContent = fs.readFileSync(sqlPath, "utf8");
-
-    // 2. เชื่อมต่อ Database
+    const migrationFiles = listActiveMigrations();
     connection = await mysql.createConnection(dbConfig);
-    console.log(`📦 Connected to database: ${dbConfig.database}`);
+    console.log(`Connected to database: ${dbConfig.database}`);
 
-    // 3. รัน SQL Script
-    console.log("⏳ Executing SQL schema...");
-    await connection.query(sqlContent);
-    console.log("✅ Database structure created successfully.");
+    console.log(`Applying ${migrationFiles.length} migration files...`);
+    const failedMigrations: string[] = [];
+    for (const migrationFile of migrationFiles) {
+      const migrationPath = path.join(migrationsDir, migrationFile);
+      const sqlContent = fs.readFileSync(migrationPath, "utf8").trim();
 
-    // 4. สร้างโฟลเดอร์สำหรับเก็บไฟล์ (Uploads)
-    const baseDir = path.resolve(__dirname, "../../"); // ถอยกลับไป root project
-    const uploadDirs = ["uploads", "uploads/documents", "uploads/signatures"];
-
-    uploadDirs.forEach((dir) => {
-      const fullPath = path.join(baseDir, dir);
-      if (!fs.existsSync(fullPath)) {
-        fs.mkdirSync(fullPath, { recursive: true });
-        console.log(`📂 Created directory: ${dir}`);
+      if (!sqlContent) {
+        console.log(`Skipped empty migration: ${migrationFile}`);
+        continue;
       }
-    });
 
-    console.log("\n✨ Setup completed successfully!");
-  } catch (error: any) {
-    console.error("\n❌ Setup Failed:", error.message);
+      try {
+        await connection.query(sqlContent);
+        console.log(`Applied migration: ${migrationFile}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        failedMigrations.push(migrationFile);
+        if (strictMode) {
+          throw new Error(`Migration failed (${migrationFile}): ${message}`);
+        }
+        console.warn(`Skipped migration (${migrationFile}): ${message}`);
+      }
+    }
+
+    if (failedMigrations.length > 0) {
+      console.warn(
+        `Completed with ${failedMigrations.length} skipped migration(s). Set DB_SETUP_STRICT=false only when partial setup is intentional.`,
+      );
+    }
+
+    ensureUploadDirectories();
+
+    console.log("Database setup completed.");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Database setup failed:", message);
     process.exit(1);
   } finally {
     if (connection) await connection.end();

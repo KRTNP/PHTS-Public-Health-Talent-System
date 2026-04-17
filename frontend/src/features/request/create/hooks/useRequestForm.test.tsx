@@ -14,7 +14,7 @@ const authUser = {
   firstName: "ละเอียด",
   lastName: "แก้วประเสริฐ",
 };
-const prefillData = {
+let prefillData = {
   citizen_id: "1570400181863",
   title: "นางสาว",
   first_name: "กันยกร",
@@ -65,6 +65,18 @@ describe("useRequestForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    prefillData = {
+      citizen_id: "1570400181863",
+      title: "นางสาว",
+      first_name: "กันยกร",
+      last_name: "กาญจนวัฒนากุล",
+      position_name: "พยาบาลวิชาชีพ",
+      position_number: "210008",
+      department: "กลุ่มงานการพยาบาลผู้ป่วยอายุรกรรม",
+      sub_department: "หออภิบาลผู้ป่วยวิกฤตอายุรกรรม (ICU Med.)",
+      employee_type: "CIVIL_SERVANT",
+      first_entry_date: "2026-03-03",
+    };
     createRequestMock.mockResolvedValue({
       request_id: 999,
       attachments: [],
@@ -308,5 +320,19 @@ describe("useRequestForm", () => {
     });
 
     expect(result.current.formData.effectiveDate).toBe("2025-11-01");
+  });
+
+  it("exposes prefillOriginal from the active prefill profile", () => {
+    prefillData = {
+      ...prefillData,
+      first_name: "สมหญิง",
+      last_name: "ทดสอบ",
+      citizen_id: "1103700000001",
+    };
+
+    const { result } = renderHook(() => useRequestForm());
+    expect(result.current.prefillOriginal?.first_name).toBe("สมหญิง");
+    expect(result.current.prefillOriginal?.last_name).toBe("ทดสอบ");
+    expect(result.current.prefillOriginal?.citizen_id).toBe("1103700000001");
   });
 });

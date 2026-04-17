@@ -6,14 +6,17 @@
  * Date: 2025-12-30
  */
 
-import { RequestHandler, Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { idempotency } from "@middlewares/idempotency.js";
-import { requestUpload } from "@config/upload.js";
+import { requestUpload } from "@config/upload-storage.js";
+import { enforceUploadedFilesAreSafe } from "@config/upload-guard.js";
 import { requestController } from "@/modules/request/api/request.controller.js";
 import { validate } from "@shared/validate.middleware.js";
 import {
   actionSchema,
+  batchApproveCompatSchema,
+  legacyActionAliasSchema,
   verificationSchema,
 } from "@/modules/request/dto/update-status.dto.js"; // Use correct DTO file
 import { verificationSnapshotSchema } from "@/modules/request/dto/verification-snapshot.dto.js";
@@ -24,7 +27,6 @@ import {
   requestEligibilityOcrClearSchema,
   requestAttachmentOcrSchema,
   requestOcrClearSchema,
-  requestApproveBatchSchema,
   requestEligibilityIdParamSchema,
   requestEligibilityQuerySchema,
   requestHistoryQuerySchema,
@@ -36,6 +38,7 @@ import {
   requestEligibilityManageSchema,
 } from "@/modules/request/dto/request-params.dto.js";
 import { UserRole } from "@/types/auth.js";
+import { ActionType } from "@/modules/request/contracts/request.types.js";
 // Note: createRequestSchema is used inside controller manually for file upload handling, or added here if middleware used.
 // Current controller implementation handles validation manually after file upload.
 
@@ -47,42 +50,45 @@ const requestActionRoles = [
   UserRole.DIRECTOR,
   UserRole.HEAD_FINANCE,
 ] as const;
+const isLegacyActionEndpointsEnabled =
+  String(process.env.REQUEST_ENABLE_LEGACY_ACTION_ENDPOINTS || "").toLowerCase() ===
+  "true";
 
-const registerLegacyActionAlias = (
-  path: "/:id/approve" | "/:id/reject" | "/:id/return",
-  handler: RequestHandler,
+const applyLegacyEndpointWarning = (
+  legacyPath: string,
+): RequestHandler =>
+  (req, res, next) => {
+    res.setHeader(
+      "X-Deprecated-Endpoint",
+      `${legacyPath}; migrate to POST /api/requests/:id/action`,
+    );
+    console.warn(
+      `[RequestRoute] legacy endpoint used: ${legacyPath} request_id=${String(req.params.id ?? "")}`,
+    );
+    next();
+  };
+
+const injectActionType = (action: ActionType): RequestHandler => (
+  req,
+  _res,
+  next,
 ) => {
-  router.post(
-    path,
-    restrictTo(...requestActionRoles),
-    validate(requestIdParamSchema),
-    handler,
-  );
+  req.body = {
+    ...(req.body && typeof req.body === "object" ? req.body : {}),
+    action,
+  };
+  next();
 };
-
 /**
  * All routes require authentication
  */
 router.use(protect);
 
 /**
- * Batch Approval Route
- * DIRECTOR only - must be before /:id routes to avoid conflicts
- */
-router.post(
-  "/batch-approve",
-  restrictTo(UserRole.DIRECTOR),
-  validate(requestApproveBatchSchema),
-  requestController.approveBatch,
-);
-
-/**
  * User Routes
  * Available to all authenticated users
  */
 
-// Master rates and recommended rate
-router.get("/master-rates", requestController.getMasterRates);
 router.get("/prefill", requestController.getPrefill);
 router.get(
   "/personnel-options",
@@ -148,13 +154,14 @@ router.post(
 // Create new request with file uploads and signature
 router.post(
   "/",
-  idempotency(),
   requestUpload.fields([
     { name: "files", maxCount: 10 },
     { name: "files[]", maxCount: 10 },
     { name: "license_file", maxCount: 1 },
     { name: "applicant_signature", maxCount: 1 },
   ]),
+  enforceUploadedFilesAreSafe,
+  idempotency(),
   requestController.createRequest,
 );
 
@@ -210,6 +217,7 @@ router.post(
     { name: "files[]", maxCount: 10 },
     { name: "license_file", maxCount: 1 },
   ]),
+  enforceUploadedFilesAreSafe,
   validate(requestEligibilityIdParamSchema),
   requestController.uploadEligibilityAttachments,
 );
@@ -294,6 +302,7 @@ router.put(
     { name: "license_file", maxCount: 1 },
     { name: "applicant_signature", maxCount: 1 },
   ]),
+  enforceUploadedFilesAreSafe,
   requestController.updateRequest,
 );
 
@@ -328,8 +337,6 @@ router.post(
 );
 
 // Canonical action endpoint (APPROVE / REJECT / RETURN).
-// Legacy endpoints below are compatibility aliases and should not gain new behavior.
-// Delegation parity is locked by controller parity tests and dispatcher helper tests.
 router.post(
   "/:id/action",
   restrictTo(...requestActionRoles),
@@ -338,6 +345,49 @@ router.post(
   requestController.processAction,
 );
 
+if (isLegacyActionEndpointsEnabled) {
+  router.post(
+    "/:id/approve",
+    restrictTo(...requestActionRoles),
+    applyLegacyEndpointWarning("/:id/approve"),
+    injectActionType(ActionType.APPROVE),
+    validate(requestIdParamSchema),
+    validate(legacyActionAliasSchema),
+    validate(actionSchema),
+    requestController.processAction,
+  );
+
+  router.post(
+    "/:id/reject",
+    restrictTo(...requestActionRoles),
+    applyLegacyEndpointWarning("/:id/reject"),
+    injectActionType(ActionType.REJECT),
+    validate(requestIdParamSchema),
+    validate(legacyActionAliasSchema),
+    validate(actionSchema),
+    requestController.processAction,
+  );
+
+  router.post(
+    "/:id/return",
+    restrictTo(...requestActionRoles),
+    applyLegacyEndpointWarning("/:id/return"),
+    injectActionType(ActionType.RETURN),
+    validate(requestIdParamSchema),
+    validate(legacyActionAliasSchema),
+    validate(actionSchema),
+    requestController.processAction,
+  );
+
+  router.post(
+    "/batch-approve",
+    restrictTo(...requestActionRoles),
+    applyLegacyEndpointWarning("/batch-approve"),
+    validate(batchApproveCompatSchema),
+    requestController.batchApproveCompat,
+  );
+}
+
 // Submit a draft request
 router.post(
   "/:id/submit",
@@ -345,29 +395,5 @@ router.post(
   validate(requestIdParamSchema),
   requestController.submitRequest,
 );
-
-/**
- * Approver Routes
- * Restricted to users with approval roles
- */
-// Phase 7 note:
-// Legacy action endpoints are retained because frontend still contains direct callers
-// (see `frontend/src/features/request/core/api.ts`).
-// Keep these as compatibility aliases only.
-
-// Compatibility endpoint: kept for existing clients.
-// Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
-// Controller delegates through shared action dispatcher for parity with `/:id/action`.
-registerLegacyActionAlias("/:id/approve", requestController.approveRequest);
-
-// Compatibility endpoint: kept for existing clients.
-// Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
-// Controller delegates through shared action dispatcher for parity with `/:id/action`.
-registerLegacyActionAlias("/:id/reject", requestController.rejectRequest);
-
-// Compatibility endpoint: kept for existing clients.
-// Removal condition (Phase 5+): usage-confirmed migration window complete and parity tests still green.
-// Controller delegates through shared action dispatcher for parity with `/:id/action`.
-registerLegacyActionAlias("/:id/return", requestController.returnRequest);
 
 export default router;

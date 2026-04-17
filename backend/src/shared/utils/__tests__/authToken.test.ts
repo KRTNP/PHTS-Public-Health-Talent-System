@@ -25,21 +25,21 @@ describe("extractAuthToken", () => {
     expect(extractAuthToken(req)).toBe("token-from-header");
   });
 
-  test("does not read cookie token when cookie auth is disabled", () => {
+  test("reads cookie token by default", () => {
     delete process.env.AUTH_ALLOW_COOKIE_TOKEN;
     const req = buildRequest({
       cookie: "phts_token=cookie-only-token",
     });
 
-    expect(extractAuthToken(req)).toBeNull();
+    expect(extractAuthToken(req)).toBe("cookie-only-token");
   });
 
-  test("reads cookie token only when explicitly enabled", () => {
-    process.env.AUTH_ALLOW_COOKIE_TOKEN = "true";
+  test("does not read cookie token when explicitly disabled", () => {
+    process.env.AUTH_ALLOW_COOKIE_TOKEN = "false";
     const req = buildRequest({
       cookie: "phts_token=cookie-only-token",
     });
 
-    expect(extractAuthToken(req)).toBe("cookie-only-token");
+    expect(extractAuthToken(req)).toBeNull();
   });
 });

@@ -7,13 +7,6 @@ import {
 import {
   STEP_ROLE_MAP,
   ROLE_STEP_MAP,
-  TOTAL_APPROVAL_STEPS,
-  getRoleForStep,
-  getStepForRole,
-  canApproveAtStep,
-  canBatchApprove,
-  canAdjustLeave,
-  canViewScopes,
 } from "@shared/policy/request.policy.js";
 import {
   APPROVER_ROLES,
@@ -44,43 +37,10 @@ describe("shared policy", () => {
 
   describe("request policy", () => {
     test("role-step maps are consistent for approval roles", () => {
-      expect(TOTAL_APPROVAL_STEPS).toBe(6);
       Object.entries(STEP_ROLE_MAP).forEach(([step, role]) => {
         const stepNo = Number(step);
         expect(ROLE_STEP_MAP[role]).toBe(stepNo);
       });
-    });
-
-    test("getRoleForStep returns expected role", () => {
-      expect(getRoleForStep(1)).toBe(UserRole.WARD_SCOPE);
-      expect(getRoleForStep(3)).toBe(UserRole.PTS_OFFICER);
-      expect(getRoleForStep(6)).toBe(UserRole.DIRECTOR);
-    });
-
-    test("getStepForRole returns undefined for non-approval roles", () => {
-      expect(getStepForRole(UserRole.ADMIN)).toBeUndefined();
-      expect(getStepForRole(UserRole.USER)).toBeUndefined();
-      expect(getStepForRole(UserRole.FINANCE_OFFICER)).toBeUndefined();
-    });
-
-    test("canApproveAtStep only true for matching role + step", () => {
-      expect(canApproveAtStep(UserRole.DEPT_SCOPE, 2)).toBe(true);
-      expect(canApproveAtStep(UserRole.DEPT_SCOPE, 3)).toBe(false);
-    });
-
-    test("batch approve only allowed for director", () => {
-      expect(canBatchApprove(UserRole.DIRECTOR)).toBe(true);
-      expect(canBatchApprove(UserRole.PTS_OFFICER)).toBe(false);
-    });
-
-    test("adjust leave only allowed for PTS_OFFICER", () => {
-      expect(canAdjustLeave(UserRole.PTS_OFFICER)).toBe(true);
-      expect(canAdjustLeave(UserRole.HEAD_HR)).toBe(false);
-    });
-
-    test("scope visibility only for head-scope", () => {
-      expect(canViewScopes(UserRole.HEAD_SCOPE)).toBe(true);
-      expect(canViewScopes(UserRole.PTS_OFFICER)).toBe(false);
     });
   });
 

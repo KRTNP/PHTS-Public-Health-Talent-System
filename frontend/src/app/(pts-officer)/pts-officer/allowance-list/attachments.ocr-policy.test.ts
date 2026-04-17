@@ -3,7 +3,7 @@ import {
   getAllowanceAttachmentOcrDocumentTypeLabel,
   getAllowanceAttachmentOcrUiState,
   shouldShowAllowanceAttachmentOcrAction,
-} from './attachments'
+} from '@/features/request/shared/ocr/allowanceAttachments'
 
 describe('allowance attachment OCR policy', () => {
   test('hides OCR action when file already failed OCR or already passed OCR', () => {

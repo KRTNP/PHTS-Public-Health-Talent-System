@@ -30,7 +30,35 @@ const isBlockedDevPath = (pathname: string): boolean => {
   return false;
 };
 
+const LOGIN_QUERY_DENY_KEYS = new Set([
+  'password',
+  'pass',
+  'pwd',
+  'token',
+  'access_token',
+  'refresh_token',
+  'citizenid',
+  'citizen_id',
+]);
+
+const hasSensitiveLoginQuery = (request: NextRequest): boolean => {
+  if (request.nextUrl.pathname !== '/login') return false;
+  const entries = request.nextUrl.searchParams.entries();
+  for (const [key] of entries) {
+    if (LOGIN_QUERY_DENY_KEYS.has(String(key).toLowerCase().trim())) {
+      return true;
+    }
+  }
+  return false;
+};
+
 export function proxy(request: NextRequest) {
+  if (hasSensitiveLoginQuery(request)) {
+    const cleanUrl = request.nextUrl.clone();
+    cleanUrl.search = '';
+    return NextResponse.redirect(cleanUrl, 307);
+  }
+
   const pathname = request.nextUrl.pathname;
   const hostname = getRequestHostname(request);
   const isLocalRequest = isLocalHostname(hostname);

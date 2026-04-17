@@ -35,15 +35,20 @@ const getClientKey = (req: {
   headers?: Record<string, string | string[] | undefined>;
   ip?: string;
 }) => {
-  const cfIp = firstHeaderValue(req.headers?.["cf-connecting-ip"]);
-  if (cfIp) return `ip:${cfIp}`;
+  const allowForwarded =
+    String(process.env.RATE_LIMIT_TRUST_PROXY_HEADERS || "").toLowerCase() ===
+    "true";
+  if (allowForwarded) {
+    const cfIp = firstHeaderValue(req.headers?.["cf-connecting-ip"]);
+    if (cfIp) return `ip:${cfIp}`;
 
-  const realIp = firstHeaderValue(req.headers?.["x-real-ip"]);
-  if (realIp) return `ip:${realIp}`;
+    const realIp = firstHeaderValue(req.headers?.["x-real-ip"]);
+    if (realIp) return `ip:${realIp}`;
 
-  const forwarded = firstHeaderValue(req.headers?.["x-forwarded-for"]);
-  const forwardedIp = forwarded?.split(",")[0]?.trim();
-  if (forwardedIp) return `ip:${forwardedIp}`;
+    const forwarded = firstHeaderValue(req.headers?.["x-forwarded-for"]);
+    const forwardedIp = forwarded?.split(",")[0]?.trim();
+    if (forwardedIp) return `ip:${forwardedIp}`;
+  }
 
   const ip = (req.ip || "").trim();
   return `ip:${ip || "unknown"}`;

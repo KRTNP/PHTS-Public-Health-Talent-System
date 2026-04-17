@@ -9,14 +9,18 @@ import {
 } from "@/modules/health/services/health.service.js";
 
 export const getRoot = (_req: Request, res: Response<ApiResponse>) => {
-  res.setHeader("Cache-Control", "public, max-age=300");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   return res.status(200).json(getRootPayload());
 };
 
 export const getRobots = (_req: Request, res: Response) => {
   const body = "User-agent: *\nDisallow:";
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   return res.status(200).send(body);
 };
 
@@ -40,6 +44,8 @@ export const getReady = catchAsync(
 
 export const getSitemap = (_req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   return res.status(200).send(getSitemapXml());
 };

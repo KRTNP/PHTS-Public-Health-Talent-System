@@ -12,6 +12,7 @@ import {
   buildErrorResponse,
   isOperationalError,
 } from "@shared/utils/errors.js";
+import { sanitizeUrlForLogs } from "@shared/utils/log-sanitizer.js";
 
 /**
  * Handle 404 Not Found routes
@@ -36,6 +37,7 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction,
 ) => {
+  const sanitizedPath = sanitizeUrlForLogs(req.originalUrl);
   let normalizedError: Error | AppError = err;
 
   if (err instanceof multer.MulterError) {
@@ -61,13 +63,13 @@ export const errorHandler = (
 
   if (!isOperational) {
     // Programming error - log full stack
-    console.error("[ERROR] Unexpected error:", {
-      message: normalizedError.message,
-      stack: normalizedError.stack,
-      method: req.method,
-      path: req.originalUrl,
-      requestId: req.requestId,
-    });
+      console.error("[ERROR] Unexpected error:", {
+        message: normalizedError.message,
+        stack: normalizedError.stack,
+        method: req.method,
+        path: sanitizedPath,
+        requestId: req.requestId,
+      });
   } else if (process.env.NODE_ENV !== "production") {
     const statusCode =
       normalizedError instanceof AppError ? normalizedError.statusCode : 500;
@@ -77,14 +79,14 @@ export const errorHandler = (
       console.error("[ERROR]", {
         message: normalizedError.message,
         method: req.method,
-        path: req.originalUrl,
+        path: sanitizedPath,
         requestId: req.requestId,
       });
     } else if (statusCode !== 404) {
       console.warn("[WARN]", {
         message: normalizedError.message,
         method: req.method,
-        path: req.originalUrl,
+        path: sanitizedPath,
         requestId: req.requestId,
       });
     }

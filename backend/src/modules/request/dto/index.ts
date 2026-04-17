@@ -15,10 +15,6 @@ export type {
   ReturnRequestDTO,
 } from "@/modules/request/dto/action-request.dto.js";
 export type {
-  BatchApproveParams,
-  BatchApproveResult,
-} from "@/modules/request/dto/batch-approve.dto.js";
-export type {
   RequestFilters,
   PaginatedResult,
 } from "@/modules/request/dto/request-query.dto.js";

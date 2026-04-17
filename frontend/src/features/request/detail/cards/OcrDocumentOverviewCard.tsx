@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { FileSearch, Sparkles } from 'lucide-react';
 
-import type { OcrDocumentOverview } from '../utils/requestDetail.ocrDocuments';
+import type { OcrDocumentOverview } from '@/features/request/shared/ocr/ocrDocuments';
 
 // ปรับปรุง Stat Component ให้ฉลาดขึ้นในการแสดงผลค่า 0
 const Stat = ({ label, value }: { label: string; value: number }) => {
