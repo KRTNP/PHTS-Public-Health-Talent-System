@@ -19,6 +19,21 @@ on:
         required: false
         default: ""
         type: string
+      node_path:
+        description: "Node executable path on target host (optional)"
+        required: false
+        default: ""
+        type: string
+      backend_service:
+        description: "Backend service name (optional)"
+        required: false
+        default: ""
+        type: string
+      frontend_service:
+        description: "Frontend service name (optional)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -146,8 +161,35 @@ jobs:
           if (-not $baseDir) {
             $baseDir = "D:\apps\phts"
           }
+          $nodePath = "${{ inputs.node_path }}"
+          if (-not $nodePath) {
+            $nodePath = "${{ vars.WINDOWS_NODE_PATH }}"
+          }
+          if (-not $nodePath) {
+            $nodePath = Join-Path $baseDir "runtime\node20\node.exe"
+          }
+          $backendService = "${{ inputs.backend_service }}"
+          if (-not $backendService) {
+            $backendService = "${{ vars.WINDOWS_BACKEND_SERVICE }}"
+          }
+          if (-not $backendService) {
+            $backendService = "PHTS-Backend"
+          }
+          $frontendService = "${{ inputs.frontend_service }}"
+          if (-not $frontendService) {
+            $frontendService = "${{ vars.WINDOWS_FRONTEND_SERVICE }}"
+          }
+          if (-not $frontendService) {
+            $frontendService = "PHTS-Frontend"
+          }
           Write-Host "Using BaseDir: $baseDir"
+          Write-Host "Using NodePath: $nodePath"
+          Write-Host "Using BackendService: $backendService"
+          Write-Host "Using FrontendService: $frontendService"
           .\scripts\windows\deploy.ps1 `
             -ReleaseId "${{ needs.build-artifact.outputs.release_id }}" `
             -ArtifactPath $artifact `
-            -BaseDir $baseDir
+            -BaseDir $baseDir `
+            -NodePath $nodePath `
+            -BackendService $backendService `
+            -FrontendService $frontendService
