@@ -71,8 +71,11 @@ You can also set repository/environment variable `WINDOWS_BASE_DIR`
 to avoid passing `base_dir` every run.
 Optional variables for custom runtime/service names:
 - `WINDOWS_NODE_PATH` (example: `C:\project\apps\phts\runtime\node20\node.exe`)
+- `WINDOWS_NSSM_PATH` (example: `C:\project\apps\phts\tools\nssm\win64\nssm.exe`)
 - `WINDOWS_BACKEND_SERVICE` (default: `PHTS-Backend`)
 - `WINDOWS_FRONTEND_SERVICE` (default: `PHTS-Frontend`)
+- `WINDOWS_BACKEND_PORT` (default: `4000`)
+- `WINDOWS_FRONTEND_PORT` (default: `3000`, set `3100` to avoid existing app on `3000`)
 
 Then verify health:
 
