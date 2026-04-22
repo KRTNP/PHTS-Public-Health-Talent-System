@@ -2,6 +2,9 @@
 
 Use this on the production Windows Server before the first deployment.
 
+For moving an existing production deployment to a new Windows Server, see
+[`docs/windows-server-migration.md`](../../docs/windows-server-migration.md).
+
 ## 1) Required software
 
 - Node.js 20 LTS
@@ -17,6 +20,12 @@ Run in an elevated PowerShell in the repo root:
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\windows\bootstrap-production.ps1
+```
+
+If your server uses a different app root, set `-BaseDir` explicitly:
+
+```powershell
+.\scripts\windows\bootstrap-production.ps1 -BaseDir "D:\apps\phts"
 ```
 
 If Node is installed in a non-default path:
@@ -56,6 +65,10 @@ From GitHub Actions, run workflow:
 
 - `Deploy Windows Production`
 - `ref = main`
+- optional `base_dir = D:\apps\phts`
+
+You can also set repository/environment variable `WINDOWS_BASE_DIR`
+to avoid passing `base_dir` every run.
 
 Then verify health:
 
