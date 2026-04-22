@@ -22,6 +22,12 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\windows\bootstrap-production.ps1
 ```
 
+If your server uses a different app root, set `-BaseDir` explicitly:
+
+```powershell
+.\scripts\windows\bootstrap-production.ps1 -BaseDir "D:\apps\phts"
+```
+
 If Node is installed in a non-default path:
 
 ```powershell
@@ -59,6 +65,10 @@ From GitHub Actions, run workflow:
 
 - `Deploy Windows Production`
 - `ref = main`
+- optional `base_dir = D:\apps\phts`
+
+You can also set repository/environment variable `WINDOWS_BASE_DIR`
+to avoid passing `base_dir` every run.
 
 Then verify health:
 

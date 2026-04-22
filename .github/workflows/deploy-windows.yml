@@ -14,6 +14,11 @@ on:
         required: false
         default: "main"
         type: string
+      base_dir:
+        description: "Windows base directory on target host (optional)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -134,6 +139,15 @@ jobs:
         shell: powershell
         run: |
           $artifact = "phts-${{ needs.build-artifact.outputs.release_id }}.zip"
+          $baseDir = "${{ inputs.base_dir }}"
+          if (-not $baseDir) {
+            $baseDir = "${{ vars.WINDOWS_BASE_DIR }}"
+          }
+          if (-not $baseDir) {
+            $baseDir = "D:\apps\phts"
+          }
+          Write-Host "Using BaseDir: $baseDir"
           .\scripts\windows\deploy.ps1 `
             -ReleaseId "${{ needs.build-artifact.outputs.release_id }}" `
-            -ArtifactPath $artifact
+            -ArtifactPath $artifact `
+            -BaseDir $baseDir

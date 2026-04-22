@@ -319,23 +319,31 @@ Invoke-WebRequest https://your-domain.example/api/health -UseBasicParsing
 Invoke-WebRequest https://your-domain.example -UseBasicParsing
 ```
 
-## 11. Rollback
+## 11. Rollback (Manual)
 
-ถ้า release ใหม่มีปัญหา ให้ดู release ที่มีอยู่:
-
-```powershell
-Get-ChildItem D:\apps\phts\releases
-```
-
-แล้วใช้ rollback script:
+ถ้า release ใหม่มีปัญหา ให้สลับ `current` กลับไป release ก่อนหน้าแบบ manual:
 
 ```powershell
-.\scripts\windows\rollback.ps1 `
-  -TargetReleaseId "rel-previous-release" `
-  -BaseDir "D:\apps\phts"
+$baseDir = "D:\apps\phts"
+$releasesDir = Join-Path $baseDir "releases"
+$currentDir = Join-Path $baseDir "current"
+
+# เลือก release ก่อนหน้า (ตัวล่าสุดคือ index 0, ก่อนหน้าคือ index 1)
+$target = Get-ChildItem -Path $releasesDir -Directory |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -Skip 1 -First 1
+
+if (-not $target) { throw "No previous release available." }
+
+if (Test-Path $currentDir) { cmd /c rmdir "$currentDir" | Out-Null }
+cmd /c mklink /J "$currentDir" "$($target.FullName)" | Out-Null
+
+nssm restart PHTS-Backend
+nssm restart PHTS-Frontend
+Invoke-WebRequest http://127.0.0.1:4000/health -UseBasicParsing
 ```
 
-หลัง rollback ให้ตรวจ health และ logs อีกครั้ง
+หลัง rollback ให้ตรวจ logs อีกครั้ง
 
 ## 12. Checklist ก่อนตัด Traffic
 

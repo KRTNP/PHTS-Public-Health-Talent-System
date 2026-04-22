@@ -4,7 +4,7 @@ param(
   [string]$BackendService = "PHTS-Backend",
   [string]$FrontendService = "PHTS-Frontend",
   [string]$BackendEnvTemplate = "backend\.env.example",
-  [string]$FrontendEnvTemplate = "frontend\.env.local.example",
+  [string]$FrontendEnvTemplate = "frontend\.env.production.example",
   [switch]$SkipServiceRegistration
 )
 
