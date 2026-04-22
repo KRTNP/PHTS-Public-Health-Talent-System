@@ -2,6 +2,9 @@
 
 Use this on the production Windows Server before the first deployment.
 
+For moving an existing production deployment to a new Windows Server, see
+[`docs/windows-server-migration.md`](../../docs/windows-server-migration.md).
+
 ## 1) Required software
 
 - Node.js 20 LTS
