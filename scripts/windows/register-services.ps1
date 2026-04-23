@@ -36,9 +36,28 @@ function Resolve-NssmPath {
 function Invoke-Nssm {
   param(
     [string]$Executable,
-    [string[]]$Args
+    [string[]]$Args,
+    [switch]$AllowFailure
   )
-  & $Executable @Args
+
+  $quoted = $Args | ForEach-Object {
+    $value = [string]$_
+    if ($value.Contains('"')) {
+      $value = $value.Replace('"', '\"')
+    }
+    if ($value -match '\s') {
+      '"' + $value + '"'
+    } else {
+      $value
+    }
+  }
+  $argLine = [string]::Join(' ', $quoted)
+
+  $proc = Start-Process -FilePath $Executable -ArgumentList $argLine -NoNewWindow -Wait -PassThru
+  if (-not $AllowFailure -and $proc.ExitCode -ne 0) {
+    throw "NSSM command failed (exit=$($proc.ExitCode)): $Executable $argLine"
+  }
+  return $proc.ExitCode
 }
 
 $resolvedNssmPath = Resolve-NssmPath -RequestedPath $NssmPath
@@ -55,8 +74,8 @@ function Ensure-Service {
     [string]$StdErr
   )
 
-  $exists = Invoke-Nssm -Executable $NssmExecutable -Args @("status", $Name) 2>$null
-  if (-not $?) {
+  $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
+  if (-not $service) {
     Write-Step "Installing service: $Name"
     Invoke-Nssm -Executable $NssmExecutable -Args @("install", $Name, $AppPath, $AppArgs) | Out-Null
   } else {
