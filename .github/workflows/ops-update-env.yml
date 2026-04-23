@@ -77,6 +77,10 @@ jobs:
           $sharedFrontendDir = Join-Path $baseDir "shared\frontend"
           $backendEnvPath = Join-Path $sharedBackendDir ".env"
           $frontendEnvPath = Join-Path $sharedFrontendDir ".env.local"
+          $currentBackendDir = Join-Path $baseDir "current\backend"
+          $currentFrontendDir = Join-Path $baseDir "current\frontend"
+          $currentBackendEnvPath = Join-Path $currentBackendDir ".env"
+          $currentFrontendEnvPath = Join-Path $currentFrontendDir ".env.local"
 
           New-Item -ItemType Directory -Force -Path $sharedBackendDir | Out-Null
           New-Item -ItemType Directory -Force -Path $sharedFrontendDir | Out-Null
@@ -88,11 +92,53 @@ jobs:
           Write-Host "Backend env path: $backendEnvPath"
           Write-Host "Frontend env path: $frontendEnvPath"
 
+          if (Test-Path $currentBackendDir) {
+            [System.IO.File]::WriteAllText($currentBackendEnvPath, $env:BACKEND_ENV_CONTENT, [System.Text.UTF8Encoding]::new($false))
+            Write-Host "Synced backend env to current release: $currentBackendEnvPath"
+          } else {
+            Write-Host "Skip backend current sync: directory not found ($currentBackendDir)"
+          }
+
+          if (Test-Path $currentFrontendDir) {
+            [System.IO.File]::WriteAllText($currentFrontendEnvPath, $env:FRONTEND_ENV_CONTENT, [System.Text.UTF8Encoding]::new($false))
+            Write-Host "Synced frontend env to current release: $currentFrontendEnvPath"
+          } else {
+            Write-Host "Skip frontend current sync: directory not found ($currentFrontendDir)"
+          }
+
           if ("${{ inputs.restart_services }}" -eq "true") {
             Write-Host "Restarting services: $backendService, $frontendService"
-            Restart-Service -Name $backendService -Force -ErrorAction Stop
-            Restart-Service -Name $frontendService -Force -ErrorAction Stop
-            Write-Host "Services restarted successfully"
+            try {
+              Restart-Service -Name $backendService -Force -ErrorAction Stop
+              Restart-Service -Name $frontendService -Force -ErrorAction Stop
+              Write-Host "Services restarted successfully"
+            } catch {
+              Write-Host "Service restart failed: $($_.Exception.Message)"
+              Get-Service -Name $backendService,$frontendService -ErrorAction SilentlyContinue | Format-Table -AutoSize | Out-String | Write-Host
+
+              $backendErr = Join-Path $baseDir "logs\backend\stderr.log"
+              $backendOut = Join-Path $baseDir "logs\backend\stdout.log"
+              $frontendErr = Join-Path $baseDir "logs\frontend\stderr.log"
+              $frontendOut = Join-Path $baseDir "logs\frontend\stdout.log"
+
+              if (Test-Path $backendErr) {
+                Write-Host "backend stderr tail:"
+                Get-Content $backendErr -Tail 80 | Out-String | Write-Host
+              }
+              if (Test-Path $backendOut) {
+                Write-Host "backend stdout tail:"
+                Get-Content $backendOut -Tail 80 | Out-String | Write-Host
+              }
+              if (Test-Path $frontendErr) {
+                Write-Host "frontend stderr tail:"
+                Get-Content $frontendErr -Tail 60 | Out-String | Write-Host
+              }
+              if (Test-Path $frontendOut) {
+                Write-Host "frontend stdout tail:"
+                Get-Content $frontendOut -Tail 60 | Out-String | Write-Host
+              }
+              throw
+            }
           } else {
             Write-Host "Skip restart_services by request"
           }
