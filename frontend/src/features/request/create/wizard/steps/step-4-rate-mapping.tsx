@@ -414,6 +414,11 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
     }
     return { groupNo: null, itemNo: '', subItemNo: '', amount: null, textHint: textHints.join(' ') };
   })();
+  const hasConcreteOcrSignal =
+    ocrSuggestion.groupNo !== null ||
+    Boolean(ocrSuggestion.itemNo) ||
+    Boolean(ocrSuggestion.subItemNo) ||
+    ocrSuggestion.amount !== null;
 
   const findBestCriteriaFromOcr = (
     group: ProfessionGroup,
@@ -521,6 +526,7 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
   };
 
   useEffect(() => {
+    if (!hasConcreteOcrSignal) return;
     if (!effectiveProfData || selectedGroup || data.rateMapping?.groupId) return;
 
     const profileKey = `${effectiveProfData.id}:${effectiveProfData.groups.length}`;
@@ -535,7 +541,7 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
         }) ?? null;
     }
 
-    const suggestedAmount = ocrSuggestion.amount ?? (data.rateMapping?.amount ?? 0);
+    const suggestedAmount = ocrSuggestion.amount ?? 0;
     if (!nextGroup && suggestedAmount > 0) {
       const matchedByAmount = effectiveProfData.groups.filter(
         (group) => Number(group.rate ?? 0) === Number(suggestedAmount),
@@ -598,15 +604,16 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
       cancelled = true;
     };
   }, [
-    data.rateMapping?.amount,
     data.rateMapping?.groupId,
     effectiveProfData,
+    hasConcreteOcrSignal,
     ocrSuggestion,
     selectedGroup,
     writeRateMapping,
   ]);
 
   useEffect(() => {
+    if (!hasConcreteOcrSignal) return;
     if (!selectedGroup || selectedCriteria) return;
     if (!ocrSuggestion.itemNo && !ocrSuggestion.subItemNo && !ocrSuggestion.textHint) return;
 
@@ -645,6 +652,7 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
       cancelled = true;
     };
   }, [
+    hasConcreteOcrSignal,
     ocrSuggestion.itemNo,
     ocrSuggestion.subItemNo,
     ocrSuggestion.textHint,
