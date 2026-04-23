@@ -9,23 +9,15 @@ import {
   processRequestOcrPrecheck,
 } from "@/modules/ocr/services/ocr-precheck.service.js";
 import { OcrRequestRepository } from "@/modules/ocr/repositories/ocr-request.repository.js";
+import { getOcrWorkerConfig } from "@config/runtime-config.js";
 
 let workerRunning = false;
 let workerPromise: Promise<void> | null = null;
 let workerRedisClient: typeof redis | null = null;
 
-const DEFAULT_STALE_PROCESSING_MINUTES = 30;
-
-const isWorkerEnabled = (): boolean =>
-  process.env.OCR_WORKER_ENABLED !== "false";
-const getStaleProcessingMinutes = (): number => {
-  const raw = Number(
-    process.env.OCR_STALE_PROCESSING_MINUTES ||
-      DEFAULT_STALE_PROCESSING_MINUTES,
-  );
-  if (!Number.isFinite(raw) || raw < 1) return DEFAULT_STALE_PROCESSING_MINUTES;
-  return Math.floor(raw);
-};
+const isWorkerEnabled = (): boolean => getOcrWorkerConfig().enabled;
+const getStaleProcessingMinutes = (): number =>
+  getOcrWorkerConfig().staleProcessingMinutes;
 
 export const recoverStaleOcrPrecheckJobs = async (): Promise<number> => {
   const staleMinutes = getStaleProcessingMinutes();

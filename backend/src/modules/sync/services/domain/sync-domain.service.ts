@@ -6,6 +6,10 @@ import type {
   LeaveNormalizationIssueMeta,
 } from "@/modules/sync/services/domain/leave-normalizer.service.js";
 import { isValidCitizenId } from "@/modules/sync/services/domain/leave-normalizer.service.js";
+import {
+  getHrmsSourceDbName,
+  getHrmsSourceTable,
+} from "@shared/config/hrms-source.js";
 
 type LeaveRecordSqlOptions = {
   hasStatusColumn: boolean;
@@ -179,12 +183,14 @@ const isLicenseChanged = (
 const resolveMovementRemarkExpr = async (
   conn: PoolConnection,
 ): Promise<string> => {
+  const sourceMainDb = getHrmsSourceDbName("main");
   const [cols] = await conn.query<RowDataPacket[]>(
     `SELECT COLUMN_NAME
      FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = 'hrms_databases'
+     WHERE TABLE_SCHEMA = ?
        AND TABLE_NAME = 'tb_bp_status'
        AND COLUMN_NAME IN ('remark', 'comment')`,
+    [sourceMainDb],
   );
   const colSet = new Set(
     (cols as RowDataPacket[]).map((row) => String(row.COLUMN_NAME)),
@@ -224,7 +230,7 @@ const loadSourceMovements = async (
         m.date AS effective_date,
         ${movementRemarkExpr} AS remark,
         m.timestamp AS source_updated_at
-      FROM hrms_databases.tb_bp_status m
+      FROM ${getHrmsSourceTable("tb_bp_status")} m
       JOIN emp_profiles e
         ON CAST(e.citizen_id AS BINARY) = CAST(m.id AS BINARY)
       WHERE m.bp_status_id IS NOT NULL
@@ -292,7 +298,7 @@ const loadSourceLicenses = async (
               )
             ORDER BY l.timestamp DESC, l.bp_license_id DESC
           ) AS rn
-        FROM hrms_databases.tb_bp_license l
+        FROM ${getHrmsSourceTable("tb_bp_license")} l
         JOIN emp_profiles e
           ON CAST(e.citizen_id AS BINARY) = CAST(l.id AS BINARY)
         WHERE l.bp_license_id IS NOT NULL
@@ -372,7 +378,7 @@ const loadSourceQuotas = async (
         SELECT CAST(sd.emp_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS citizen_id,
                CAST(sd.year AS UNSIGNED) AS fiscal_year,
                CAST(sd.setday AS DECIMAL(10,2)) AS total_quota
-        FROM hrms_databases.setdays sd
+        FROM ${getHrmsSourceTable("setdays")} sd
         WHERE CAST(sd.emp_id AS BINARY) = CAST(? AS BINARY)
       `,
       [options.citizenId],
@@ -1059,7 +1065,7 @@ export const syncSingleSignature = async (
       SELECT DISTINCT
         CAST(s.emp_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS citizen_id,
         s.images AS signature_blob
-      FROM hrms_databases.signature s
+      FROM ${getHrmsSourceTable("signature")} s
       WHERE s.images IS NOT NULL
         AND s.images <> ''
         AND CAST(s.emp_id AS BINARY) = CAST(? AS BINARY)

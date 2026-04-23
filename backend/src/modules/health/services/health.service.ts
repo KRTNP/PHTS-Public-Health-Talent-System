@@ -1,4 +1,9 @@
 import { HealthRepository } from "@/modules/health/repositories/health.repository.js";
+import {
+  getBackendBaseUrl,
+  getNodeEnv,
+  getVersionMetadata,
+} from "@config/runtime-config.js";
 
 export const getRootPayload = () => ({
   success: true,
@@ -13,14 +18,13 @@ export const getHealthPayload = () => ({
   message: "PHTS API is running",
   data: {
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-    version: process.env.npm_package_version || null,
+    environment: getNodeEnv(),
+    version: getVersionMetadata().version,
   },
 });
 
 export const getSitemapXml = () => {
-  const baseUrl =
-    process.env.BACKEND_URL || `http://localhost:${process.env.PORT || "3001"}`;
+  const baseUrl = getBackendBaseUrl();
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>

@@ -1,6 +1,7 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import request from "supertest";
+import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, jest, test } from "@jest/globals";
 
 jest.mock("@/modules/audit/services/audit.service.js", () => ({
@@ -37,6 +38,7 @@ const testRateLimiter = rateLimit({
 
 const buildApp = () => {
   const app = express();
+  app.disable("x-powered-by");
   app.use(express.json());
   app.post(
     "/api/auth/login",
@@ -70,9 +72,10 @@ describe("auth http cookie flags", () => {
     });
 
     const app = buildApp();
+    const password = randomUUID();
     const res = await request(app).post("/api/auth/login").send({
       citizen_id: "1234567890123",
-      password: "abc12345",
+      password,
     });
 
     expect(res.status).toBe(200);
@@ -94,9 +97,10 @@ describe("auth http cookie flags", () => {
     });
 
     const app = buildApp();
+    const password = randomUUID();
     const res = await request(app).post("/api/auth/login").send({
       citizen_id: "1234567890123",
-      password: "abc12345",
+      password,
     });
 
     expect(res.status).toBe(200);

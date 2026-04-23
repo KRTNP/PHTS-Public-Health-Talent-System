@@ -126,6 +126,20 @@ const formatDate = (value?: string | Date | null) => {
   return formatThaiDate(value);
 };
 
+const normalizeInternalBasePath = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/")) return "";
+  if (trimmed.includes("://")) return "";
+  if (trimmed === "/") return "";
+  return trimmed.replace(/\/+$/, "");
+};
+
+const buildRequestHref = (basePath: string, requestId: number): string => {
+  const normalizedBasePath = normalizeInternalBasePath(basePath);
+  const safeId = Number.isInteger(requestId) && requestId > 0 ? requestId : 0;
+  return `${normalizedBasePath}/requests/${encodeURIComponent(String(safeId))}`;
+};
+
 type StatCardProps = {
   title: string;
   value: number;
@@ -421,14 +435,16 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredRows.map((request) => (
+                  filteredRows.map((request) => {
+                    const requestHref = buildRequestHref(config.basePath, request.id);
+                    return (
                     <TableRow
                       key={request.id}
                       className="group hover:bg-muted/30 border-border transition-colors"
                     >
                       <TableCell className="font-mono text-sm">
                         <Link
-                          href={`${config.basePath}/requests/${request.id}`}
+                          href={requestHref}
                           className={config.theme.requestLinkClassName}
                         >
                           {request.requestNo}
@@ -469,11 +485,14 @@ export function ApproverRequestsPage({ config }: { config: ApproverRequestsPageC
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <TableRowViewAction href={`${config.basePath}/requests/${request.id}`} />
+                          <TableRowViewAction
+                            href={requestHref}
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

@@ -1,0 +1,98 @@
+name: Ops - Update Env
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_dir:
+        description: "Windows base directory on target host (optional)"
+        required: false
+        default: ""
+        type: string
+      restart_services:
+        description: "Restart backend/frontend services after updating env"
+        required: false
+        default: true
+        type: boolean
+      backend_service:
+        description: "Backend service name (optional)"
+        required: false
+        default: ""
+        type: string
+      frontend_service:
+        description: "Frontend service name (optional)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ops-update-env-production
+  cancel-in-progress: false
+
+jobs:
+  update-env:
+    runs-on: [self-hosted, windows, x64]
+    environment: production
+    steps:
+      - name: Update shared env files
+        shell: powershell
+        env:
+          BACKEND_ENV_CONTENT: ${{ secrets.PROD_BACKEND_ENV }}
+          FRONTEND_ENV_CONTENT: ${{ secrets.PROD_FRONTEND_ENV }}
+        run: |
+          if (-not $env:BACKEND_ENV_CONTENT) {
+            throw "Missing required secret: PROD_BACKEND_ENV"
+          }
+          if (-not $env:FRONTEND_ENV_CONTENT) {
+            throw "Missing required secret: PROD_FRONTEND_ENV"
+          }
+
+          $baseDir = "${{ inputs.base_dir }}"
+          if (-not $baseDir) {
+            $baseDir = "${{ vars.WINDOWS_BASE_DIR }}"
+          }
+          if (-not $baseDir) {
+            $baseDir = "D:\apps\phts"
+          }
+
+          $backendService = "${{ inputs.backend_service }}"
+          if (-not $backendService) {
+            $backendService = "${{ vars.WINDOWS_BACKEND_SERVICE }}"
+          }
+          if (-not $backendService) {
+            $backendService = "PHTS-Backend"
+          }
+
+          $frontendService = "${{ inputs.frontend_service }}"
+          if (-not $frontendService) {
+            $frontendService = "${{ vars.WINDOWS_FRONTEND_SERVICE }}"
+          }
+          if (-not $frontendService) {
+            $frontendService = "PHTS-Frontend"
+          }
+
+          $sharedBackendDir = Join-Path $baseDir "shared\backend"
+          $sharedFrontendDir = Join-Path $baseDir "shared\frontend"
+          $backendEnvPath = Join-Path $sharedBackendDir ".env"
+          $frontendEnvPath = Join-Path $sharedFrontendDir ".env.local"
+
+          New-Item -ItemType Directory -Force -Path $sharedBackendDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $sharedFrontendDir | Out-Null
+
+          [System.IO.File]::WriteAllText($backendEnvPath, $env:BACKEND_ENV_CONTENT, [System.Text.UTF8Encoding]::new($false))
+          [System.IO.File]::WriteAllText($frontendEnvPath, $env:FRONTEND_ENV_CONTENT, [System.Text.UTF8Encoding]::new($false))
+
+          Write-Host "Updated env files under: $baseDir\shared"
+          Write-Host "Backend env path: $backendEnvPath"
+          Write-Host "Frontend env path: $frontendEnvPath"
+
+          if ("${{ inputs.restart_services }}" -eq "true") {
+            Write-Host "Restarting services: $backendService, $frontendService"
+            Restart-Service -Name $backendService -Force -ErrorAction Stop
+            Restart-Service -Name $frontendService -Force -ErrorAction Stop
+            Write-Host "Services restarted successfully"
+          } else {
+            Write-Host "Skip restart_services by request"
+          }

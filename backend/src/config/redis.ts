@@ -1,5 +1,6 @@
 import { Redis } from "ioredis";
 import { loadEnv } from "@config/env.js";
+import { getRedisRuntimeConfig, isTestEnv } from "@config/runtime-config.js";
 
 loadEnv();
 
@@ -25,8 +26,6 @@ interface RedisClient {
   quit(): Promise<"OK">;
   disconnect(): void;
 }
-
-const isTestEnv = process.env.NODE_ENV === "test";
 
 const createTestRedisClient = (
   store = new Map<string, string>(),
@@ -127,11 +126,12 @@ const createTestRedisClient = (
 };
 
 const createLiveRedisClient = (): RedisClient => {
+  const redisConfig = getRedisRuntimeConfig();
   const client = new Redis({
-    host: process.env.REDIS_HOST || "localhost",
-    port: Number.parseInt(process.env.REDIS_PORT || "6379", 10),
-    password: process.env.REDIS_PASSWORD || undefined,
-    db: Number.parseInt(process.env.REDIS_DB || "0", 10),
+    host: redisConfig.host,
+    port: redisConfig.port,
+    password: redisConfig.password,
+    db: redisConfig.db,
     retryStrategy: (times: number) => {
       const delay = Math.min(times * 50, 2000);
       return delay;
@@ -162,7 +162,7 @@ const createLiveRedisClient = (): RedisClient => {
   return typedClient;
 };
 
-const redisClient: RedisClient = isTestEnv
+const redisClient: RedisClient = isTestEnv()
   ? createTestRedisClient()
   : createLiveRedisClient();
 

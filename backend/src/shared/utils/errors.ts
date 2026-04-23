@@ -4,6 +4,7 @@
  * Standardized error handling for the application
  * Each error type maps to specific HTTP status codes
  */
+import { shouldIncludeErrorResponseDetails } from "@config/runtime-config.js";
 
 // ============================================================================
 // Base Application Error
@@ -190,7 +191,7 @@ export function buildErrorResponse(error: Error | AppError): ErrorResponse {
   }
 
   // Unknown error - never expose stack traces by default.
-  const exposeErrorDetails = process.env.ERROR_RESPONSE_INCLUDE_DETAILS === "true";
+  const exposeErrorDetails = shouldIncludeErrorResponseDetails();
 
   return {
     success: false,

@@ -1,27 +1,11 @@
 import rateLimit from "express-rate-limit";
+import {
+  getNodeEnv,
+  getRateLimitConfig,
+  isTestEnv,
+} from "@config/runtime-config.js";
 
-const getNodeEnv = () =>
-  String(process.env.NODE_ENV || "development").toLowerCase();
 const isDevelopment = () => getNodeEnv() === "development";
-const isProduction = () => getNodeEnv() === "production";
-const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
-const max = Number(process.env.RATE_LIMIT_MAX || (isProduction() ? 300 : 1000));
-const authWindowMs = Number(
-  process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
-);
-const authMax = Number(process.env.AUTH_RATE_LIMIT_MAX || 5);
-const securityWindowMs = Number(
-  process.env.SECURITY_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
-);
-const securityMax = Number(
-  process.env.SECURITY_RATE_LIMIT_MAX || (isProduction() ? 300 : 1000),
-);
-const authProbeWindowMs = Number(
-  process.env.AUTH_PROBE_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000,
-);
-const authProbeMax = Number(process.env.AUTH_PROBE_RATE_LIMIT_MAX || 30);
-const isDevRateLimitEnabled = () =>
-  String(process.env.DEV_ENABLE_RATE_LIMIT || "").toLowerCase() === "true";
 
 const firstHeaderValue = (
   value: string | string[] | undefined,
@@ -35,9 +19,7 @@ const getClientKey = (req: {
   headers?: Record<string, string | string[] | undefined>;
   ip?: string;
 }) => {
-  const allowForwarded =
-    String(process.env.RATE_LIMIT_TRUST_PROXY_HEADERS || "").toLowerCase() ===
-    "true";
+  const allowForwarded = getRateLimitConfig().trustProxyHeaders;
   if (allowForwarded) {
     const cfIp = firstHeaderValue(req.headers?.["cf-connecting-ip"]);
     if (cfIp) return `ip:${cfIp}`;
@@ -55,7 +37,7 @@ const getClientKey = (req: {
 };
 
 const shouldSkipRateLimitInDevelopment = () =>
-  isDevelopment() && !isDevRateLimitEnabled();
+  isDevelopment() && !getRateLimitConfig().devEnabled;
 
 type RateLimitedRequest = {
   rateLimit?: {
@@ -64,13 +46,13 @@ type RateLimitedRequest = {
 };
 
 export const apiRateLimiter = rateLimit({
-  windowMs,
-  max,
+  windowMs: getRateLimitConfig().windowMs,
+  max: getRateLimitConfig().max,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientKey(req),
   skip: (req) =>
-    process.env.NODE_ENV === "test" ||
+    isTestEnv() ||
     shouldSkipRateLimitInDevelopment() ||
     String(req.path ?? "").startsWith("/auth"),
   message: {
@@ -80,19 +62,19 @@ export const apiRateLimiter = rateLimit({
 });
 
 export const authRateLimiter = rateLimit({
-  windowMs: authWindowMs,
-  max: authMax,
+  windowMs: getRateLimitConfig().authWindowMs,
+  max: getRateLimitConfig().authMax,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientKey(req),
-  skip: () => process.env.NODE_ENV === "test",
+  skip: () => isTestEnv(),
   handler: (req, res) => {
     const requestWithRateLimit = req as typeof req & RateLimitedRequest;
     const now = Date.now();
     const resetTime =
       requestWithRateLimit.rateLimit?.resetTime instanceof Date
         ? requestWithRateLimit.rateLimit.resetTime.getTime()
-        : now + authWindowMs;
+        : now + getRateLimitConfig().authWindowMs;
     const retryAfterSeconds = Math.max(1, Math.ceil((resetTime - now) / 1000));
     const retryAfterMinutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
     res.setHeader("Retry-After", String(retryAfterSeconds));
@@ -108,13 +90,13 @@ export const authRateLimiter = rateLimit({
 });
 
 export const securityRateLimiter = rateLimit({
-  windowMs: securityWindowMs,
-  max: securityMax,
+  windowMs: getRateLimitConfig().securityWindowMs,
+  max: getRateLimitConfig().securityMax,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientKey(req),
   skip: () =>
-    process.env.NODE_ENV === "test" || shouldSkipRateLimitInDevelopment(),
+    isTestEnv() || shouldSkipRateLimitInDevelopment(),
   message: {
     success: false,
     error: "Too many requests, please try again later.",
@@ -122,19 +104,19 @@ export const securityRateLimiter = rateLimit({
 });
 
 export const authProbeRateLimiter = rateLimit({
-  windowMs: authProbeWindowMs,
-  max: authProbeMax,
+  windowMs: getRateLimitConfig().authProbeWindowMs,
+  max: getRateLimitConfig().authProbeMax,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientKey(req),
-  skip: () => process.env.NODE_ENV === "test",
+  skip: () => isTestEnv(),
   handler: (req, res) => {
     const requestWithRateLimit = req as typeof req & RateLimitedRequest;
     const now = Date.now();
     const resetTime =
       requestWithRateLimit.rateLimit?.resetTime instanceof Date
         ? requestWithRateLimit.rateLimit.resetTime.getTime()
-        : now + authProbeWindowMs;
+        : now + getRateLimitConfig().authProbeWindowMs;
     const retryAfterSeconds = Math.max(1, Math.ceil((resetTime - now) / 1000));
     res.setHeader("Retry-After", String(retryAfterSeconds));
     res.status(429).json({

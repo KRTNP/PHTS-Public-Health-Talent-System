@@ -1,27 +1,9 @@
 import { processSnapshotOutboxBatch } from "@/modules/snapshot/services/snapshot.service.js";
-
-const DEFAULT_POLL_MS = 5000;
-const DEFAULT_BATCH_LIMIT = 20;
+import { getSnapshotWorkerConfig } from "@config/runtime-config.js";
 
 let workerRunning = false;
 let workerPromise: Promise<void> | null = null;
 let wakeWorker: (() => void) | null = null;
-
-const getPollMs = (): number => {
-  const fromEnv = Number(
-    process.env.SNAPSHOT_WORKER_POLL_MS ?? DEFAULT_POLL_MS,
-  );
-  if (!Number.isFinite(fromEnv) || fromEnv < 250) return DEFAULT_POLL_MS;
-  return Math.floor(fromEnv);
-};
-
-const getBatchLimit = (): number => {
-  const fromEnv = Number(
-    process.env.SNAPSHOT_WORKER_BATCH_LIMIT ?? DEFAULT_BATCH_LIMIT,
-  );
-  if (!Number.isFinite(fromEnv) || fromEnv < 1) return DEFAULT_BATCH_LIMIT;
-  return Math.min(200, Math.floor(fromEnv));
-};
 
 const waitForNextTick = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -38,8 +20,7 @@ const waitForNextTick = (ms: number): Promise<void> =>
   });
 
 const workerLoop = async (): Promise<void> => {
-  const pollMs = getPollMs();
-  const batchLimit = getBatchLimit();
+  const { pollMs, batchLimit } = getSnapshotWorkerConfig();
   while (workerRunning) {
     try {
       const result = await processSnapshotOutboxBatch(batchLimit);
@@ -60,7 +41,7 @@ const workerLoop = async (): Promise<void> => {
 };
 
 export const startSnapshotWorker = (): void => {
-  if (process.env.SNAPSHOT_WORKER_ENABLED === "false") {
+  if (!getSnapshotWorkerConfig().enabled) {
     console.log(
       "[SnapshotQueue] worker disabled by SNAPSHOT_WORKER_ENABLED=false",
     );

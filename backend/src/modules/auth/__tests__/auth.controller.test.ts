@@ -1,4 +1,5 @@
 import { describe, expect, jest, test } from "@jest/globals";
+import { randomUUID } from "node:crypto";
 import {
   AuthenticationError as HttpAuthenticationError,
   NotFoundError,
@@ -39,6 +40,7 @@ import { AuthenticationError as ServiceAuthenticationError } from "@/modules/aut
 
 describe("auth controller", () => {
   const originalIncludeToken = process.env.AUTH_LOGIN_INCLUDE_TOKEN;
+  const buildTestPassword = () => randomUUID();
 
   afterEach(() => {
     if (originalIncludeToken === undefined) {
@@ -50,7 +52,7 @@ describe("auth controller", () => {
 
   test("login sets httpOnly cookie and does not expose token in body", async () => {
     const req: any = {
-      body: { citizen_id: "1234567890123", password: "correct-password" },
+      body: { citizen_id: "1234567890123", password: buildTestPassword() },
       headers: {},
       ip: "127.0.0.1",
     };
@@ -94,7 +96,7 @@ describe("auth controller", () => {
   test("login includes legacy token in body when compatibility flag is enabled", async () => {
     process.env.AUTH_LOGIN_INCLUDE_TOKEN = "true";
     const req: any = {
-      body: { citizen_id: "1234567890123", password: "correct-password" },
+      body: { citizen_id: "1234567890123", password: buildTestPassword() },
       headers: {},
       ip: "127.0.0.1",
     };
@@ -131,7 +133,7 @@ describe("auth controller", () => {
 
   test("login returns 401 for invalid credentials", async () => {
     const req: any = {
-      body: { citizen_id: "1234567890123", password: "wrong-password" },
+      body: { citizen_id: "1234567890123", password: buildTestPassword() },
       headers: {},
       ip: "127.0.0.1",
     };

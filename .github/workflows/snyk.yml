@@ -35,8 +35,4 @@ jobs:
       - uses: snyk/actions/node@0.4.0
         if: ${{ env.SNYK_TOKEN != '' }}
         with:
-          args: --file=backend/package-lock.json --project-name=phts-backend
-      - uses: snyk/actions/node@0.4.0
-        if: ${{ env.SNYK_TOKEN != '' }}
-        with:
-          args: --file=frontend/package-lock.json --project-name=phts-frontend
+          args: --all-projects --detection-depth=2

@@ -13,6 +13,7 @@ import {
   isOperationalError,
 } from "@shared/utils/errors.js";
 import { sanitizeUrlForLogs } from "@shared/utils/log-sanitizer.js";
+import { isProductionEnv } from "@config/runtime-config.js";
 
 /**
  * Handle 404 Not Found routes
@@ -70,7 +71,7 @@ export const errorHandler = (
         path: sanitizedPath,
         requestId: req.requestId,
       });
-  } else if (process.env.NODE_ENV !== "production") {
+  } else if (!isProductionEnv()) {
     const statusCode =
       normalizedError instanceof AppError ? normalizedError.statusCode : 500;
 

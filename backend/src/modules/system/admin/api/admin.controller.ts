@@ -17,6 +17,11 @@ import {
 } from "@/modules/audit/services/audit.service.js";
 import { SnapshotRepository } from "@/modules/snapshot/repositories/snapshot.repository.js";
 import { NotificationOutboxRepository } from "@/modules/notification/repositories/notification-outbox.repository.js";
+import {
+  getAppVersionInfo,
+  getNotificationOutboxConfig,
+  getSnapshotOutboxConfig,
+} from "@config/runtime-config.js";
 import type {
   SearchUsersQuery,
   GetUserByIdParams,
@@ -106,31 +111,12 @@ export const getJobStatus = asyncHandler(
 
 export const getVersionInfo = asyncHandler(
   async (_req: Request, res: Response) => {
-    const version = process.env.APP_VERSION ?? "unknown";
-    const commit = process.env.APP_COMMIT ?? "unknown";
-    const env = process.env.NODE_ENV ?? "development";
     res.json({
       success: true,
-      data: {
-        version,
-        commit,
-        env,
-      },
+      data: getAppVersionInfo(),
     });
   },
 );
-
-const getSnapshotMaxAttempts = (): number => {
-  const raw = Number(process.env.SNAPSHOT_OUTBOX_MAX_ATTEMPTS ?? 8);
-  if (!Number.isFinite(raw)) return 8;
-  return Math.max(1, Math.min(100, Math.floor(raw)));
-};
-
-const getNotificationMaxAttempts = (): number => {
-  const raw = Number(process.env.NOTIFICATION_OUTBOX_MAX_ATTEMPTS ?? 8);
-  if (!Number.isFinite(raw)) return 8;
-  return Math.max(1, Math.min(100, Math.floor(raw)));
-};
 
 export const getNotificationOutbox = asyncHandler(
   async (req: Request, res: Response) => {
@@ -139,7 +125,7 @@ export const getNotificationOutbox = asyncHandler(
       page: Number(page || 1),
       limit: Number(limit || 10),
       status,
-      maxAttempts: getNotificationMaxAttempts(),
+      maxAttempts: getNotificationOutboxConfig().maxAttempts,
     });
     res.json({ success: true, data });
   },
@@ -168,7 +154,7 @@ export const retryNotificationOutbox = asyncHandler(
 export const retryNotificationDeadLetters = asyncHandler(
   async (_req: Request, res: Response) => {
     const count = await NotificationOutboxRepository.retryDeadLetterRows(
-      getNotificationMaxAttempts(),
+      getNotificationOutboxConfig().maxAttempts,
     );
     res.json({
       success: true,
@@ -190,7 +176,7 @@ export const getSnapshotOutbox = asyncHandler(
       limit: Number(limit || 10),
       status,
       periodId: period_id ? Number(period_id) : undefined,
-      maxAttempts: getSnapshotMaxAttempts(),
+      maxAttempts: getSnapshotOutboxConfig().maxAttempts,
     });
     res.json({ success: true, data });
   },
@@ -217,7 +203,7 @@ export const retrySnapshotOutbox = asyncHandler(
 export const retrySnapshotDeadLetters = asyncHandler(
   async (_req: Request, res: Response) => {
     const count = await SnapshotRepository.retryDeadLetterRows(
-      getSnapshotMaxAttempts(),
+      getSnapshotOutboxConfig().maxAttempts,
     );
     res.json({
       success: true,

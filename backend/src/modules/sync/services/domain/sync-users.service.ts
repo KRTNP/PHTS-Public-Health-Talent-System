@@ -5,6 +5,7 @@ import type {
   RowDataPacket,
 } from "mysql2/promise";
 import type { SyncStats } from "@/modules/sync/services/shared/sync.types.js";
+import { getHrmsSourceTable } from "@shared/config/hrms-source.js";
 import Logger from "@shared/utils/logger.js";
 
 const SALT_ROUNDS = 10;
@@ -122,7 +123,7 @@ const loadPasswordMapFromHrms = async (
     `
       SELECT CAST(h.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS citizen_id,
              COALESCE(h.password, h.hash_password) AS password_value
-      FROM hrms_databases.tb_ap_index_view h
+      FROM ${getHrmsSourceTable("tb_ap_index_view")} h
       ${whereClause}
       `,
     params,

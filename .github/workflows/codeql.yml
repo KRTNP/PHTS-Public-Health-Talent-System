@@ -5,6 +5,7 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  workflow_dispatch:
   schedule:
     - cron: '0 3 * * 1'
 
@@ -26,4 +27,3 @@ jobs:
         with:
           languages: javascript
       - uses: github/codeql-action/analyze@v4
-        continue-on-error: true

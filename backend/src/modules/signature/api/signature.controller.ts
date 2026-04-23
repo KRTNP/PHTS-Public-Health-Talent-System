@@ -8,6 +8,7 @@ import { AuthenticationError } from "@shared/utils/errors.js";
 import { ApiResponse } from "@/types/auth.js";
 import * as signatureService from "@/modules/signature/services/signature.service.js";
 import { SyncService } from "@/modules/sync/services/sync.service.js";
+import { getSignatureRefreshConfig } from "@config/runtime-config.js";
 
 const refreshState = new Map<number, { lastAt: number; pending: boolean }>();
 
@@ -44,10 +45,7 @@ export const refreshMySignature = asyncHandler(
     if (!req.user) {
       throw new AuthenticationError("Unauthorized");
     }
-    const delayMs = Number(process.env.SIGNATURE_REFRESH_DELAY_MS ?? 1500);
-    const cooldownMs = Number(
-      process.env.SIGNATURE_REFRESH_COOLDOWN_MS ?? 5000,
-    );
+    const { delayMs, cooldownMs } = getSignatureRefreshConfig();
     const userId = req.user.userId;
     const now = Date.now();
     const existing = refreshState.get(userId);

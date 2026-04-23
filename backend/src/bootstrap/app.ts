@@ -35,12 +35,14 @@ import { tokenBlacklistMiddleware } from "@middlewares/tokenBlacklistMiddleware.
 import { authorizeUploadAccess } from "@middlewares/uploadAccessMiddleware.js";
 import { sanitizeUrlForLogs } from "@shared/utils/log-sanitizer.js";
 import { applyUploadResponseSecurityHeaders } from "@config/upload-guard.js";
+import { getHttpRuntimeConfig } from "@config/runtime-config.js";
 
 export const createConfiguredApp = (nodeEnv: string): Application => {
   const app: Application = express();
   app.disable("x-powered-by");
 
-  const trustProxyRaw = String(process.env.TRUST_PROXY || "").trim();
+  const httpConfig = getHttpRuntimeConfig();
+  const trustProxyRaw = httpConfig.trustProxyRaw;
   if (trustProxyRaw) {
     if (trustProxyRaw.toLowerCase() === "true") {
       app.set("trust proxy", true);
@@ -53,22 +55,12 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
     }
   }
 
-  const envOrigins = (process.env.FRONTEND_URL || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  const envOrigins = httpConfig.frontendOrigins;
 
   const allowedOrigins = [...new Set(envOrigins)];
-  const defaultTunnelSuffixes = [".trycloudflare.com"];
-  const devTunnelAllowedSuffixes = (
-    process.env.CORS_DEV_TUNNEL_SUFFIXES || defaultTunnelSuffixes.join(",")
-  )
-    .split(",")
-    .map((suffix) => suffix.trim().toLowerCase())
-    .filter(Boolean)
-    .map((suffix) => (suffix.startsWith(".") ? suffix : `.${suffix}`));
+  const devTunnelAllowedSuffixes = httpConfig.devTunnelAllowedSuffixes;
   const preflightAllowedPathRules = (
-    process.env.CORS_PREFLIGHT_ALLOWED_PATHS || "/api/auth/login"
+    httpConfig.preflightAllowedPathsRaw
   )
     .split(",")
     .map((rule) => rule.trim())
@@ -92,17 +84,8 @@ export const createConfiguredApp = (nodeEnv: string): Application => {
       };
     })
     .filter((rule): rule is { isPrefix: boolean; path: string; methods: Set<string> | null } => Boolean(rule));
-  const csrfTrustedClientHeader = String(
-    process.env.CSRF_TRUSTED_CLIENT_HEADER || "x-client-id",
-  )
-    .trim()
-    .toLowerCase();
-  const csrfTrustedClientIds = (
-    process.env.CSRF_TRUSTED_CLIENT_IDS || ""
-  )
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
+  const csrfTrustedClientHeader = httpConfig.csrfTrustedClientHeader;
+  const csrfTrustedClientIds = httpConfig.csrfTrustedClientIds;
 
   const isOriginAllowed = (origin: string): boolean => {
     const normalizedOrigin = origin.trim();

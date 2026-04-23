@@ -35,7 +35,23 @@ type MulterFileLike = {
   mimetype?: string;
 };
 
-const toMulterFileList = (files: unknown): MulterFileLike[] => {
+const isMulterFileLike = (value: unknown): value is MulterFileLike => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.fieldname === "string" ||
+    typeof candidate.originalname === "string" ||
+    typeof candidate.size === "number" ||
+    typeof candidate.mimetype === "string"
+  );
+};
+
+const toMulterFileList = (
+  file: unknown,
+  files: unknown,
+): MulterFileLike[] => {
+  if (isMulterFileLike(file)) return [file];
+
   if (!files) return [];
   if (Array.isArray(files)) return files as MulterFileLike[];
   if (typeof files !== "object") return [];
@@ -47,6 +63,7 @@ const toMulterFileList = (files: unknown): MulterFileLike[] => {
 
 const buildRequestFingerprint = (req: Request): string => {
   const fileFingerprints = toMulterFileList(
+    (req as Request & { file?: unknown }).file,
     (req as Request & { files?: unknown }).files,
   ).map((file) => ({
     field: String(file.fieldname ?? ""),

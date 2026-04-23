@@ -31,7 +31,9 @@ module.exports = {
     '^@validators/(.*)\\.js$': '<rootDir>/src/validators/$1',
     '^@validators/(.*)$': '<rootDir>/src/validators/$1',
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^exceljs$': '<rootDir>/src/__mocks__/exceljs.ts',
     '^file-type$': '<rootDir>/src/__mocks__/file-type.ts',
+    '^uuid$': '<rootDir>/src/__mocks__/uuid.ts',
   },
   // Only pick files named *.test.* or *.spec.* (ignore helpers like utils.ts)
   testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],

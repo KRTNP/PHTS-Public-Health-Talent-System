@@ -10,6 +10,7 @@ import { ValidationError } from "@shared/utils/errors.js";
 import { ApiResponse } from "@/types/auth.js";
 import * as slaService from "@/modules/sla/services/sla.service.js";
 import { formatDateOnly } from "@/shared/utils/date-only.js";
+import { getAppTimezone, getDbTimezoneOffset } from "@config/runtime-config.js";
 
 /**
  * Get all SLA configurations
@@ -179,18 +180,19 @@ export async function calculateBusinessDays(
     startDate,
     endDate,
   );
-  const appTimezone = process.env.APP_TIMEZONE || "Asia/Bangkok";
+  const appTimezone = getAppTimezone();
+  const dbTimezone = getDbTimezoneOffset();
 
   res.json({
     success: true,
     data: {
       startDate: formatDateOnly(startDate, {
         timezone: appTimezone,
-        fallbackTimezoneOffset: process.env.DB_TIMEZONE || "+07:00",
+        fallbackTimezoneOffset: dbTimezone,
       }),
       endDate: formatDateOnly(endDate, {
         timezone: appTimezone,
-        fallbackTimezoneOffset: process.env.DB_TIMEZONE || "+07:00",
+        fallbackTimezoneOffset: dbTimezone,
       }),
       businessDays,
     },

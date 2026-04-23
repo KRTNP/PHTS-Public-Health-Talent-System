@@ -6,7 +6,7 @@
  * Date: 2025-12-30
  */
 
-import { Router, type RequestHandler } from "express";
+import { Router } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { idempotency } from "@middlewares/idempotency.js";
 import { requestUpload } from "@config/upload-storage.js";
@@ -15,8 +15,6 @@ import { requestController } from "@/modules/request/api/request.controller.js";
 import { validate } from "@shared/validate.middleware.js";
 import {
   actionSchema,
-  batchApproveCompatSchema,
-  legacyActionAliasSchema,
   verificationSchema,
 } from "@/modules/request/dto/update-status.dto.js"; // Use correct DTO file
 import { verificationSnapshotSchema } from "@/modules/request/dto/verification-snapshot.dto.js";
@@ -38,7 +36,6 @@ import {
   requestEligibilityManageSchema,
 } from "@/modules/request/dto/request-params.dto.js";
 import { UserRole } from "@/types/auth.js";
-import { ActionType } from "@/modules/request/contracts/request.types.js";
 // Note: createRequestSchema is used inside controller manually for file upload handling, or added here if middleware used.
 // Current controller implementation handles validation manually after file upload.
 
@@ -50,35 +47,6 @@ const requestActionRoles = [
   UserRole.DIRECTOR,
   UserRole.HEAD_FINANCE,
 ] as const;
-const isLegacyActionEndpointsEnabled =
-  String(process.env.REQUEST_ENABLE_LEGACY_ACTION_ENDPOINTS || "").toLowerCase() ===
-  "true";
-
-const applyLegacyEndpointWarning = (
-  legacyPath: string,
-): RequestHandler =>
-  (req, res, next) => {
-    res.setHeader(
-      "X-Deprecated-Endpoint",
-      `${legacyPath}; migrate to POST /api/requests/:id/action`,
-    );
-    console.warn(
-      `[RequestRoute] legacy endpoint used: ${legacyPath} request_id=${String(req.params.id ?? "")}`,
-    );
-    next();
-  };
-
-const injectActionType = (action: ActionType): RequestHandler => (
-  req,
-  _res,
-  next,
-) => {
-  req.body = {
-    ...(req.body && typeof req.body === "object" ? req.body : {}),
-    action,
-  };
-  next();
-};
 /**
  * All routes require authentication
  */
@@ -344,49 +312,6 @@ router.post(
   validate(actionSchema),
   requestController.processAction,
 );
-
-if (isLegacyActionEndpointsEnabled) {
-  router.post(
-    "/:id/approve",
-    restrictTo(...requestActionRoles),
-    applyLegacyEndpointWarning("/:id/approve"),
-    injectActionType(ActionType.APPROVE),
-    validate(requestIdParamSchema),
-    validate(legacyActionAliasSchema),
-    validate(actionSchema),
-    requestController.processAction,
-  );
-
-  router.post(
-    "/:id/reject",
-    restrictTo(...requestActionRoles),
-    applyLegacyEndpointWarning("/:id/reject"),
-    injectActionType(ActionType.REJECT),
-    validate(requestIdParamSchema),
-    validate(legacyActionAliasSchema),
-    validate(actionSchema),
-    requestController.processAction,
-  );
-
-  router.post(
-    "/:id/return",
-    restrictTo(...requestActionRoles),
-    applyLegacyEndpointWarning("/:id/return"),
-    injectActionType(ActionType.RETURN),
-    validate(requestIdParamSchema),
-    validate(legacyActionAliasSchema),
-    validate(actionSchema),
-    requestController.processAction,
-  );
-
-  router.post(
-    "/batch-approve",
-    restrictTo(...requestActionRoles),
-    applyLegacyEndpointWarning("/batch-approve"),
-    validate(batchApproveCompatSchema),
-    requestController.batchApproveCompat,
-  );
-}
 
 // Submit a draft request
 router.post(
