@@ -7,6 +7,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { getJwtSecret } from "@config/jwt.js";
+import { getJwtExpiresIn } from "@config/runtime-config.js";
 import { isValidCitizenId } from "@shared/utils/validationUtils.js";
 import { AuthRepository } from "@/modules/auth/repositories/auth.repository.js";
 import {
@@ -90,8 +91,7 @@ export class AuthService {
     };
 
     const jwtSecret = getJwtSecret();
-    const jwtExpiresIn: jwt.SignOptions["expiresIn"] =
-      (process.env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"]) || "24h";
+    const jwtExpiresIn: jwt.SignOptions["expiresIn"] = getJwtExpiresIn();
     const token = jwt.sign(jwtPayload, jwtSecret, { expiresIn: jwtExpiresIn });
 
     // Get user profile

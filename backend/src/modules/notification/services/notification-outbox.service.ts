@@ -2,43 +2,11 @@ import { NotificationRepository } from '@/modules/notification/repositories/noti
 import { NotificationOutboxRepository } from '@/modules/notification/repositories/notification-outbox.repository.js';
 import type { NotificationOutboxPayload } from '@/modules/notification/entities/notification-outbox.entity.js';
 import type { PoolConnection } from "mysql2/promise";
-import { NotificationType, normalizeNotificationType } from '@/modules/notification/entities/notification.entity.js';
-
-const DEFAULT_MAX_ATTEMPTS = 8;
-const DEFAULT_RETRY_BASE_SECONDS = 30;
-const DEFAULT_RETRY_MAX_SECONDS = 1800;
-const DEFAULT_PROCESSING_TIMEOUT_SECONDS = 300;
-
-const toSafeInt = (raw: string | undefined, fallback: number, min: number, max: number): number => {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return fallback;
-  return Math.max(min, Math.min(max, Math.floor(value)));
-};
-
-const getMaxAttempts = (): number =>
-  toSafeInt(process.env.NOTIFICATION_OUTBOX_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS, 1, 100);
-
-const getRetryBaseSeconds = (): number =>
-  toSafeInt(process.env.NOTIFICATION_OUTBOX_RETRY_BASE_SECONDS, DEFAULT_RETRY_BASE_SECONDS, 1, 3600);
-
-const getRetryMaxSeconds = (): number => {
-  const maxSeconds = toSafeInt(
-    process.env.NOTIFICATION_OUTBOX_RETRY_MAX_SECONDS,
-    DEFAULT_RETRY_MAX_SECONDS,
-    1,
-    7 * 24 * 3600,
-  );
-  const baseSeconds = getRetryBaseSeconds();
-  return Math.max(baseSeconds, maxSeconds);
-};
-
-const getProcessingTimeoutSeconds = (): number =>
-  toSafeInt(
-    process.env.NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_SECONDS,
-    DEFAULT_PROCESSING_TIMEOUT_SECONDS,
-    30,
-    24 * 3600,
-  );
+import {
+  NotificationType,
+  normalizeNotificationType,
+} from "@/modules/notification/entities/notification.entity.js";
+import { getNotificationOutboxConfig } from "@config/runtime-config.js";
 
 export class NotificationOutboxService {
   static async enqueue(
@@ -54,10 +22,12 @@ export class NotificationOutboxService {
     failed: number;
     requeued: number;
   }> {
-    const maxAttempts = getMaxAttempts();
-    const retryBaseSeconds = getRetryBaseSeconds();
-    const retryMaxSeconds = getRetryMaxSeconds();
-    const processingTimeoutSeconds = getProcessingTimeoutSeconds();
+    const {
+      maxAttempts,
+      retryBaseSeconds,
+      retryMaxSeconds,
+      processingTimeoutSeconds,
+    } = getNotificationOutboxConfig();
     const conn = await NotificationOutboxRepository.getConnection();
     let processed = 0;
     let sent = 0;

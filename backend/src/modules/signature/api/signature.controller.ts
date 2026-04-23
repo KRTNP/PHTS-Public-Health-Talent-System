@@ -1,0 +1,78 @@
+/**
+ * signature module - request orchestration
+ *
+ */
+import { Request, Response } from "express";
+import { asyncHandler } from "@middlewares/errorHandler.js";
+import { AuthenticationError } from "@shared/utils/errors.js";
+import { ApiResponse } from "@/types/auth.js";
+import * as signatureService from "@/modules/signature/services/signature.service.js";
+import { SyncService } from "@/modules/sync/services/sync.service.js";
+import { getSignatureRefreshConfig } from "@config/runtime-config.js";
+
+const refreshState = new Map<number, { lastAt: number; pending: boolean }>();
+
+export const getMySignature = asyncHandler(
+  async (req: Request, res: Response<ApiResponse<{ data_url: string }>>) => {
+    if (!req.user || !req.user.citizenId) {
+      throw new AuthenticationError("Unauthorized");
+    }
+    const dataUrl = await signatureService.getSignatureBase64(
+      req.user.citizenId,
+    );
+    res.json({ success: true, data: { data_url: dataUrl ?? "" } });
+  },
+);
+
+export const checkSignature = asyncHandler(
+  async (
+    req: Request,
+    res: Response<ApiResponse<{ has_signature: boolean }>>,
+  ) => {
+    if (!req.user || !req.user.citizenId) {
+      throw new AuthenticationError("Unauthorized");
+    }
+    const hasSig = await signatureService.hasSignature(req.user.citizenId);
+    res.json({ success: true, data: { has_signature: hasSig } });
+  },
+);
+
+export const refreshMySignature = asyncHandler(
+  async (
+    req: Request,
+    res: Response<ApiResponse<{ queued: boolean; delay_ms: number }>>,
+  ) => {
+    if (!req.user) {
+      throw new AuthenticationError("Unauthorized");
+    }
+    const { delayMs, cooldownMs } = getSignatureRefreshConfig();
+    const userId = req.user.userId;
+    const now = Date.now();
+    const existing = refreshState.get(userId);
+    if (existing && now - existing.lastAt < cooldownMs) {
+      const retryAfterMs = Math.max(0, cooldownMs - (now - existing.lastAt));
+      res.status(429).json({
+        success: false,
+        error: "กรุณารอสักครู่ก่อนรีเฟรชอีกครั้ง",
+        data: { retry_after_ms: retryAfterMs },
+      } as ApiResponse<any>);
+      return;
+    }
+
+    refreshState.set(userId, { lastAt: now, pending: true });
+    setTimeout(() => {
+      SyncService.performUserSync(userId)
+        .catch((error) => {
+          console.error("[Signature] User sync failed:", error);
+        })
+        .finally(() => {
+          const state = refreshState.get(userId);
+          if (state?.lastAt === now) {
+            refreshState.set(userId, { lastAt: state.lastAt, pending: false });
+          }
+        });
+    }, delayMs);
+
+    res.json({ success: true, data: { queued: true, delay_ms: delayMs } });
+  },
+);

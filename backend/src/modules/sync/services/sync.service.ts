@@ -95,7 +95,8 @@ import {
   buildSupportViewQuery,
   citizenIdJoinBinary,
   citizenIdWhereBinary,
-} from '@/modules/sync/repositories/sync-query-builders.repository.js';
+} from "@/modules/sync/repositories/sync-query-builders.repository.js";
+import { getSyncRetentionConfig } from "@config/runtime-config.js";
 
 const toDateOnly = (value: any): string | null => {
   if (!value) return null;
@@ -129,17 +130,11 @@ const isActiveOriginalStatus = (status: string | null): boolean => {
   return normalized.startsWith('ปฏิบัติงาน') || normalized.includes('ลาศึกษา');
 };
 
-const parsePositiveIntEnv = (value: string | undefined, fallback: number): number => {
-  const parsed = Number.parseInt(value ?? '', 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
-  return parsed;
-};
-
 const getMonitorRetentionPolicy = () => ({
-  dataIssuesDays: parsePositiveIntEnv(process.env.SYNC_RETENTION_DATA_ISSUES_DAYS, 180),
-  userAuditsDays: parsePositiveIntEnv(process.env.SYNC_RETENTION_USER_AUDITS_DAYS, 180),
-  stageRunsDays: parsePositiveIntEnv(process.env.SYNC_RETENTION_STAGE_RUNS_DAYS, 120),
-  batchesDays: parsePositiveIntEnv(process.env.SYNC_RETENTION_BATCHES_DAYS, 365),
+  dataIssuesDays: getSyncRetentionConfig().dataIssuesDays,
+  userAuditsDays: getSyncRetentionConfig().userAuditsDays,
+  stageRunsDays: getSyncRetentionConfig().stageRunsDays,
+  batchesDays: getSyncRetentionConfig().batchesDays,
 });
 
 export const deriveUserIsActive = (

@@ -1,76 +1,21 @@
-import { execFile as execFileCallback } from 'node:child_process';
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { promisify } from 'node:util';
-import type { OcrBatchResultItem } from '@/modules/ocr/entities/ocr-precheck.entity.js';
-import { enrichOcrBatchResult } from '@/modules/ocr/services/ocr-gateway-analysis.service.js';
+import { execFile as execFileCallback } from "node:child_process";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
+import type { OcrBatchResultItem } from "@/modules/ocr/entities/ocr-precheck.entity.js";
+import { enrichOcrBatchResult } from "@/modules/ocr/services/ocr-analysis.service.js";
+import { getOcrTesseractConfig } from "@config/runtime-config.js";
 
 const execFile = promisify(execFileCallback);
-const DEFAULT_TESSERACT_LANG = 'tha+eng';
-const DEFAULT_TESSERACT_OEM = '1';
-const DEFAULT_TESSERACT_PSM = '11';
-const DEFAULT_PDF_RENDER_DPI = '200';
-const DEFAULT_TESSERACT_THREAD_LIMIT = '1';
-const DEFAULT_TESSERACT_PREPROCESS = 'none';
-const LOCAL_ENGINE_NAME = 'tesseract';
+const isPdf = (fileName: string): boolean =>
+  fileName.toLowerCase().endsWith(".pdf");
 
-const isPdf = (fileName: string): boolean => fileName.toLowerCase().endsWith('.pdf');
-
-const getEnvNumberString = (
-  value: string | undefined,
-  fallback: string,
-  min: number,
-  max: number,
-): string => {
-  if (!value) return fallback;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return fallback;
-  return String(Math.floor(parsed));
-};
-
-const getTesseractLang = (): string =>
-  (process.env.OCR_TESSERACT_LANG || DEFAULT_TESSERACT_LANG).trim() || DEFAULT_TESSERACT_LANG;
-
-const getTesseractOem = (): string =>
-  getEnvNumberString(process.env.OCR_TESSERACT_OEM, DEFAULT_TESSERACT_OEM, 0, 3);
-
-const getTesseractPsm = (): string =>
-  getEnvNumberString(process.env.OCR_TESSERACT_PSM, DEFAULT_TESSERACT_PSM, 0, 13);
-
-const getPdfRenderDpi = (): string =>
-  getEnvNumberString(process.env.OCR_TESSERACT_PDF_DPI, DEFAULT_PDF_RENDER_DPI, 72, 600);
-
-const getThreadLimit = (): string =>
-  getEnvNumberString(process.env.OCR_TESSERACT_THREAD_LIMIT, DEFAULT_TESSERACT_THREAD_LIMIT, 1, 16);
-
-const getThresholdingMethod = (): string | null => {
-  const raw = process.env.OCR_TESSERACT_THRESHOLDING_METHOD;
-  if (raw === undefined || raw === '') return null;
-  return getEnvNumberString(raw, '0', 0, 2);
-};
-
-const getThresholdingWindowSize = (): string | null => {
-  const raw = process.env.OCR_TESSERACT_THRESHOLDING_WINDOW_SIZE;
-  if (!raw) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 5) return null;
-  return String(parsed);
-};
-
-const getThresholdingKFactor = (): string | null => {
-  const raw = process.env.OCR_TESSERACT_THRESHOLDING_KFACTOR;
-  if (!raw) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 2) return null;
-  return String(parsed);
-};
-
-const getPreprocessMode = (): string =>
-  (process.env.OCR_TESSERACT_PREPROCESS || DEFAULT_TESSERACT_PREPROCESS).trim().toLowerCase();
-
-const preprocessWithImageMagick = async (imagePath: string, outputPath: string): Promise<string> => {
-  await execFile('convert', [
+const preprocessWithImageMagick = async (
+  imagePath: string,
+  outputPath: string,
+): Promise<string> => {
+  await execFile("convert", [
     imagePath,
     '-colorspace',
     'Gray',
@@ -87,7 +32,8 @@ const preprocessWithImageMagick = async (imagePath: string, outputPath: string):
 };
 
 const runTesseractOnImage = async (imagePath: string): Promise<string> => {
-  const preprocessMode = getPreprocessMode();
+  const ocrConfig = getOcrTesseractConfig();
+  const preprocessMode = ocrConfig.preprocessMode;
   let inputPath = imagePath;
   if (preprocessMode === 'gray-deskew') {
     const preprocessedPath = `${imagePath}.pre.png`;
@@ -98,9 +44,9 @@ const runTesseractOnImage = async (imagePath: string): Promise<string> => {
     }
   }
 
-  const tesseractLang = getTesseractLang();
-  const tesseractOem = getTesseractOem();
-  const tesseractPsm = getTesseractPsm();
+  const tesseractLang = ocrConfig.lang;
+  const tesseractOem = ocrConfig.oem;
+  const tesseractPsm = ocrConfig.psm;
   const args: string[] = [
     inputPath,
     'stdout',
@@ -113,15 +59,15 @@ const runTesseractOnImage = async (imagePath: string): Promise<string> => {
     '-c',
     'preserve_interword_spaces=1',
   ];
-  const thresholdingMethod = getThresholdingMethod();
+  const thresholdingMethod = ocrConfig.thresholdingMethod;
   if (thresholdingMethod !== null) {
     args.push('-c', `thresholding_method=${thresholdingMethod}`);
   }
-  const thresholdingWindowSize = getThresholdingWindowSize();
+  const thresholdingWindowSize = ocrConfig.thresholdingWindowSize;
   if (thresholdingWindowSize !== null) {
     args.push('-c', `thresholding_window_size=${thresholdingWindowSize}`);
   }
-  const thresholdingKFactor = getThresholdingKFactor();
+  const thresholdingKFactor = ocrConfig.thresholdingKFactor;
   if (thresholdingKFactor !== null) {
     args.push('-c', `thresholding_kfactor=${thresholdingKFactor}`);
   }
@@ -129,14 +75,23 @@ const runTesseractOnImage = async (imagePath: string): Promise<string> => {
   const { stdout } = await execFile('tesseract', args, {
     env: {
       ...process.env,
-      OMP_THREAD_LIMIT: getThreadLimit(),
+      OMP_THREAD_LIMIT: ocrConfig.threadLimit,
     },
   });
   return stdout.trim();
 };
 
-const renderPdfPages = async (pdfPath: string, outputPrefix: string): Promise<string[]> => {
-  await execFile('pdftoppm', ['-r', getPdfRenderDpi(), '-png', pdfPath, outputPrefix]);
+const renderPdfPages = async (
+  pdfPath: string,
+  outputPrefix: string,
+): Promise<string[]> => {
+  await execFile("pdftoppm", [
+    "-r",
+    getOcrTesseractConfig().pdfDpi,
+    "-png",
+    pdfPath,
+    outputPrefix,
+  ]);
   const dir = path.dirname(outputPrefix);
   const base = path.basename(outputPrefix);
   const files = await readdir(dir);

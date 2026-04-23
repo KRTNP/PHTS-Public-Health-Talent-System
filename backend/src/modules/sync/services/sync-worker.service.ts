@@ -1,16 +1,9 @@
-import { SyncService } from '@/modules/sync/services/sync.service.js';
-
-const DEFAULT_POLL_MS = 30000;
+import { SyncService } from "@/modules/sync/services/sync.service.js";
+import { getSyncWorkerConfig } from "@config/runtime-config.js";
 
 let workerRunning = false;
 let workerPromise: Promise<void> | null = null;
 let wakeWorker: (() => void) | null = null;
-
-const getPollMs = (): number => {
-  const fromEnv = Number(process.env.SYNC_WORKER_POLL_MS ?? DEFAULT_POLL_MS);
-  if (!Number.isFinite(fromEnv) || fromEnv < 1000) return DEFAULT_POLL_MS;
-  return Math.floor(fromEnv);
-};
 
 const waitForNextTick = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -27,7 +20,7 @@ const waitForNextTick = (ms: number): Promise<void> =>
   });
 
 const workerLoop = async (): Promise<void> => {
-  const pollMs = getPollMs();
+  const pollMs = getSyncWorkerConfig().pollMs;
   while (workerRunning) {
     try {
       const startedAt = Date.now();
@@ -52,8 +45,8 @@ const workerLoop = async (): Promise<void> => {
 };
 
 export const startSyncWorker = (): void => {
-  if (process.env.SYNC_WORKER_ENABLED === 'false') {
-    console.log('[SyncWorker] disabled by SYNC_WORKER_ENABLED=false');
+  if (!getSyncWorkerConfig().enabled) {
+    console.log("[SyncWorker] disabled by SYNC_WORKER_ENABLED=false");
     return;
   }
   if (workerRunning) return;

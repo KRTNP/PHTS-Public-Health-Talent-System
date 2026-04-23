@@ -4,8 +4,12 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { stat } from "node:fs/promises";
-import { BackupRepository } from '@/modules/backup/repositories/backup.repository.js';
-import redis from '@config/redis.js';
+import { BackupRepository } from "@/modules/backup/repositories/backup.repository.js";
+import redis from "@config/redis.js";
+import {
+  getBackupRuntimeConfig,
+  getOpsJobTimezone,
+} from "@config/runtime-config.js";
 
 const execFileAsync = promisify(execFile);
 const BACKUP_LOCK_KEY = 'system:backup:lock';
@@ -13,8 +17,10 @@ const BACKUP_SCHEDULE_KEY = 'system:backup:schedule';
 const BACKUP_LAST_RUN_PREFIX = 'system:backup:last-run:';
 const DEFAULT_BACKUP_HOUR = 2;
 const DEFAULT_BACKUP_MINUTE = 0;
-const DEFAULT_BACKUP_TIMEZONE = process.env.BACKUP_JOB_TIMEZONE || 'Asia/Bangkok';
-const CURRENT_BACKUP_SCRIPT_REL = 'src/scripts/ops/backup/backup.sh';
+const DEFAULT_BACKUP_TIMEZONE = getOpsJobTimezone();
+const CURRENT_BACKUP_SCRIPT_REL_BASH = "src/scripts/ops/backup/backup.sh";
+const CURRENT_BACKUP_SCRIPT_REL_POWERSHELL =
+  "src/scripts/ops/backup/backup.ps1";
 
 type BackupConfig = {
   enabled: boolean;
@@ -30,13 +36,7 @@ export type BackupScheduleConfig = {
   timezone: string;
 };
 
-const getBackupConfig = (): BackupConfig => ({
-  enabled: process.env.BACKUP_ENABLED === "true",
-  command: process.env.BACKUP_COMMAND || "",
-  argsRaw: process.env.BACKUP_ARGS || "",
-  workdir: process.env.BACKUP_WORKDIR || process.cwd(),
-  timeoutMs: Number(process.env.BACKUP_TIMEOUT_MS || 300000),
-});
+const getBackupConfig = (): BackupConfig => getBackupRuntimeConfig();
 
 const toTwoDigits = (value: number): string => String(value).padStart(2, '0');
 

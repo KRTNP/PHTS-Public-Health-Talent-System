@@ -6,69 +6,31 @@
  * Date: 2025-12-30
  */
 
-import express, { Application } from 'express';
-import crypto from 'node:crypto';
-import path from 'node:path';
-import jwt from 'jsonwebtoken';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import { loadEnv } from '@config/env.js';
-import { testConnection, closePool } from '@config/database.js';
-import { initializePassport } from '@config/passport.js';
-import { getJwtSecret } from '@config/jwt.js';
-import authRoutes from '@/modules/auth/auth.routes.js';
-import requestRoutes from '@/modules/request/request.routes.js';
-import signatureRoutes from '@/modules/signature/signature.routes.js';
-import payrollRoutes from '@/modules/payroll/payroll.routes.js';
-import reportRoutes from '@/modules/report/report.routes.js';
-import systemRoutes from '@/modules/system/admin/admin.routes.js';
-import masterDataRoutes from '@/modules/master-data/master-data.routes.js';
-import leaveManagementRoutes from '@/modules/leave-management/leave-management.routes.js';
-import notificationRoutes from '@/modules/notification/notification.routes.js';
-import financeRoutes from '@/modules/finance/finance.routes.js';
-import auditRoutes from '@/modules/audit/audit.routes.js';
-import slaRoutes from '@/modules/sla/sla.routes.js';
-import accessReviewRoutes from '@/modules/access-review/access-review.routes.js';
-import snapshotRoutes from '@/modules/snapshot/snapshot.routes.js';
-import personnelChangesRoutes from '@/modules/workforce-compliance/routes/personnel-changes.routes.js';
-import licenseComplianceRoutes from '@/modules/workforce-compliance/routes/license-compliance.routes.js';
-import healthRoutes from '@/modules/health/routes/health.routes.js';
-import announcementRoutes from '@/modules/announcement/announcement.routes.js';
-import supportRoutes from '@/modules/support/support.routes.js';
-import dashboardRoutes from '@/modules/dashboard/routes/dashboard.routes.js';
-import navigationRoutes from '@/modules/navigation/routes/navigation.routes.js';
+import { loadEnv } from "@config/env.js";
+import { testConnection, closePool } from "@config/database.js";
+import { createConfiguredApp } from "@/bootstrap/app.js";
+import { registerProcessHandlers } from "@/bootstrap/process-handlers.js";
+import { startBackgroundWorkers, stopBackgroundWorkers } from "@/bootstrap/workers.js";
 import {
-  startOcrPrecheckWorker,
-  stopOcrPrecheckWorker,
-} from '@/modules/ocr/services/ocr-worker.service.js';
-import {
-  startSnapshotWorker,
-  stopSnapshotWorker,
-} from '@/modules/snapshot/services/snapshot-worker.service.js';
-import { startSyncWorker, stopSyncWorker } from '@/modules/sync/services/sync-worker.service.js';
-import {
-  startBackupWorker,
-  stopBackupWorker,
-} from '@/modules/backup/services/backup-worker.service.js';
-import {
-  startNotificationOutboxWorker,
-  stopNotificationOutboxWorker,
-} from '@/modules/notification/services/notification-outbox-worker.service.js';
-import { isMaintenanceModeEnabled } from '@/modules/system/services/maintenance.service.js';
-import { errorHandler, notFoundHandler } from '@middlewares/errorHandler.js';
-import { apiRateLimiter } from '@middlewares/rateLimiter.js';
-import { protect } from '@middlewares/authMiddleware.js';
-import { tokenBlacklistMiddleware } from '@middlewares/tokenBlacklistMiddleware.js';
-import { authorizeUploadAccess } from '@middlewares/uploadAccessMiddleware.js';
+  getDatabaseRuntimeConfig,
+  getNodeEnv,
+  getRuntimePort,
+  getStartServerFlag,
+  isJestRuntime,
+  isTestEnv,
+} from "@config/runtime-config.js";
 
 // Load environment variables
 loadEnv();
 
-// Initialize Express app
-const app: Application = express();
-const PORT = process.env.PORT || 3001;
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const PORT = getRuntimePort();
+const NODE_ENV = getNodeEnv();
+const app = createConfiguredApp(NODE_ENV);
+const START_SERVER = getStartServerFlag();
+const jestRuntime = isJestRuntime();
+const shouldStartServer =
+  !jestRuntime &&
+  (START_SERVER === "true" || (!isTestEnv() && START_SERVER !== "false"));
 
 // Allow CORS for configured origins (comma-separated env support for multiple frontends)
 const envOrigins = (process.env.FRONTEND_URL || '')
@@ -376,8 +338,12 @@ if (process.env.NODE_ENV !== 'test' && process.env.START_SERVER !== 'false') {
 
     // Start Express server
     app.listen(PORT, () => {
-      console.log(`[Server] PHTS Backend started on port ${PORT} (${process.env.NODE_ENV})`);
-      console.log(`[Server] Database host: ${process.env.DB_HOST || 'localhost'}`);
+      console.log(
+        `[Server] PHTS Backend started on port ${PORT} (${getNodeEnv()})`,
+      );
+      console.log(
+        `[Server] Database host: ${getDatabaseRuntimeConfig().host}`,
+      );
     });
   } catch (error) {
     console.error('Failed to start server:', error);

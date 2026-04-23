@@ -17,6 +17,11 @@ import {
 } from "@/modules/audit/services/audit.service.js";
 import { SnapshotRepository } from "@/modules/snapshot/repositories/snapshot.repository.js";
 import { NotificationOutboxRepository } from "@/modules/notification/repositories/notification-outbox.repository.js";
+import {
+  getAppVersionInfo,
+  getNotificationOutboxConfig,
+  getSnapshotOutboxConfig,
+} from "@config/runtime-config.js";
 import type {
   SearchUsersQuery,
   GetUserByIdParams,
@@ -106,53 +111,21 @@ export const getJobStatus = asyncHandler(
 
 export const getVersionInfo = asyncHandler(
   async (_req: Request, res: Response) => {
-    const version = process.env.APP_VERSION ?? "unknown";
-    const commit = process.env.APP_COMMIT ?? "unknown";
-    const env = process.env.NODE_ENV ?? "development";
     res.json({
       success: true,
-      data: {
-        version,
-        commit,
-        env,
-      },
+      data: getAppVersionInfo(),
     });
   },
 );
 
-const getSnapshotMaxAttempts = (): number => {
-  const raw = Number(process.env.SNAPSHOT_OUTBOX_MAX_ATTEMPTS ?? 8);
-  if (!Number.isFinite(raw)) return 8;
-  return Math.max(1, Math.min(100, Math.floor(raw)));
-};
-
-const getNotificationMaxAttempts = (): number => {
-  const raw = Number(process.env.NOTIFICATION_OUTBOX_MAX_ATTEMPTS ?? 8);
-  if (!Number.isFinite(raw)) return 8;
-  return Math.max(1, Math.min(100, Math.floor(raw)));
-};
-
-export const getNotificationOutbox = asyncHandler(async (req: Request, res: Response) => {
-  const { page, limit, status } = req.query as GetNotificationOutboxQuery;
-  const data = await NotificationOutboxRepository.findOutboxRows({
-    page: Number(page || 1),
-    limit: Number(limit || 10),
-    status,
-    maxAttempts: getNotificationMaxAttempts(),
-  });
-  res.json({ success: true, data });
-});
-
-export const retryNotificationOutbox = asyncHandler(async (req: Request, res: Response) => {
-  const { outboxId } = req.params as unknown as RetryNotificationOutboxParams;
-  const ok = await NotificationOutboxRepository.retryOutboxRow(Number(outboxId));
-  if (!ok) {
-    res.status(404).json({
-      success: false,
-      error: {
-        code: 'NOTIFICATION_OUTBOX_NOT_RETRYABLE',
-        message: 'ไม่พบรายการที่ลองใหม่ได้',
-      },
+export const getNotificationOutbox = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { page, limit, status } = req.query as GetNotificationOutboxQuery;
+    const data = await NotificationOutboxRepository.findOutboxRows({
+      page: Number(page || 1),
+      limit: Number(limit || 10),
+      status,
+      maxAttempts: getNotificationOutboxConfig().maxAttempts,
     });
     return;
   }
@@ -168,39 +141,69 @@ export const retryNotificationDeadLetters = asyncHandler(async (_req: Request, r
   });
 });
 
-export const getSnapshotOutbox = asyncHandler(async (req: Request, res: Response) => {
-  const { page, limit, status, period_id } = req.query as GetSnapshotOutboxQuery;
-  const data = await SnapshotRepository.findSnapshotOutboxRows({
-    page: Number(page || 1),
-    limit: Number(limit || 10),
-    status,
-    periodId: period_id ? Number(period_id) : undefined,
-    maxAttempts: getSnapshotMaxAttempts(),
-  });
-  res.json({ success: true, data });
-});
-
-export const retrySnapshotOutbox = asyncHandler(async (req: Request, res: Response) => {
-  const { outboxId } = req.params as unknown as RetrySnapshotOutboxParams;
-  const ok = await SnapshotRepository.retryOutboxRow(Number(outboxId));
-  if (!ok) {
-    res.status(404).json({
-      success: false,
-      error: {
-        code: 'SNAPSHOT_OUTBOX_NOT_RETRYABLE',
-        message: 'ไม่พบรายการที่ลองใหม่ได้',
-      },
+export const retryNotificationDeadLetters = asyncHandler(
+  async (_req: Request, res: Response) => {
+    const count = await NotificationOutboxRepository.retryDeadLetterRows(
+      getNotificationOutboxConfig().maxAttempts,
+    );
+    res.json({
+      success: true,
+      data: { count },
+      message:
+        count > 0
+          ? `นำกลับเข้าคิว ${count} รายการแล้ว`
+          : "ไม่มี dead-letter ที่ต้องลองใหม่",
     });
     return;
   }
   res.json({ success: true, message: 'นำรายการกลับเข้าคิวแล้ว' });
 });
 
-export const retrySnapshotDeadLetters = asyncHandler(async (_req: Request, res: Response) => {
-  const count = await SnapshotRepository.retryDeadLetterRows(getSnapshotMaxAttempts());
-  res.json({
-    success: true,
-    data: { count },
-    message: count > 0 ? `นำกลับเข้าคิว ${count} รายการแล้ว` : 'ไม่มี dead-letter ที่ต้องลองใหม่',
-  });
-});
+export const getSnapshotOutbox = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { page, limit, status, period_id } =
+      req.query as GetSnapshotOutboxQuery;
+    const data = await SnapshotRepository.findSnapshotOutboxRows({
+      page: Number(page || 1),
+      limit: Number(limit || 10),
+      status,
+      periodId: period_id ? Number(period_id) : undefined,
+      maxAttempts: getSnapshotOutboxConfig().maxAttempts,
+    });
+    res.json({ success: true, data });
+  },
+);
+
+export const retrySnapshotOutbox = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { outboxId } = req.params as unknown as RetrySnapshotOutboxParams;
+    const ok = await SnapshotRepository.retryOutboxRow(Number(outboxId));
+    if (!ok) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: "SNAPSHOT_OUTBOX_NOT_RETRYABLE",
+          message: "ไม่พบรายการที่ลองใหม่ได้",
+        },
+      });
+      return;
+    }
+    res.json({ success: true, message: "นำรายการกลับเข้าคิวแล้ว" });
+  },
+);
+
+export const retrySnapshotDeadLetters = asyncHandler(
+  async (_req: Request, res: Response) => {
+    const count = await SnapshotRepository.retryDeadLetterRows(
+      getSnapshotOutboxConfig().maxAttempts,
+    );
+    res.json({
+      success: true,
+      data: { count },
+      message:
+        count > 0
+          ? `นำกลับเข้าคิว ${count} รายการแล้ว`
+          : "ไม่มี dead-letter ที่ต้องลองใหม่",
+    });
+  },
+);

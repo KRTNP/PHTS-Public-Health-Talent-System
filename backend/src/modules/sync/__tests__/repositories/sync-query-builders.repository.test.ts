@@ -88,4 +88,36 @@ describe('sync query builders repository', () => {
     expect(sql).toContain('SELECT 1 FROM emp_profiles e');
     expect(sql).toContain('citizen_predicate');
   });
+
+  test("supports split HRMS source databases via env overrides", async () => {
+    const originalMainDb = process.env.HRMS_MAIN_DB;
+    const originalLeaveDb = process.env.HRMS_LEAVE_DB;
+    const originalMeetingDb = process.env.HRMS_MEETING_DB;
+
+    process.env.HRMS_MAIN_DB = "main_db";
+    process.env.HRMS_LEAVE_DB = "leave_db";
+    process.env.HRMS_MEETING_DB = "meeting_db";
+
+    jest.resetModules();
+    const mod = await loadModule();
+
+    const quotasSql = (mod as any).buildQuotasViewQuery();
+    expect(quotasSql).toContain("FROM leave_db.setdays");
+
+    const leavesSql = (mod as any).buildLeaveViewQuery();
+    expect(leavesSql).toContain("FROM leave_db.data_leave");
+    expect(leavesSql).toContain("FROM meeting_db.tb_meeting");
+    expect(leavesSql).toContain("LEFT JOIN main_db.tb_ap_index_view h");
+
+    const signaturesSql = (mod as any).buildSignaturesViewQuery();
+    expect(signaturesSql).toContain("FROM main_db.signature");
+
+    if (originalMainDb === undefined) delete process.env.HRMS_MAIN_DB;
+    else process.env.HRMS_MAIN_DB = originalMainDb;
+    if (originalLeaveDb === undefined) delete process.env.HRMS_LEAVE_DB;
+    else process.env.HRMS_LEAVE_DB = originalLeaveDb;
+    if (originalMeetingDb === undefined) delete process.env.HRMS_MEETING_DB;
+    else process.env.HRMS_MEETING_DB = originalMeetingDb;
+    jest.resetModules();
+  });
 });

@@ -1,23 +1,9 @@
-import { NotificationOutboxService } from '@/modules/notification/services/notification-outbox.service.js';
-
-const DEFAULT_POLL_MS = 5000;
-const DEFAULT_BATCH_LIMIT = 100;
+import { NotificationOutboxService } from "@/modules/notification/services/notification-outbox.service.js";
+import { getNotificationOutboxWorkerConfig } from "@config/runtime-config.js";
 
 let workerRunning = false;
 let workerPromise: Promise<void> | null = null;
 let wakeWorker: (() => void) | null = null;
-
-const toSafeInt = (raw: string | undefined, fallback: number, min: number, max: number): number => {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return fallback;
-  return Math.max(min, Math.min(max, Math.floor(value)));
-};
-
-const getPollMs = (): number =>
-  toSafeInt(process.env.NOTIFICATION_OUTBOX_WORKER_POLL_MS, DEFAULT_POLL_MS, 250, 60000);
-
-const getBatchLimit = (): number =>
-  toSafeInt(process.env.NOTIFICATION_OUTBOX_WORKER_BATCH_LIMIT, DEFAULT_BATCH_LIMIT, 1, 200);
 
 const waitForNextTick = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -34,8 +20,7 @@ const waitForNextTick = (ms: number): Promise<void> =>
   });
 
 const workerLoop = async (): Promise<void> => {
-  const pollMs = getPollMs();
-  const batchLimit = getBatchLimit();
+  const { pollMs, batchLimit } = getNotificationOutboxWorkerConfig();
   while (workerRunning) {
     try {
       const result = await NotificationOutboxService.processBatch(batchLimit);
@@ -54,8 +39,10 @@ const workerLoop = async (): Promise<void> => {
 };
 
 export const startNotificationOutboxWorker = (): void => {
-  if (process.env.NOTIFICATION_OUTBOX_WORKER_ENABLED === 'false') {
-    console.log('[NotificationQueue] worker disabled by NOTIFICATION_OUTBOX_WORKER_ENABLED=false');
+  if (!getNotificationOutboxWorkerConfig().enabled) {
+    console.log(
+      "[NotificationQueue] worker disabled by NOTIFICATION_OUTBOX_WORKER_ENABLED=false",
+    );
     return;
   }
   if (workerRunning) return;

@@ -10,12 +10,19 @@ import mysql, { type PoolConnection } from "mysql2/promise";
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
-import { loadEnv } from '@config/env.js';
+import { loadEnv } from "@config/env.js";
+import {
+  getDatabaseRuntimeConfig,
+  getDbTimezoneOffset,
+  getTestDatabaseOverrides,
+  hasAnyTestDatabaseOverrides,
+  isTestEnv,
+} from "@config/runtime-config.js";
 
 // Load environment variables
 loadEnv();
 
-const dbTimezone = process.env.DB_TIMEZONE || "+07:00";
+const dbTimezone = getDbTimezoneOffset();
 
 async function ensureSessionTimezone(connection: PoolConnection): Promise<void> {
   await connection.query("SET time_zone = ?", [dbTimezone]);
@@ -64,31 +71,20 @@ function readLocalEnvDbConfig(): Partial<DbRuntimeConfig> {
 }
 
 function resolveDbRuntimeConfig(): DbRuntimeConfig {
-  const envConfig: DbRuntimeConfig = {
-    host: process.env.DB_HOST || "localhost",
-    port: Number.parseInt(process.env.DB_PORT || "3306", 10),
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "phts_system",
-  };
+  const envConfig: DbRuntimeConfig = getDatabaseRuntimeConfig();
 
   // In NODE_ENV=test, allow explicit TEST_DB_* overrides first.
-  if (process.env.NODE_ENV === "test") {
+  if (isTestEnv()) {
+    const testOverrides = getTestDatabaseOverrides();
     const overriddenByTestEnv: DbRuntimeConfig = {
-      host: process.env.TEST_DB_HOST || envConfig.host,
-      port: Number.parseInt(process.env.TEST_DB_PORT || String(envConfig.port), 10),
-      user: process.env.TEST_DB_USER || envConfig.user,
-      password: process.env.TEST_DB_PASSWORD ?? envConfig.password,
-      database: process.env.TEST_DB_NAME || envConfig.database,
+      host: testOverrides.host || envConfig.host,
+      port: Number.parseInt(testOverrides.port || String(envConfig.port), 10),
+      user: testOverrides.user || envConfig.user,
+      password: testOverrides.password ?? envConfig.password,
+      database: testOverrides.database || envConfig.database,
     };
 
-    if (
-      process.env.TEST_DB_HOST ||
-      process.env.TEST_DB_PORT ||
-      process.env.TEST_DB_USER ||
-      process.env.TEST_DB_PASSWORD ||
-      process.env.TEST_DB_NAME
-    ) {
+    if (hasAnyTestDatabaseOverrides()) {
       return overriddenByTestEnv;
     }
 
@@ -110,7 +106,7 @@ function resolveDbRuntimeConfig(): DbRuntimeConfig {
 
 const dbConfig = resolveDbRuntimeConfig();
 
-if (process.env.NODE_ENV === "test" && !/test/i.test(dbConfig.database)) {
+if (isTestEnv() && !/test/i.test(dbConfig.database)) {
   throw new Error(
     `[database] Refusing NODE_ENV=test with non-test database: ${dbConfig.database}`,
   );
@@ -148,7 +144,7 @@ export async function testConnection(): Promise<void> {
   try {
     const connection = await pool.getConnection();
     await ensureSessionTimezone(connection);
-    console.log("✓ Database connected successfully to:", process.env.DB_NAME);
+    console.log("✓ Database connected successfully to:", dbConfig.database);
     connection.release();
   } catch (error) {
     console.error("✗ Database connection failed:", error);
@@ -193,7 +189,7 @@ export async function getConnection() {
 export async function closePool(): Promise<void> {
   try {
     await pool.end();
-    if (process.env.NODE_ENV !== "test") {
+    if (!isTestEnv()) {
       console.log("✓ Database connection pool closed");
     }
   } catch (error) {

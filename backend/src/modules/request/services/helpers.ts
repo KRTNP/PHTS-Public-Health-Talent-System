@@ -4,9 +4,10 @@ import {
   PersonnelType,
   PTSRequest,
   RequestWithDetails,
-} from '@/modules/request/contracts/request.types.js';
-import { randomBytes } from 'node:crypto';
-import { formatDateOnly } from '@/shared/utils/date-only.js';
+} from "@/modules/request/contracts/request.types.js";
+import { randomBytes } from "node:crypto";
+import { formatDateOnly } from "@/shared/utils/date-only.js";
+import { getDbTimezoneOffset } from "@config/runtime-config.js";
 
 export const REQUESTER_FIELDS = `
   u.citizen_id as requester_citizen_id,
@@ -125,8 +126,8 @@ export const generateRequestNoFromId = (
 
 export const normalizeDateToYMD = (date: string | Date): string => {
   return formatDateOnly(date, {
-    timezone: process.env.DB_TIMEZONE || "+07:00",
-    fallbackTimezoneOffset: "+07:00",
+    timezone: getDbTimezoneOffset(),
+    fallbackTimezoneOffset: getDbTimezoneOffset(),
   });
 };
 

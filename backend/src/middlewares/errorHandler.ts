@@ -11,7 +11,9 @@ import {
   ValidationError,
   buildErrorResponse,
   isOperationalError,
-} from '@shared/utils/errors.js';
+} from "@shared/utils/errors.js";
+import { sanitizeUrlForLogs } from "@shared/utils/log-sanitizer.js";
+import { isProductionEnv } from "@config/runtime-config.js";
 
 /**
  * Handle 404 Not Found routes
@@ -61,14 +63,14 @@ export const errorHandler = (
 
   if (!isOperational) {
     // Programming error - log full stack
-    console.error("[ERROR] Unexpected error:", {
-      message: normalizedError.message,
-      stack: normalizedError.stack,
-      method: req.method,
-      path: req.originalUrl,
-      requestId: req.requestId,
-    });
-  } else if (process.env.NODE_ENV !== "production") {
+      console.error("[ERROR] Unexpected error:", {
+        message: normalizedError.message,
+        stack: normalizedError.stack,
+        method: req.method,
+        path: sanitizedPath,
+        requestId: req.requestId,
+      });
+  } else if (!isProductionEnv()) {
     const statusCode =
       normalizedError instanceof AppError ? normalizedError.statusCode : 500;
 

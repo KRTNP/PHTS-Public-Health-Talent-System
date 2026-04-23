@@ -5,9 +5,10 @@
  */
 
 import { RowDataPacket, PoolConnection } from "mysql2/promise";
-import db from '@config/database.js';
-import { SLAConfig, ReminderType } from '@/modules/sla/entities/sla.entity.js';
-import { formatDateOnly } from '@/shared/utils/date-only.js';
+import db from "@config/database.js";
+import { getAppTimezone, getDbTimezoneOffset } from "@config/runtime-config.js";
+import { SLAConfig, ReminderType } from "@/modules/sla/entities/sla.entity.js";
+import { formatDateOnly } from "@/shared/utils/date-only.js";
 
 export class SLARepository {
   // ── SLA Config queries ──────────────────────────────────────────────────────
@@ -67,14 +68,15 @@ export class SLARepository {
     conn?: PoolConnection,
   ): Promise<Set<string>> {
     const executor = conn ?? db;
-    const appTimezone = process.env.APP_TIMEZONE || "Asia/Bangkok";
+    const appTimezone = getAppTimezone();
+    const dbTimezone = getDbTimezoneOffset();
     const startStr = formatDateOnly(startDate, {
       timezone: appTimezone,
-      fallbackTimezoneOffset: process.env.DB_TIMEZONE || "+07:00",
+      fallbackTimezoneOffset: dbTimezone,
     });
     const endStr = formatDateOnly(endDate, {
       timezone: appTimezone,
-      fallbackTimezoneOffset: process.env.DB_TIMEZONE || "+07:00",
+      fallbackTimezoneOffset: dbTimezone,
     });
 
     const [rows] = await executor.query<RowDataPacket[]>(
@@ -94,10 +96,10 @@ export class SLARepository {
     conn?: PoolConnection,
   ): Promise<boolean> {
     const executor = conn ?? db;
-    const appTimezone = process.env.APP_TIMEZONE || "Asia/Bangkok";
+    const appTimezone = getAppTimezone();
     const dateStr = formatDateOnly(date, {
       timezone: appTimezone,
-      fallbackTimezoneOffset: process.env.DB_TIMEZONE || "+07:00",
+      fallbackTimezoneOffset: getDbTimezoneOffset(),
     });
     const [rows] = await executor.query<RowDataPacket[]>(
       "SELECT 1 FROM cfg_holidays WHERE holiday_date = ?",

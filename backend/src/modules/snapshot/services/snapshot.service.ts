@@ -6,8 +6,12 @@
  * FR-12-02: Reports must reference frozen snapshots only
  */
 
-import { emitAuditEvent, AuditEventType } from '@/modules/audit/services/audit.service.js';
-import { SnapshotRepository } from '@/modules/snapshot/repositories/snapshot.repository.js';
+import {
+  emitAuditEvent,
+  AuditEventType,
+} from "@/modules/audit/services/audit.service.js";
+import { SnapshotRepository } from "@/modules/snapshot/repositories/snapshot.repository.js";
+import { getSnapshotOutboxConfig } from "@config/runtime-config.js";
 
 /**
  * Snapshot type
@@ -23,46 +27,6 @@ export enum SnapshotStatus {
   READY = "READY",
   FAILED = "FAILED",
 }
-
-const DEFAULT_SNAPSHOT_MAX_ATTEMPTS = 8;
-const DEFAULT_SNAPSHOT_RETRY_BASE_SECONDS = 30;
-const DEFAULT_SNAPSHOT_RETRY_MAX_SECONDS = 1800;
-const DEFAULT_SNAPSHOT_PROCESSING_TIMEOUT_SECONDS = 300;
-
-const toSafeInt = (raw: string | undefined, fallback: number, min: number, max: number): number => {
-  const value = Number(raw);
-  if (!Number.isFinite(value)) return fallback;
-  return Math.max(min, Math.min(max, Math.floor(value)));
-};
-
-const getSnapshotMaxAttempts = (): number =>
-  toSafeInt(process.env.SNAPSHOT_OUTBOX_MAX_ATTEMPTS, DEFAULT_SNAPSHOT_MAX_ATTEMPTS, 1, 100);
-
-const getSnapshotRetryBaseSeconds = (): number =>
-  toSafeInt(
-    process.env.SNAPSHOT_OUTBOX_RETRY_BASE_SECONDS,
-    DEFAULT_SNAPSHOT_RETRY_BASE_SECONDS,
-    1,
-    3600,
-  );
-
-const getSnapshotRetryMaxSeconds = (): number => {
-  const maxSeconds = toSafeInt(
-    process.env.SNAPSHOT_OUTBOX_RETRY_MAX_SECONDS,
-    DEFAULT_SNAPSHOT_RETRY_MAX_SECONDS,
-    1,
-    7 * 24 * 3600,
-  );
-  return Math.max(getSnapshotRetryBaseSeconds(), maxSeconds);
-};
-
-const getSnapshotProcessingTimeoutSeconds = (): number =>
-  toSafeInt(
-    process.env.SNAPSHOT_OUTBOX_PROCESSING_TIMEOUT_SECONDS,
-    DEFAULT_SNAPSHOT_PROCESSING_TIMEOUT_SECONDS,
-    30,
-    24 * 3600,
-  );
 
 /**
  * Period with snapshot info
@@ -206,10 +170,12 @@ export async function processSnapshotOutboxBatch(limit = 50): Promise<{
   failed: number;
   requeued: number;
 }> {
-  const maxAttempts = getSnapshotMaxAttempts();
-  const retryBaseSeconds = getSnapshotRetryBaseSeconds();
-  const retryMaxSeconds = getSnapshotRetryMaxSeconds();
-  const processingTimeoutSeconds = getSnapshotProcessingTimeoutSeconds();
+  const {
+    maxAttempts,
+    retryBaseSeconds,
+    retryMaxSeconds,
+    processingTimeoutSeconds,
+  } = getSnapshotOutboxConfig();
   const conn = await SnapshotRepository.getConnection();
   let processed = 0;
   let sent = 0;
