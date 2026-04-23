@@ -10,13 +10,19 @@ const __filename = fileURLToPath(import.meta.url);
 const scriptDir = path.dirname(__filename);
 const backendRoot = path.resolve(scriptDir, "../../../");
 const migrationsDir = path.join(scriptDir, "migrations", "active");
+const DB_CHARSET = "utf8mb4";
+const DB_COLLATION = "utf8mb4_unicode_ci";
 
-const dbConfig = {
+const serverConfig = {
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "phts_system",
   port: Number.parseInt(process.env.DB_PORT || "3306", 10),
+};
+
+const dbConfig = {
+  ...serverConfig,
+  database: process.env.DB_NAME || "phts_system",
   // Required for running SQL migration files containing multiple statements.
   multipleStatements: true,
 };
@@ -40,6 +46,24 @@ function listActiveMigrations(): string[] {
   return files;
 }
 
+async function ensureDatabaseDefaults() {
+  const adminConnection = await mysql.createConnection({
+    ...serverConfig,
+    multipleStatements: true,
+  });
+
+  try {
+    await adminConnection.query(
+      `CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\` CHARACTER SET ${DB_CHARSET} COLLATE ${DB_COLLATION}`,
+    );
+    await adminConnection.query(
+      `ALTER DATABASE \`${dbConfig.database}\` CHARACTER SET ${DB_CHARSET} COLLATE ${DB_COLLATION}`,
+    );
+  } finally {
+    await adminConnection.end();
+  }
+}
+
 function ensureUploadDirectories() {
   const uploadDirs = ["uploads", "uploads/documents", "uploads/signatures"];
 
@@ -61,6 +85,7 @@ async function setupDatabase() {
 
   try {
     const migrationFiles = listActiveMigrations();
+    await ensureDatabaseDefaults();
     connection = await mysql.createConnection(dbConfig);
     console.log(`Connected to database: ${dbConfig.database}`);
 
