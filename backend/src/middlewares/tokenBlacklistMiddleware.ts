@@ -26,7 +26,10 @@ export const tokenBlacklistMiddleware = async (
 ) => {
   try {
     // Extract token from request
-    const token = extractAuthToken(req) ?? "";
+    const token = extractAuthToken(req);
+    if (!token) {
+      return next();
+    }
 
     // Check if token is individually blacklisted
     const isBlacklisted = await tokenBlacklist.isTokenBlacklisted(token);
