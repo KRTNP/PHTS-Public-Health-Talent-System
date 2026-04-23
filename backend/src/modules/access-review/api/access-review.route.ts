@@ -30,22 +30,21 @@ const router = Router();
  */
 router.use(protect);
 const adminAuth = restrictTo(UserRole.ADMIN);
+router.use(adminAuth);
 
 // Get all review cycles
 router.get(
   "/cycles",
-  adminAuth,
   validate(getCyclesSchema),
   accessReviewController.getCycles,
 );
 
 // Create new review cycle
-router.post("/cycles", adminAuth, accessReviewController.createCycle);
+router.post("/cycles", accessReviewController.createCycle);
 
 // Get a specific review cycle
 router.get(
   "/cycles/:id",
-  adminAuth,
   validate(getCycleSchema),
   accessReviewController.getCycle,
 );
@@ -53,7 +52,6 @@ router.get(
 // Get review items for a cycle
 router.get(
   "/cycles/:id/items",
-  adminAuth,
   validate(getItemsSchema),
   accessReviewController.getItems,
 );
@@ -61,7 +59,6 @@ router.get(
 // Get global review queue
 router.get(
   "/queue",
-  adminAuth,
   validate(getQueueSchema),
   accessReviewController.getQueue,
 );
@@ -69,7 +66,6 @@ router.get(
 // Get queue events by queue id
 router.get(
   "/queue/:id/events",
-  adminAuth,
   validate(getQueueEventsSchema),
   accessReviewController.getQueueEvents,
 );
@@ -77,14 +73,12 @@ router.get(
 // Resolve/dismiss queue item
 router.post(
   "/queue/bulk-resolve",
-  adminAuth,
   validate(bulkResolveQueueItemsSchema),
   accessReviewController.bulkResolveQueueItems,
 );
 
 router.post(
   "/queue/:id/resolve",
-  adminAuth,
   validate(resolveQueueItemSchema),
   accessReviewController.resolveQueueItem,
 );
@@ -92,14 +86,12 @@ router.post(
 // Complete a review cycle
 router.post(
   "/cycles/:id/complete",
-  adminAuth,
   validate(completeCycleSchema),
   accessReviewController.completeCycle,
 );
 
 router.post(
   "/cycles/:id/auto-review",
-  adminAuth,
   validate(autoReviewCycleSchema),
   accessReviewController.autoReviewCycle,
 );
@@ -107,7 +99,6 @@ router.post(
 // Update review result for a user
 router.put(
   "/items/:id",
-  adminAuth,
   validate(updateItemSchema),
   accessReviewController.updateItem,
 );
