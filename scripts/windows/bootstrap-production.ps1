@@ -1,6 +1,7 @@
 param(
   [string]$BaseDir = "D:\apps\phts",
   [string]$NodePath = "C:\Program Files\nodejs\node.exe",
+  [string]$NssmPath = "",
   [string]$BackendService = "PHTS-Backend",
   [string]$FrontendService = "PHTS-Frontend",
   [string]$BackendEnvTemplate = "backend\.env.example",
@@ -20,6 +21,23 @@ function Assert-Command {
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
     throw "Required command not found: $Name"
   }
+}
+
+function Resolve-NssmPath {
+  param([string]$RequestedPath)
+  if (-not [string]::IsNullOrWhiteSpace($RequestedPath)) {
+    if (-not (Test-Path $RequestedPath)) {
+      throw "nssm.exe not found at: $RequestedPath"
+    }
+    return (Resolve-Path $RequestedPath).Path
+  }
+
+  $nssmCmd = Get-Command nssm -ErrorAction SilentlyContinue
+  if ($nssmCmd) {
+    return $nssmCmd.Source
+  }
+
+  throw "Required command not found: nssm (and -NssmPath not provided)"
 }
 
 function Assert-Node20 {
@@ -73,9 +91,10 @@ function Ensure-FileFromTemplate {
 
 Write-Step "Checking required commands"
 Assert-Command "npm"
-Assert-Command "nssm"
 Assert-Command "mysqldump"
 Assert-Node20
+$resolvedNssmPath = Resolve-NssmPath -RequestedPath $NssmPath
+Write-Step "Using NSSM: $resolvedNssmPath"
 
 $releasesDir = Join-Path $BaseDir "releases"
 $sharedBackendDir = Join-Path $BaseDir "shared\backend"
@@ -100,6 +119,7 @@ if (-not $SkipServiceRegistration) {
   & "$PSScriptRoot\register-services.ps1" `
     -BaseDir $BaseDir `
     -NodePath $NodePath `
+    -NssmPath $resolvedNssmPath `
     -BackendService $BackendService `
     -FrontendService $FrontendService
 } else {
