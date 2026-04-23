@@ -27,8 +27,6 @@ export const tokenBlacklistMiddleware = async (
   try {
     // Extract token from request
     const token = extractAuthToken(req);
-
-    // If no token, let Passport handle it (will return 401)
     if (!token) {
       return next();
     }
