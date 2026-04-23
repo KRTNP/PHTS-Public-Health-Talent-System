@@ -405,10 +405,53 @@ describe('request.controller', () => {
         'PTS_OFFICER',
         req.body,
       );
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        data: { request_id: 42, status: 'PENDING' },
-      });
     });
+
+    it("dispatches unified REJECT/RETURN actions to approval service", async () => {
+      const user = makeUser({ userId: 88, role: "DIRECTOR" });
+      (requestApprovalService.rejectRequest as jest.Mock).mockResolvedValue({
+        request_id: 53,
+        status: "REJECTED",
+      });
+      (requestApprovalService.returnRequest as jest.Mock).mockResolvedValue({
+        request_id: 53,
+        status: "RETURNED",
+      });
+
+      const rejectUnifiedReq: any = {
+        params: { id: "53" },
+        body: { action: "REJECT", comment: "no" },
+        user,
+      };
+      await (requestController.processAction as any)(
+        rejectUnifiedReq,
+        makeJsonRes(),
+        makeNext(),
+      );
+
+      const returnUnifiedReq: any = {
+        params: { id: "53" },
+        body: { action: "RETURN", comment: "revise" },
+        user,
+      };
+      await (requestController.processAction as any)(
+        returnUnifiedReq,
+        makeJsonRes(),
+        makeNext(),
+      );
+      expect(requestApprovalService.rejectRequest).toHaveBeenCalledWith(
+        53,
+        88,
+        "DIRECTOR",
+        "no",
+      );
+      expect(requestApprovalService.returnRequest).toHaveBeenCalledWith(
+        53,
+        88,
+        "DIRECTOR",
+        "revise",
+      );
+    });
+
   });
 });

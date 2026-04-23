@@ -7,13 +7,17 @@
  */
 
 import { Router } from "express";
-import { protect, restrictTo } from '@middlewares/authMiddleware.js';
-import { idempotency } from '@middlewares/idempotency.js';
-import { requestUpload } from '@config/upload.js';
-import { requestController } from '@/modules/request/controllers/request.controller.js'; // Import instance
-import { validate } from '@shared/validate.middleware.js';
-import { actionSchema, verificationSchema } from '@/modules/request/dto/update-status.dto.js'; // Use correct DTO file
-import { verificationSnapshotSchema } from '@/modules/request/dto/verification-snapshot.dto.js';
+import { protect, restrictTo } from "@middlewares/authMiddleware.js";
+import { idempotency } from "@middlewares/idempotency.js";
+import { requestUpload } from "@config/upload-storage.js";
+import { enforceUploadedFilesAreSafe } from "@config/upload-guard.js";
+import { requestController } from "@/modules/request/api/request.controller.js";
+import { validate } from "@shared/validate.middleware.js";
+import {
+  actionSchema,
+  verificationSchema,
+} from "@/modules/request/dto/update-status.dto.js"; // Use correct DTO file
+import { verificationSnapshotSchema } from "@/modules/request/dto/verification-snapshot.dto.js";
 import {
   requestAttachmentParamSchema,
   requestEligibilityAttachmentParamSchema,
@@ -32,13 +36,19 @@ import {
   requestRateMappingSchema,
   requestReassignSchema,
   requestEligibilityManageSchema,
-} from '@/modules/request/dto/request-params.dto.js';
-import { UserRole } from '@/types/auth.js';
+} from "@/modules/request/dto/request-params.dto.js";
+import { UserRole } from "@/types/auth.js";
 // Note: createRequestSchema is used inside controller manually for file upload handling, or added here if middleware used.
 // Current controller implementation handles validation manually after file upload.
 
 const router = Router();
-
+const requestActionRoles = [
+  UserRole.HEAD_SCOPE,
+  UserRole.PTS_OFFICER,
+  UserRole.HEAD_HR,
+  UserRole.DIRECTOR,
+  UserRole.HEAD_FINANCE,
+] as const;
 /**
  * All routes require authentication
  */
