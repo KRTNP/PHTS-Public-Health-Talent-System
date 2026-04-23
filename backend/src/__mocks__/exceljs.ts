@@ -6,6 +6,16 @@ type CellState = {
   font?: Record<string, unknown>;
 };
 
+type SerializedCell = [number, CellState];
+type SerializedRow = [number, SerializedCell[]];
+type WorksheetSnapshot = {
+  name: string;
+  columns: Array<Record<string, unknown>>;
+  pageSetup: Record<string, unknown>;
+  mergedRanges: string[];
+  cells: SerializedRow[];
+};
+
 const cloneCellState = (cell: CellState): CellState => ({
   value: cell.value,
   numFmt: cell.numFmt,
@@ -171,7 +181,7 @@ class MockWorksheet {
   }
 
   serialize() {
-    return {
+    const snapshot: WorksheetSnapshot = {
       name: this.name,
       columns: this.columns,
       pageSetup: this.pageSetup,
@@ -181,12 +191,13 @@ class MockWorksheet {
         Array.from(row.entries()).map(([cellIndex, state]) => [
           cellIndex,
           cloneCellState(state),
-        ]),
+        ]) as SerializedCell[],
       ]),
     };
+    return snapshot;
   }
 
-  static deserialize(payload: ReturnType<MockWorksheet["serialize"]>): MockWorksheet {
+  static deserialize(payload: WorksheetSnapshot): MockWorksheet {
     const worksheet = new MockWorksheet(payload.name);
     worksheet.columns = payload.columns as Array<Record<string, unknown>>;
     worksheet.pageSetup = payload.pageSetup as Record<string, unknown>;
