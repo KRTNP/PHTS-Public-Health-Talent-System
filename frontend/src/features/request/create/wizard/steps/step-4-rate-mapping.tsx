@@ -418,7 +418,8 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
     ocrSuggestion.groupNo !== null ||
     Boolean(ocrSuggestion.itemNo) ||
     Boolean(ocrSuggestion.subItemNo) ||
-    ocrSuggestion.amount !== null;
+    ocrSuggestion.amount !== null ||
+    Boolean(ocrSuggestion.textHint);
 
   const findBestCriteriaFromOcr = (
     group: ProfessionGroup,
