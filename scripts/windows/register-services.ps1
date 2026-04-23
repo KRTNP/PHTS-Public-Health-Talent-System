@@ -36,11 +36,15 @@ function Resolve-NssmPath {
 function Invoke-Nssm {
   param(
     [string]$Executable,
-    [string[]]$Args,
+    [string[]]$Arguments,
     [switch]$AllowFailure
   )
 
-  $quoted = $Args | ForEach-Object {
+  if (-not $Arguments -or $Arguments.Count -eq 0) {
+    throw "NSSM invocation requires at least one argument."
+  }
+
+  $quoted = @($Arguments | ForEach-Object {
     $value = [string]$_
     if ($value.Contains('"')) {
       $value = $value.Replace('"', '\"')
@@ -50,8 +54,8 @@ function Invoke-Nssm {
     } else {
       $value
     }
-  }
-  $argLine = [string]::Join(' ', $quoted)
+  })
+  $argLine = ($quoted -join ' ')
 
   $proc = Start-Process -FilePath $Executable -ArgumentList $argLine -NoNewWindow -Wait -PassThru
   if (-not $AllowFailure -and $proc.ExitCode -ne 0) {
@@ -77,19 +81,19 @@ function Ensure-Service {
   $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
   if (-not $service) {
     Write-Step "Installing service: $Name"
-    Invoke-Nssm -Executable $NssmExecutable -Args @("install", $Name, $AppPath, $AppArgs) | Out-Null
+    Invoke-Nssm -Executable $NssmExecutable -Arguments @("install", $Name, $AppPath, $AppArgs) | Out-Null
   } else {
     Write-Step "Updating service: $Name"
   }
 
-  Invoke-Nssm -Executable $NssmExecutable -Args @("set", $Name, "AppDirectory", $AppDir) | Out-Null
-  Invoke-Nssm -Executable $NssmExecutable -Args @("set", $Name, "AppExit", "Default", "Restart") | Out-Null
-  Invoke-Nssm -Executable $NssmExecutable -Args @("set", $Name, "Start", "SERVICE_AUTO_START") | Out-Null
-  Invoke-Nssm -Executable $NssmExecutable -Args @("set", $Name, "AppStdout", $StdOut) | Out-Null
-  Invoke-Nssm -Executable $NssmExecutable -Args @("set", $Name, "AppStderr", $StdErr) | Out-Null
-  Invoke-Nssm -Executable $NssmExecutable -Args @("set", $Name, "AppRotateFiles", "1") | Out-Null
-  Invoke-Nssm -Executable $NssmExecutable -Args @("set", $Name, "AppRotateOnline", "1") | Out-Null
-  Invoke-Nssm -Executable $NssmExecutable -Args @("set", $Name, "AppRotateBytes", "10485760") | Out-Null
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "AppDirectory", $AppDir) | Out-Null
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "AppExit", "Default", "Restart") | Out-Null
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "Start", "SERVICE_AUTO_START") | Out-Null
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "AppStdout", $StdOut) | Out-Null
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "AppStderr", $StdErr) | Out-Null
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "AppRotateFiles", "1") | Out-Null
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "AppRotateOnline", "1") | Out-Null
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "AppRotateBytes", "10485760") | Out-Null
 }
 
 $currentBackendDir = Join-Path $BaseDir "current\backend"
@@ -119,7 +123,7 @@ Ensure-Service `
   -StdErr (Join-Path $frontendLogDir "stderr.log")
 
 Write-Step "Starting services"
-Invoke-Nssm -Executable $resolvedNssmPath -Args @("start", $BackendService) | Out-Null
-Invoke-Nssm -Executable $resolvedNssmPath -Args @("start", $FrontendService) | Out-Null
+Invoke-Nssm -Executable $resolvedNssmPath -Arguments @("start", $BackendService) | Out-Null
+Invoke-Nssm -Executable $resolvedNssmPath -Arguments @("start", $FrontendService) | Out-Null
 
 Write-Step "Services configured. Backend expected on 127.0.0.1:$BackendPort, Frontend on 127.0.0.1:$FrontendPort"
