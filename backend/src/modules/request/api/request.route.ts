@@ -15,8 +15,6 @@ import { requestController } from "@/modules/request/api/request.controller.js";
 import { validate } from "@shared/validate.middleware.js";
 import {
   actionSchema,
-  batchApproveCompatSchema,
-  legacyActionAliasSchema,
   verificationSchema,
 } from "@/modules/request/dto/update-status.dto.js"; // Use correct DTO file
 import { verificationSnapshotSchema } from "@/modules/request/dto/verification-snapshot.dto.js";
@@ -38,7 +36,6 @@ import {
   requestEligibilityManageSchema,
 } from "@/modules/request/dto/request-params.dto.js";
 import { UserRole } from "@/types/auth.js";
-import { ActionType } from "@/modules/request/contracts/request.types.js";
 // Note: createRequestSchema is used inside controller manually for file upload handling, or added here if middleware used.
 // Current controller implementation handles validation manually after file upload.
 
@@ -315,49 +312,6 @@ router.post(
   validate(actionSchema),
   requestController.processAction,
 );
-
-if (isLegacyActionEndpointsEnabled) {
-  router.post(
-    "/:id/approve",
-    restrictTo(...requestActionRoles),
-    applyLegacyEndpointWarning("/:id/approve"),
-    injectActionType(ActionType.APPROVE),
-    validate(requestIdParamSchema),
-    validate(legacyActionAliasSchema),
-    validate(actionSchema),
-    requestController.processAction,
-  );
-
-  router.post(
-    "/:id/reject",
-    restrictTo(...requestActionRoles),
-    applyLegacyEndpointWarning("/:id/reject"),
-    injectActionType(ActionType.REJECT),
-    validate(requestIdParamSchema),
-    validate(legacyActionAliasSchema),
-    validate(actionSchema),
-    requestController.processAction,
-  );
-
-  router.post(
-    "/:id/return",
-    restrictTo(...requestActionRoles),
-    applyLegacyEndpointWarning("/:id/return"),
-    injectActionType(ActionType.RETURN),
-    validate(requestIdParamSchema),
-    validate(legacyActionAliasSchema),
-    validate(actionSchema),
-    requestController.processAction,
-  );
-
-  router.post(
-    "/batch-approve",
-    restrictTo(...requestActionRoles),
-    applyLegacyEndpointWarning("/batch-approve"),
-    validate(batchApproveCompatSchema),
-    requestController.batchApproveCompat,
-  );
-}
 
 // Submit a draft request
 router.post(
