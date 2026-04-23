@@ -79,7 +79,7 @@ jobs:
     outputs:
       release_id: ${{ steps.release_meta.outputs.release_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.ref_name }}
 
@@ -157,7 +157,7 @@ jobs:
     runs-on: [self-hosted, windows, x64]
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download artifact
         uses: actions/download-artifact@v4
