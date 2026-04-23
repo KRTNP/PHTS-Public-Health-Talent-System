@@ -34,6 +34,21 @@ on:
         required: false
         default: ""
         type: string
+      backend_port:
+        description: "Backend service port (optional)"
+        required: false
+        default: ""
+        type: string
+      frontend_port:
+        description: "Frontend service port (optional)"
+        required: false
+        default: ""
+        type: string
+      nssm_path:
+        description: "NSSM executable path on target host (optional)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -182,14 +197,49 @@ jobs:
           if (-not $frontendService) {
             $frontendService = "PHTS-Frontend"
           }
+          $backendPort = "${{ inputs.backend_port }}"
+          if (-not $backendPort) {
+            $backendPort = "${{ vars.WINDOWS_BACKEND_PORT }}"
+          }
+          if (-not $backendPort) {
+            $backendPort = "4000"
+          }
+          $frontendPort = "${{ inputs.frontend_port }}"
+          if (-not $frontendPort) {
+            $frontendPort = "${{ vars.WINDOWS_FRONTEND_PORT }}"
+          }
+          if (-not $frontendPort) {
+            $frontendPort = "3000"
+          }
+          $nssmPath = "${{ inputs.nssm_path }}"
+          if (-not $nssmPath) {
+            $nssmPath = "${{ vars.WINDOWS_NSSM_PATH }}"
+          }
+          if (-not $nssmPath) {
+            $nssmPath = Join-Path $baseDir "tools\nssm\win64\nssm.exe"
+          }
+          $healthUrl = "http://127.0.0.1:$backendPort/health"
           Write-Host "Using BaseDir: $baseDir"
           Write-Host "Using NodePath: $nodePath"
           Write-Host "Using BackendService: $backendService"
           Write-Host "Using FrontendService: $frontendService"
+          Write-Host "Using BackendPort: $backendPort"
+          Write-Host "Using FrontendPort: $frontendPort"
+          Write-Host "Using NssmPath: $nssmPath"
+          Write-Host "Using HealthUrl: $healthUrl"
+          .\scripts\windows\register-services.ps1 `
+            -BaseDir $baseDir `
+            -NodePath $nodePath `
+            -NssmPath $nssmPath `
+            -BackendService $backendService `
+            -FrontendService $frontendService `
+            -BackendPort ([int]$backendPort) `
+            -FrontendPort ([int]$frontendPort)
           .\scripts\windows\deploy.ps1 `
             -ReleaseId "${{ needs.build-artifact.outputs.release_id }}" `
             -ArtifactPath $artifact `
             -BaseDir $baseDir `
             -NodePath $nodePath `
             -BackendService $backendService `
-            -FrontendService $frontendService
+            -FrontendService $frontendService `
+            -HealthUrl $healthUrl
