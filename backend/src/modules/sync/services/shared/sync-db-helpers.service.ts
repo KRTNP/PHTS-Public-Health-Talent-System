@@ -175,7 +175,7 @@ export const upsertEmployeeProfile = async (
         is_currently_active, status_code, status_text,
         source_system, source_updated_at, raw_snapshot, profile_fingerprint,
         last_synced_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HRMS', NOW(), CAST(? AS JSON), ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HRMS', NOW(), ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
         position_name = VALUES(position_name),
         level = VALUES(level),
@@ -362,7 +362,7 @@ export const persistEmployeeProfileSyncArtifacts = async (
         INSERT INTO emp_profile_raw_snapshots (
           citizen_id, source_table, raw_payload, normalized_payload, profile_fingerprint, sync_batch_id
         )
-        VALUES (?, 'tb_ap_index_view', CAST(? AS JSON), CAST(? AS JSON), ?, ?)
+        VALUES (?, 'tb_ap_index_view', ?, ?, ?, ?)
       `,
       [
         vEmp.citizen_id,
@@ -378,7 +378,7 @@ export const persistEmployeeProfileSyncArtifacts = async (
         INSERT INTO emp_profile_raw_snapshots (
           citizen_id, source_table, raw_payload, normalized_payload, sync_batch_id
         )
-        VALUES (?, 'tb_ap_index_view', CAST(? AS JSON), CAST(? AS JSON), ?)
+        VALUES (?, 'tb_ap_index_view', ?, ?, ?)
       `,
       [
         vEmp.citizen_id,
@@ -637,7 +637,7 @@ export const persistSupportProfileSyncArtifacts = async (
         INSERT INTO emp_support_staff_raw_snapshots (
           citizen_id, source_table, raw_payload, normalized_payload, profile_fingerprint, sync_batch_id
         )
-        VALUES (?, 'tb_ap_index_view', CAST(? AS JSON), CAST(? AS JSON), ?, ?)
+        VALUES (?, 'tb_ap_index_view', ?, ?, ?, ?)
       `,
       [
         vSup.citizen_id,
@@ -653,7 +653,7 @@ export const persistSupportProfileSyncArtifacts = async (
         INSERT INTO emp_support_staff_raw_snapshots (
           citizen_id, source_table, raw_payload, normalized_payload, sync_batch_id
         )
-        VALUES (?, 'tb_ap_index_view', CAST(? AS JSON), CAST(? AS JSON), ?)
+        VALUES (?, 'tb_ap_index_view', ?, ?, ?)
       `,
       [
         vSup.citizen_id,
