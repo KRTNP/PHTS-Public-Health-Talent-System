@@ -10,16 +10,25 @@ import { testConnection, closePool } from "@config/database.js";
 import { createConfiguredApp } from "@/bootstrap/app.js";
 import { registerProcessHandlers } from "@/bootstrap/process-handlers.js";
 import { startBackgroundWorkers, stopBackgroundWorkers } from "@/bootstrap/workers.js";
+import {
+  getDatabaseRuntimeConfig,
+  getNodeEnv,
+  getRuntimePort,
+  getStartServerFlag,
+  isJestRuntime,
+  isTestEnv,
+} from "@config/runtime-config.js";
 
 loadEnv();
 
-const PORT = process.env.PORT || 3001;
-const NODE_ENV = process.env.NODE_ENV || "development";
+const PORT = getRuntimePort();
+const NODE_ENV = getNodeEnv();
 const app = createConfiguredApp(NODE_ENV);
-const START_SERVER = String(process.env.START_SERVER || "").toLowerCase();
+const START_SERVER = getStartServerFlag();
+const jestRuntime = isJestRuntime();
 const shouldStartServer =
-  START_SERVER === "true" ||
-  (NODE_ENV !== "test" && START_SERVER !== "false");
+  !jestRuntime &&
+  (START_SERVER === "true" || (!isTestEnv() && START_SERVER !== "false"));
 
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
@@ -45,9 +54,11 @@ if (shouldStartServer) {
 
     app.listen(PORT, () => {
       console.log(
-        `[Server] PHTS Backend started on port ${PORT} (${process.env.NODE_ENV})`,
+        `[Server] PHTS Backend started on port ${PORT} (${getNodeEnv()})`,
       );
-      console.log(`[Server] Database host: ${process.env.DB_HOST || "localhost"}`);
+      console.log(
+        `[Server] Database host: ${getDatabaseRuntimeConfig().host}`,
+      );
     });
   } catch (error) {
     console.error("Failed to start server:", error);

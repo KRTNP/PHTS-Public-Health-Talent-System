@@ -25,6 +25,10 @@ import {
 } from "@/modules/auth/services/auth.service.js";
 import { tokenBlacklist } from "@shared/services/tokenBlacklist.js";
 import { TOKEN_COOKIE_KEY, extractAuthToken } from "@shared/utils/authToken.js";
+import {
+  isProductionEnv,
+  shouldIncludeLegacyLoginToken,
+} from "@config/runtime-config.js";
 
 const setAuthCookie = (
   res: Response<LoginResponse | ApiResponse>,
@@ -34,7 +38,7 @@ const setAuthCookie = (
   const expMs = Number(decoded?.exp ?? 0) * 1000;
   const nowMs = Date.now();
   const maxAge = Number.isFinite(expMs) && expMs > nowMs ? expMs - nowMs : undefined;
-  const isSecure = process.env.NODE_ENV === "production";
+  const isSecure = isProductionEnv();
 
   res.cookie(TOKEN_COOKIE_KEY, token, {
     httpOnly: true,
@@ -45,11 +49,8 @@ const setAuthCookie = (
   });
 };
 
-const includeLegacyLoginToken = (): boolean =>
-  String(process.env.AUTH_LOGIN_INCLUDE_TOKEN || "").toLowerCase() === "true";
-
 const clearAuthCookie = (res: Response<ApiResponse>): void => {
-  const isSecure = process.env.NODE_ENV === "production";
+  const isSecure = isProductionEnv();
   res.clearCookie(TOKEN_COOKIE_KEY, {
     httpOnly: true,
     secure: isSecure,
@@ -83,7 +84,7 @@ export async function login(
       user: result.user,
     };
 
-    if (includeLegacyLoginToken()) {
+    if (shouldIncludeLegacyLoginToken()) {
       payload.token = result.token;
       res.setHeader(
         "X-Deprecated-Auth-Mode",

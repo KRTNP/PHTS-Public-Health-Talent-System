@@ -1,4 +1,6 @@
-export const OPS_JOB_TIMEZONE = process.env.OPS_JOB_TIMEZONE || "Asia/Bangkok";
+import { getOpsJobTimezone } from "@config/runtime-config.js";
+
+export const OPS_JOB_TIMEZONE = getOpsJobTimezone();
 
 export const MOVEMENT_RETURN_TYPES = [
   "ENTRY",

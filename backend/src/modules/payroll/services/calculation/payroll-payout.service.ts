@@ -7,6 +7,7 @@ import { PayrollQueryRepository } from "@/modules/payroll/repositories/query.rep
 import { buildPayrollLeaveImpactSummary } from "@/modules/payroll/services/calculation/payroll-leave-impact.service.js";
 import { PayrollWorkflowService } from "@/modules/payroll/services/workflow/payroll-workflow.service.js";
 import { formatDateOnly } from "@/shared/utils/date-only.js";
+import { getDbTimezoneOffset } from "@config/runtime-config.js";
 
 type RateBreakdownSegment = {
   start_date: string;
@@ -25,7 +26,7 @@ const toDateOnly = (value: unknown): string => {
   if (!value) return "";
   try {
     return formatDateOnly(value as Date | string, {
-      timezone: process.env.DB_TIMEZONE || "+07:00",
+      timezone: getDbTimezoneOffset(),
     });
   } catch {
     return String(value).slice(0, 10);

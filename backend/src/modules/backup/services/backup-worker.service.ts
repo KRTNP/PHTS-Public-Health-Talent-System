@@ -2,18 +2,11 @@ import {
   runBackupJob,
   shouldRunScheduledBackup,
 } from "@/modules/backup/services/backup.service.js";
-
-const DEFAULT_POLL_MS = 30000;
+import { getBackupWorkerConfig } from "@config/runtime-config.js";
 
 let workerRunning = false;
 let workerPromise: Promise<void> | null = null;
 let wakeWorker: (() => void) | null = null;
-
-const getPollMs = (): number => {
-  const fromEnv = Number(process.env.BACKUP_WORKER_POLL_MS ?? DEFAULT_POLL_MS);
-  if (!Number.isFinite(fromEnv) || fromEnv < 1000) return DEFAULT_POLL_MS;
-  return Math.floor(fromEnv);
-};
 
 const waitForNextTick = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -30,7 +23,7 @@ const waitForNextTick = (ms: number): Promise<void> =>
   });
 
 const workerLoop = async (): Promise<void> => {
-  const pollMs = getPollMs();
+  const pollMs = getBackupWorkerConfig().pollMs;
   while (workerRunning) {
     try {
       const shouldRun = await shouldRunScheduledBackup();
@@ -48,7 +41,7 @@ const workerLoop = async (): Promise<void> => {
 };
 
 export const startBackupWorker = (): void => {
-  if (process.env.BACKUP_WORKER_ENABLED === "false") {
+  if (!getBackupWorkerConfig().enabled) {
     console.log("[BackupWorker] disabled by BACKUP_WORKER_ENABLED=false");
     return;
   }

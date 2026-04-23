@@ -1,9 +1,7 @@
 import type { Request } from "express";
+import { isCookieAuthTokenEnabled } from "@config/runtime-config.js";
 
 export const TOKEN_COOKIE_KEY = "phts_token";
-const isCookieTokenEnabled = (): boolean =>
-  String(process.env.AUTH_ALLOW_COOKIE_TOKEN || "true").toLowerCase() !==
-  "false";
 
 function parseCookieValue(rawCookie: string, key: string): string | null {
   const parts = rawCookie.split(";");
@@ -38,7 +36,7 @@ export function extractAuthToken(req: Request): string | null {
   }
 
   // Cookie-based auth is enabled by default because token is set as HttpOnly.
-  if (!isCookieTokenEnabled()) {
+  if (!isCookieAuthTokenEnabled()) {
     return null;
   }
 

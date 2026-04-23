@@ -1,5 +1,5 @@
 import redis from "@config/redis.js";
-import { OPS_JOB_TIMEZONE } from "@/modules/workforce-compliance/constants/workforce-compliance-policy.js";
+import { getSyncAutoScheduleDefaults } from "@config/runtime-config.js";
 
 const SYNC_SCHEDULE_KEY = "system:sync:auto-schedule";
 const SYNC_LAST_RUN_PREFIX = "system:sync:auto-last-run:";
@@ -18,13 +18,6 @@ type DueAutoSyncWindow = {
   runKey: string;
   ttlSeconds: number;
 };
-
-const DEFAULT_MODE: SyncAutoMode =
-  String(process.env.SYNC_AUTO_MODE || "")
-    .trim()
-    .toUpperCase() === "INTERVAL"
-    ? "INTERVAL"
-    : "DAILY";
 
 const toSafeInt = (
   raw: string | number | undefined,
@@ -46,27 +39,12 @@ const isValidTimeZone = (value: string): boolean => {
   }
 };
 
-const normalizeTimezone = (raw: unknown, fallback: string): string => {
-  if (typeof raw !== "string") return fallback;
-  const timezone = raw.trim();
-  if (timezone.length === 0) return fallback;
-  return isValidTimeZone(timezone) ? timezone : fallback;
-};
-
 const getDefaultSchedule = (): SyncAutoScheduleConfig => ({
-  mode: DEFAULT_MODE,
-  hour: toSafeInt(process.env.SYNC_AUTO_DAILY_HOUR, 2, 0, 23),
-  minute: toSafeInt(process.env.SYNC_AUTO_DAILY_MINUTE, 0, 0, 59),
-  interval_minutes: toSafeInt(
-    process.env.SYNC_AUTO_INTERVAL_MINUTES,
-    60,
-    1,
-    1440,
-  ),
-  timezone: normalizeTimezone(
-    process.env.SYNC_AUTO_TIMEZONE || OPS_JOB_TIMEZONE || "Asia/Bangkok",
-    "Asia/Bangkok",
-  ),
+  mode: getSyncAutoScheduleDefaults().mode,
+  hour: getSyncAutoScheduleDefaults().hour,
+  minute: getSyncAutoScheduleDefaults().minute,
+  interval_minutes: getSyncAutoScheduleDefaults().intervalMinutes,
+  timezone: getSyncAutoScheduleDefaults().timezone,
 });
 
 const normalizeMode = (raw: unknown): SyncAutoMode => {
@@ -90,7 +68,12 @@ const normalizeConfig = (
       1,
       1440,
     ),
-    timezone: normalizeTimezone(input.timezone, defaults.timezone),
+    timezone:
+      typeof input.timezone === "string" &&
+      input.timezone.trim() &&
+      isValidTimeZone(input.timezone.trim())
+        ? input.timezone.trim()
+        : defaults.timezone,
   };
 };
 

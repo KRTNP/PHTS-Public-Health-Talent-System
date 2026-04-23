@@ -79,6 +79,11 @@ function assertSafeDocumentPath(targetPath: string): string {
 
 function resolveSafeStoredUploadPath(file: Express.Multer.File): string {
   const safeDirectory = assertSafeDocumentPath(file.destination || "");
+  const sessionDir = basename(safeDirectory);
+  if (!UPLOAD_SESSION_REGEX.test(sessionDir)) {
+    throw new ValidationError("Invalid upload session path.");
+  }
+
   const safeFilename = String(file.filename || "").trim();
   if (
     !safeFilename ||
@@ -88,8 +93,12 @@ function resolveSafeStoredUploadPath(file: Express.Multer.File): string {
     throw new ValidationError("Invalid upload filename.");
   }
 
-  const safePath = resolve(safeDirectory, safeFilename);
-  if (!isWithinDocumentUploadRoot(safePath) || dirname(safePath) !== safeDirectory) {
+  const reconstructedDirectory = resolve(DOCUMENT_UPLOAD_ROOT, sessionDir);
+  const safePath = resolve(reconstructedDirectory, safeFilename);
+  if (
+    !isWithinDocumentUploadRoot(safePath) ||
+    dirname(safePath) !== reconstructedDirectory
+  ) {
     throw new ValidationError("Invalid upload file path.");
   }
   return safePath;

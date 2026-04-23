@@ -1,18 +1,6 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { createHash } from "node:crypto";
-
-const parseBooleanEnv = (
-  value: string | undefined,
-  fallback: boolean,
-): boolean => {
-  if (value == null) return fallback;
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) return fallback;
-  return ["1", "true", "yes", "on"].includes(normalized);
-};
-
-const isSyncHistoryArtifactsEnabled = (): boolean =>
-  parseBooleanEnv(process.env.SYNC_HISTORY_ARTIFACTS_ENABLED, true);
+import { isSyncHistoryArtifactsEnabled } from "@config/runtime-config.js";
 
 export const hasLeaveStatusColumn = async (
   conn: PoolConnection,

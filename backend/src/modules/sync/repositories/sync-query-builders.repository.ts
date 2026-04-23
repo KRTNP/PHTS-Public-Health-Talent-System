@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { getHrmsSourceTable } from "@shared/config/hrms-source.js";
 
 export const VIEW_EMPLOYEE_COLUMNS = [
   "citizen_id",
@@ -73,7 +74,7 @@ export const buildEmployeeViewQuery = () => `
       WHEN h.status LIKE '%ลาศึกษา%' THEN 1
       ELSE 0
     END AS is_currently_active
-  FROM hrms_databases.tb_ap_index_view h
+  FROM ${getHrmsSourceTable("tb_ap_index_view")} h
   WHERE (
     h.position LIKE 'นายแพทย์%' OR
     h.position = 'ผู้อำนวยการเฉพาะด้าน (แพทย์)' OR
@@ -119,7 +120,7 @@ export const buildSupportViewQuery = () => `
       WHEN h.status LIKE '%ลาศึกษา%' THEN 1
       ELSE 0
     END AS is_currently_active
-  FROM hrms_databases.tb_ap_index_view h
+  FROM ${getHrmsSourceTable("tb_ap_index_view")} h
   LEFT JOIN (${buildEmployeeViewQuery()}) e
     ON CAST(e.citizen_id AS BINARY) = CAST(h.id AS BINARY)
   WHERE e.citizen_id IS NULL
@@ -131,7 +132,7 @@ export const buildQuotasViewQuery = () => `
   SELECT CAST(sd.emp_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS citizen_id,
          CAST(sd.year AS UNSIGNED) AS fiscal_year,
          CAST(sd.setday AS DECIMAL(10,2)) AS total_quota
-  FROM hrms_databases.setdays sd
+  FROM ${getHrmsSourceTable("setdays")} sd
   JOIN emp_profiles e
     ON CAST(e.citizen_id AS BINARY) = CAST(sd.emp_id AS BINARY)
 `;
@@ -165,7 +166,7 @@ export const buildLeaveViewQuery = () => `
           ELSE CAST(dl.END_DATE AS DATE)
         END
       ) AS end_date
-    FROM hrms_databases.data_leave dl
+    FROM ${getHrmsSourceTable("data_leave")} dl
     WHERE dl.STATUS = 'Approve'
       AND dl.USED = 1
       AND EXISTS (
@@ -222,7 +223,7 @@ export const buildLeaveViewQuery = () => `
           ELSE CAST(tm.date_end AS DATE)
         END
       ) AS end_date
-    FROM hrms_databases.tb_meeting tm
+    FROM ${getHrmsSourceTable("tb_meeting")} tm
     WHERE tm.header_approve_status = 1
       AND EXISTS (
         SELECT 1 FROM emp_profiles e
@@ -243,7 +244,7 @@ export const buildLeaveViewQuery = () => `
     'LEAVE' AS source_type,
     dl.duration_days
   FROM dedup_leave dl
-  LEFT JOIN hrms_databases.tb_ap_index_view h ON CAST(h.id AS BINARY) = CAST(dl.citizen_id AS BINARY)
+  LEFT JOIN ${getHrmsSourceTable("tb_ap_index_view")} h ON CAST(h.id AS BINARY) = CAST(dl.citizen_id AS BINARY)
   UNION ALL
   SELECT
     CONCAT('MT-', nm.meeting_id) AS ref_id,
@@ -259,7 +260,7 @@ export const buildLeaveViewQuery = () => `
     'MEETING' AS source_type,
     (TO_DAYS(nm.end_date) - TO_DAYS(nm.start_date)) + 1 AS duration_days
   FROM normalized_meeting nm
-  LEFT JOIN hrms_databases.tb_ap_index_view h ON CAST(h.id AS BINARY) = CAST(nm.citizen_id AS BINARY)
+  LEFT JOIN ${getHrmsSourceTable("tb_ap_index_view")} h ON CAST(h.id AS BINARY) = CAST(nm.citizen_id AS BINARY)
 `;
 
 export const buildSingleLeaveViewQuery = (citizenWhereExpr: string) => `
@@ -291,7 +292,7 @@ export const buildSingleLeaveViewQuery = (citizenWhereExpr: string) => `
           ELSE CAST(dl.END_DATE AS DATE)
         END
       ) AS end_date
-    FROM hrms_databases.data_leave dl
+    FROM ${getHrmsSourceTable("data_leave")} dl
     WHERE dl.STATUS = 'Approve'
       AND dl.USED = 1
       AND CAST(dl.EMPLOYEE_ID AS BINARY) = CAST(? AS BINARY)
@@ -349,7 +350,7 @@ export const buildSingleLeaveViewQuery = (citizenWhereExpr: string) => `
           ELSE CAST(tm.date_end AS DATE)
         END
       ) AS end_date
-    FROM hrms_databases.tb_meeting tm
+    FROM ${getHrmsSourceTable("tb_meeting")} tm
     WHERE tm.header_approve_status = 1
       AND CAST(tm.id_card AS BINARY) = CAST(? AS BINARY)
       AND EXISTS (
@@ -373,7 +374,7 @@ export const buildSingleLeaveViewQuery = (citizenWhereExpr: string) => `
       'LEAVE' AS source_type,
       dl.duration_days
     FROM dedup_leave dl
-    LEFT JOIN hrms_databases.tb_ap_index_view h ON CAST(h.id AS BINARY) = CAST(dl.citizen_id AS BINARY)
+    LEFT JOIN ${getHrmsSourceTable("tb_ap_index_view")} h ON CAST(h.id AS BINARY) = CAST(dl.citizen_id AS BINARY)
     UNION ALL
     SELECT
       CONCAT('MT-', nm.meeting_id) AS ref_id,
@@ -389,7 +390,7 @@ export const buildSingleLeaveViewQuery = (citizenWhereExpr: string) => `
       'MEETING' AS source_type,
       (TO_DAYS(nm.end_date) - TO_DAYS(nm.start_date)) + 1 AS duration_days
     FROM normalized_meeting nm
-    LEFT JOIN hrms_databases.tb_ap_index_view h ON CAST(h.id AS BINARY) = CAST(nm.citizen_id AS BINARY)
+    LEFT JOIN ${getHrmsSourceTable("tb_ap_index_view")} h ON CAST(h.id AS BINARY) = CAST(nm.citizen_id AS BINARY)
   ) lr
   WHERE ${citizenWhereExpr}
 `;
@@ -398,7 +399,7 @@ export const buildSignaturesViewQuery = () => `
   SELECT DISTINCT
     CAST(s.emp_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS citizen_id,
     s.images AS signature_blob
-  FROM hrms_databases.signature s
+  FROM ${getHrmsSourceTable("signature")} s
   WHERE s.images IS NOT NULL
     AND s.images <> ''
     AND (

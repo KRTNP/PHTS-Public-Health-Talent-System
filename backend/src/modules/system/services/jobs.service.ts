@@ -6,6 +6,11 @@ import { OpsJobRunsRepository } from "@/modules/system/repositories/ops-job-runs
 import { getSyncRuntimeStatus } from "@/modules/sync/services/sync-status.service.js";
 import { OpsStatusRepository } from "@/modules/system/repositories/ops-status.repository.js";
 import type { SyncRuntimeStatus } from "@/modules/sync/services/shared/sync.types.js";
+import { getHrmsSourceTable } from "@shared/config/hrms-source.js";
+import {
+  getNotificationOutboxConfig,
+  getSnapshotOutboxConfig,
+} from "@config/runtime-config.js";
 
 type JobError = {
   source:
@@ -212,18 +217,6 @@ const aggregateCounts = (rows: Array<{ status: string; count: number }>) => {
   return result;
 };
 
-const getNotificationMaxAttempts = (): number => {
-  const raw = Number(process.env.NOTIFICATION_OUTBOX_MAX_ATTEMPTS ?? 8);
-  if (!Number.isFinite(raw)) return 8;
-  return Math.max(1, Math.min(100, Math.floor(raw)));
-};
-
-const getSnapshotMaxAttempts = (): number => {
-  const raw = Number(process.env.SNAPSHOT_OUTBOX_MAX_ATTEMPTS ?? 8);
-  if (!Number.isFinite(raw)) return 8;
-  return Math.max(1, Math.min(100, Math.floor(raw)));
-};
-
 const timed = async <T>(fn: () => Promise<T>) => {
   const startedAt = Date.now();
   const value = await fn();
@@ -260,7 +253,7 @@ const checkHrmsDependency = async () => {
   try {
     const result = await timed(async () => {
       await db.query(
-        "SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) AS citizen_id FROM hrms_databases.tb_ap_index_view LIMIT 1",
+        `SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) AS citizen_id FROM ${getHrmsSourceTable("tb_ap_index_view")} LIMIT 1`,
       );
     });
     return {
@@ -400,8 +393,8 @@ export const getJobStatus = async (): Promise<JobStatusPayload> => {
     failed_last_24h: 0,
     latest_runs: [] as JobSummary["workforce"]["latest_runs"],
   };
-  const notificationMaxAttempts = getNotificationMaxAttempts();
-  const snapshotMaxAttempts = getSnapshotMaxAttempts();
+  const notificationMaxAttempts = getNotificationOutboxConfig().maxAttempts;
+  const snapshotMaxAttempts = getSnapshotOutboxConfig().maxAttempts;
   const dependencies: JobSummary["dependencies"] = {
     mysql: {
       status: "IDLE",

@@ -6,6 +6,8 @@
  * Outputs JSON format for easy parsing and aggregation
  */
 
+import { getLogConfig } from "@config/runtime-config.js";
+
 export enum LogLevel {
   TRACE = 0,
   DEBUG = 1,
@@ -41,9 +43,9 @@ class Logger {
 
   constructor(module = "App") {
     this.module = module;
-    const envLevel = process.env.LOG_LEVEL || "info";
+    const envLevel = getLogConfig().level;
     this.minLevel =
-      LogLevel[envLevel.toUpperCase() as keyof typeof LogLevel] ??
+      LogLevel[envLevel as keyof typeof LogLevel] ??
       LogLevel.INFO;
   }
 
@@ -92,7 +94,7 @@ class Logger {
     if (error) {
       entry.error = {
         message: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+        stack: getLogConfig().includeStackInErrorLogs ? error.stack : undefined,
         code: (error as any).code,
       };
     }
