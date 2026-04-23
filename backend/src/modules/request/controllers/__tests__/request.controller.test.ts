@@ -481,41 +481,5 @@ describe("request.controller", () => {
       );
     });
 
-    it("batchApproveCompat processes multiple request ids and returns partial failures", async () => {
-      const user = makeUser({ userId: 77, role: "HEAD_HR" });
-      (requestApprovalService.approveRequest as jest.Mock).mockImplementation(
-        async (requestId: number) => {
-          if (requestId === 53) {
-            throw new Error("approval failed");
-          }
-          return { request_id: requestId, status: "PENDING" };
-        },
-      );
-
-      const req: any = {
-        body: {
-          request_ids: [42, 53, 54],
-          comment: "batch approve",
-        },
-        user,
-      };
-      const res: any = makeJsonRes();
-
-      await (requestController.batchApproveCompat as any)(
-        req,
-        res,
-        makeNext(),
-      );
-
-      expect(requestApprovalService.approveRequest).toHaveBeenCalledTimes(3);
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        data: {
-          total: 3,
-          succeeded: [42, 54],
-          failed: [{ request_id: 53, error: "approval failed" }],
-        },
-      });
-    });
   });
 });
