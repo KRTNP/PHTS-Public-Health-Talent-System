@@ -96,6 +96,21 @@ function Ensure-Service {
   Invoke-Nssm -Executable $NssmExecutable -Arguments @("set", $Name, "AppRotateBytes", "10485760") | Out-Null
 }
 
+function Ensure-ServiceRunning {
+  param(
+    [string]$NssmExecutable,
+    [string]$Name
+  )
+
+  $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
+  if ($service -and $service.Status -eq "Running") {
+    Write-Step "Service already running: $Name"
+    return
+  }
+
+  Invoke-Nssm -Executable $NssmExecutable -Arguments @("start", $Name) | Out-Null
+}
+
 $currentBackendDir = Join-Path $BaseDir "current\backend"
 $currentFrontendDir = Join-Path $BaseDir "current\frontend"
 $backendLogDir = Join-Path $BaseDir "logs\backend"
@@ -123,7 +138,7 @@ Ensure-Service `
   -StdErr (Join-Path $frontendLogDir "stderr.log")
 
 Write-Step "Starting services"
-Invoke-Nssm -Executable $resolvedNssmPath -Arguments @("start", $BackendService) | Out-Null
-Invoke-Nssm -Executable $resolvedNssmPath -Arguments @("start", $FrontendService) | Out-Null
+Ensure-ServiceRunning -NssmExecutable $resolvedNssmPath -Name $BackendService
+Ensure-ServiceRunning -NssmExecutable $resolvedNssmPath -Name $FrontendService
 
 Write-Step "Services configured. Backend expected on 127.0.0.1:$BackendPort, Frontend on 127.0.0.1:$FrontendPort"
