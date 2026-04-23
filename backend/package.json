@@ -58,7 +58,7 @@
     "zod": "^4.3.6"
   },
   "overrides": {
-    "uuid": "^9.0.1",
+    "uuid": "^14.0.0",
     "archiver": "^7.0.1",
     "archiver-utils": "^5.0.2",
     "readdir-glob": "^3.0.0",
