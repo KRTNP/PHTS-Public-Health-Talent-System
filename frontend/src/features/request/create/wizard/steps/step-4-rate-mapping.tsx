@@ -511,18 +511,6 @@ export function Step4RateMapping({ data, updateData, ocrPrecheck }: Step4Props) 
       }
     }
 
-    if (!nextCriteria && (group.criteria?.length ?? 0) > 0) {
-      nextCriteria = group.criteria[0] ?? null;
-    }
-
-    if (
-      nextCriteria &&
-      !nextSubCriteria &&
-      (nextCriteria.subCriteria?.length ?? 0) > 0
-    ) {
-      nextSubCriteria = nextCriteria.subCriteria?.[0] ?? null;
-    }
-
     return { criteria: nextCriteria, subCriteria: nextSubCriteria };
   };
 

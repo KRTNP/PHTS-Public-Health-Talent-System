@@ -144,6 +144,41 @@ describe("Step4RateMapping OCR mapping", () => {
     });
   });
 
+  it("does not choose the first item when OCR identifies only the group", async () => {
+    const updateData = vi.fn();
+
+    render(
+      <Step4RateMapping
+        data={baseData}
+        updateData={updateData}
+        ocrPrecheck={{
+          request_id: 37,
+          status: "completed",
+          results: [
+            {
+              name: "page-5-6.pdf",
+              ok: true,
+              document_kind: "assignment_order",
+              fields: { group_no: 1 },
+            },
+          ],
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(updateData).toHaveBeenCalledWith(
+        "rateMapping",
+        expect.objectContaining({
+          groupId: "group1",
+          itemId: "",
+          subItemId: "",
+          amount: 1500,
+        }),
+      );
+    });
+  });
+
   it("auto-selects criteria when OCR arrives after group is already selected", async () => {
     const updateData = vi.fn();
     const { rerender } = render(
