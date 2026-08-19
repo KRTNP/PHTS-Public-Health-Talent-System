@@ -11,6 +11,7 @@ export const createRouter = (): AppRouterInstance =>
     prefetch: vi.fn(async () => undefined),
     back: vi.fn(),
     forward: vi.fn(),
+    bfcacheId: 'test',
   }) as AppRouterInstance
 
 export const createPayrollDetailActionsParams = (
