@@ -1,4 +1,8 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
+// Production and domain rules use Thailand local dates. Pin test processes to
+// the same timezone so Date parsing is deterministic on UTC CI/VM hosts.
+process.env.TZ = 'Asia/Bangkok';
+
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
