@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, waitFor, cleanup } from "@testing-library/react";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { AUTH_SESSION_HINT_STORAGE_NAME } from "@/shared/auth/storage";
 
 const mocked = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -55,6 +56,7 @@ describe("AuthProvider role access guard", () => {
 
   it("redirects from /login to role home after restoring HEAD_HR session", async () => {
     mocked.pathname = "/login";
+    sessionStorage.setItem(AUTH_SESSION_HINT_STORAGE_NAME, "1");
     mocked.responseUser = {
       id: 1,
       citizen_id: "1234567890123",
@@ -75,6 +77,21 @@ describe("AuthProvider role access guard", () => {
     await waitFor(() => {
       expect(mocked.replace).toHaveBeenCalledWith("/head-hr");
     });
+  });
+
+  it("does not probe auth on the login page without a session hint", async () => {
+    mocked.pathname = "/login";
+
+    render(
+      <AuthProvider>
+        <div>test</div>
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mocked.apiGet).not.toHaveBeenCalled();
+    });
+    expect(mocked.push).not.toHaveBeenCalled();
   });
 
   it("redirects when current path does not match user role root", async () => {
