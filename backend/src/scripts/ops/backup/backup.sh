@@ -16,7 +16,7 @@ mkdir -p "${BACKUP_DIR}"
 export MYSQL_PWD="${DB_PASSWORD}"
 backup_file="${BACKUP_DIR}/${DB_NAME}_${timestamp}.sql.gz"
 
-mysqldump -h "${DB_HOST}" -P "${DB_PORT}" -u "${DB_USER}" "${DB_NAME}" \
+mysqldump --no-tablespaces -h "${DB_HOST}" -P "${DB_PORT}" -u "${DB_USER}" "${DB_NAME}" \
   | gzip > "${backup_file}"
 
 unset MYSQL_PWD

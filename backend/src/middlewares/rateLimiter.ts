@@ -95,8 +95,11 @@ export const securityRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientKey(req),
-  skip: () =>
-    isTestEnv() || shouldSkipRateLimitInDevelopment(),
+  skip: (req) => {
+    const path = String(req.path ?? "");
+    const isAuthRoute = path === "/api/auth" || path.startsWith("/api/auth/");
+    return isTestEnv() || shouldSkipRateLimitInDevelopment() || isAuthRoute;
+  },
   message: {
     success: false,
     error: "Too many requests, please try again later.",
