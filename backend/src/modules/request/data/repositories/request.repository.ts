@@ -1044,10 +1044,18 @@ export class RequestRepository {
         FROM req_verification_snapshots
         GROUP BY request_id
       ) vs ON vs.request_id = r.request_id
-      WHERE r.status = 'PENDING' AND r.current_step = ?
+      WHERE (
+        (r.status = 'PENDING' AND r.current_step = ?)
+        OR (
+          ? = 3
+          AND r.status = 'RETURNED'
+          AND r.return_target = 'PTS_OFFICER'
+          AND r.current_step = 3
+        )
+      )
     `;
 
-    const params: any[] = [stepNo];
+    const params: any[] = [stepNo, stepNo];
 
     if (extraWhere) {
       sql += ` ${extraWhere}`;
@@ -1219,7 +1227,7 @@ export class RequestRepository {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT a.*,
               u.citizen_id as actor_citizen_id,
-              u.role as actor_role,
+              COALESCE(a.actor_role, u.role) as actor_role,
               COALESCE(e.first_name, s.first_name) as actor_first_name,
               COALESCE(e.last_name, s.last_name) as actor_last_name
        FROM req_approvals a
@@ -1547,9 +1555,10 @@ export class RequestRepository {
     const [result] = await connection.execute<ResultSetHeader>(
       `INSERT INTO req_submissions
        (user_id, citizen_id, request_no, personnel_type, current_position_number, current_department,
-        work_attributes, applicant_signature_id, request_type, requested_amount,
-        effective_date, status, current_step, submission_data)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       work_attributes, applicant_signature_id, request_type, requested_amount,
+        effective_date, status, current_step, submission_data,
+        return_target, return_from_step, return_to_step)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.user_id,
         data.citizen_id,
@@ -1565,6 +1574,9 @@ export class RequestRepository {
         data.status || "DRAFT",
         data.current_step || 1,
         data.submission_data ? JSON.stringify(data.submission_data) : null,
+        data.return_target ?? null,
+        data.return_from_step ?? null,
+        data.return_to_step ?? null,
       ],
     );
     return result.insertId;
@@ -1698,8 +1710,10 @@ export class RequestRepository {
     connection: PoolConnection,
   ): Promise<void> {
     await connection.execute(
-      `INSERT INTO req_approvals (request_id, actor_id, step_no, action, comment, signature_snapshot)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO req_approvals (
+         request_id, actor_id, step_no, action, comment, signature_snapshot,
+         actor_role, return_target, return_from_step, return_to_step
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.request_id,
         data.actor_id,
@@ -1707,6 +1721,10 @@ export class RequestRepository {
         data.action,
         data.comment,
         data.signature_snapshot,
+        data.actor_role ?? null,
+        data.return_target ?? null,
+        data.return_from_step ?? null,
+        data.return_to_step ?? null,
       ],
     );
   }

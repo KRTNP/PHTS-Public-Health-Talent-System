@@ -687,10 +687,15 @@ export default function RequestDetailPage({
     (a) => a.action === "SUBMIT",
   );
   const linkedEligibility = request?.linked_eligibility ?? null;
+  const isInternalPtsReturn =
+    request?.status === "RETURNED" &&
+    request?.return_target === "PTS_OFFICER" &&
+    request?.current_step === PTS_OFFICER_APPROVAL_STEP;
   const canAct =
     !isHistoryView &&
-    request?.status === "PENDING" &&
-    request?.current_step === PTS_OFFICER_APPROVAL_STEP;
+    (isInternalPtsReturn ||
+      (request?.status === "PENDING" &&
+        request?.current_step === PTS_OFFICER_APPROVAL_STEP));
   const isApprovedRequest = request?.status === "APPROVED";
   const allowanceDetailHref = linkedEligibility
     ? `/pts-officer/allowance-list/${linkedEligibility.eligibility_id}${

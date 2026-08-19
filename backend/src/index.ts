@@ -22,6 +22,7 @@ import {
 loadEnv();
 
 const PORT = getRuntimePort();
+const HOST = String(process.env.HOST || "127.0.0.1");
 const NODE_ENV = getNodeEnv();
 const app = createConfiguredApp(NODE_ENV);
 const START_SERVER = getStartServerFlag();
@@ -52,7 +53,7 @@ if (shouldStartServer) {
     await testConnection();
     startBackgroundWorkers();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, HOST, () => {
       console.log(
         `[Server] PHTS Backend started on port ${PORT} (${getNodeEnv()})`,
       );

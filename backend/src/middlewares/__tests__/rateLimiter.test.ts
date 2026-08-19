@@ -21,6 +21,7 @@ describe("rateLimiter", () => {
       mod,
       apiConfig: calls[0]?.[0] as any,
       authConfig: calls[1]?.[0] as any,
+      securityConfig: calls[2]?.[0] as any,
       authProbeConfig: calls[3]?.[0] as any,
     };
   };
@@ -128,6 +129,16 @@ describe("rateLimiter", () => {
     expect(apiConfig.skip({ path: "/auth/logout" }, {})).toBe(true);
     expect(apiConfig.skip({ path: "/requests" }, {})).toBe(false);
     expect(authConfig.skip({ path: "/auth/login" }, {})).toBe(false);
+  });
+
+  it("skips global security limiting for auth routes with dedicated limiters", async () => {
+    process.env.NODE_ENV = "production";
+
+    const { securityConfig } = await getConfigs();
+
+    expect(securityConfig.skip({ path: "/api/auth/login" }, {})).toBe(true);
+    expect(securityConfig.skip({ path: "/api/auth/me" }, {})).toBe(true);
+    expect(securityConfig.skip({ path: "/api/requests" }, {})).toBe(false);
   });
 
   it("auth handler returns retry-after metadata for login rate limit", async () => {

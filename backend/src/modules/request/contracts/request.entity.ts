@@ -26,6 +26,9 @@ export interface RequestSubmissionEntity {
   submission_data: any; // JSON
   status: string;
   current_step: number;
+  return_target: "APPLICANT" | "PTS_OFFICER" | null;
+  return_from_step: number | null;
+  return_to_step: number | null;
   created_at: Date;
   updated_at: Date;
   step_started_at: Date | null;
@@ -45,6 +48,10 @@ export interface RequestApprovalEntity {
   action: string;
   comment: string | null;
   signature_snapshot: Buffer | null;
+  actor_role?: string | null;
+  return_target?: "APPLICANT" | "PTS_OFFICER" | null;
+  return_from_step?: number | null;
+  return_to_step?: number | null;
   created_at: Date;
 }
 

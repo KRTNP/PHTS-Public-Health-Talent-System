@@ -778,7 +778,7 @@ export class RequestCommandService {
     }
     if (
       requestEntity.status !== RequestStatus.DRAFT &&
-      requestEntity.status !== RequestStatus.RETURNED
+      !this.isApplicantTargetedReturn(requestEntity)
     ) {
       throw new ValidationError(
         "สามารถลบไฟล์แนบได้เฉพาะคำขอสถานะ DRAFT หรือ RETURNED",
@@ -845,6 +845,16 @@ export class RequestCommandService {
     return Number.isInteger(createdByOfficerId) && createdByOfficerId > 0
       ? createdByOfficerId
       : null;
+  }
+
+  private isApplicantTargetedReturn(
+    requestEntity: NonNullable<Awaited<ReturnType<typeof requestRepository.findById>>>,
+  ): boolean {
+    return (
+      requestEntity.status === RequestStatus.RETURNED &&
+      (requestEntity.return_target === "APPLICANT" ||
+        requestEntity.return_target === null)
+    );
   }
 
   private async getOfficerCreatorIdWithFallback(
@@ -990,7 +1000,7 @@ export class RequestCommandService {
     if (isOwner || isOfficerCreator) {
       const canOwnerEdit =
         request.status === RequestStatus.DRAFT ||
-        request.status === RequestStatus.RETURNED;
+        this.isApplicantTargetedReturn(request);
       if (!canOwnerEdit) {
         throw new Error(
           "Rate mapping can only be updated in draft or returned status",
@@ -1001,7 +1011,7 @@ export class RequestCommandService {
     if (
       isOfficerCreator &&
       (request.status === RequestStatus.DRAFT ||
-        request.status === RequestStatus.RETURNED)
+        this.isApplicantTargetedReturn(request))
     ) {
       return;
     }
@@ -1136,6 +1146,7 @@ export class RequestCommandService {
         action: ActionType.SUBMIT,
         comment: "เจ้าหน้าที่ พ.ต.ส. สร้างคำขอแทนบุคลากร",
         signature_snapshot: signatureSnapshot,
+        actor_role: actorRole,
       },
       connection,
     );
@@ -1318,7 +1329,7 @@ export class RequestCommandService {
     if (isOwner || isOfficerCreator) {
       const canOwnerEdit =
         requestEntity.status === RequestStatus.DRAFT ||
-        requestEntity.status === RequestStatus.RETURNED;
+        this.isApplicantTargetedReturn(requestEntity);
       if (!canOwnerEdit) {
         throw new Error(
           `ไม่สามารถแก้ไขคำขอที่มีสถานะ ${requestEntity.status} ได้ (ต้องเป็น DRAFT หรือ RETURNED เท่านั้น)`,
@@ -1330,7 +1341,7 @@ export class RequestCommandService {
       if (
         isOfficerCreator &&
         (requestEntity.status === RequestStatus.DRAFT ||
-          requestEntity.status === RequestStatus.RETURNED)
+          this.isApplicantTargetedReturn(requestEntity))
       ) {
         return { isOwner: true, isOfficer };
       }
@@ -1398,7 +1409,10 @@ export class RequestCommandService {
       throw new AuthorizationError("ไม่มีสิทธิ์ยืนยันไฟล์แนบของคำขอนี้");
     }
     const status = request.status as RequestStatus;
-    if (![RequestStatus.DRAFT, RequestStatus.RETURNED].includes(status)) {
+    if (
+      status !== RequestStatus.DRAFT &&
+      !this.isApplicantTargetedReturn(request)
+    ) {
       throw new ValidationError("ไม่สามารถยืนยันไฟล์แนบในสถานะนี้ได้");
     }
 
@@ -1852,6 +1866,15 @@ export class RequestCommandService {
         userRole,
         activeHeadRoles,
       );
+      const isApplicantReturn = requestRow.return_target === "APPLICANT";
+      const returnFromStep = Number(requestRow.return_from_step) || null;
+      const resumesAtOriginalScope =
+        isApplicantReturn && returnFromStep !== null && returnFromStep <= 2;
+      const submitNextStep = isApplicantReturn
+        ? resumesAtOriginalScope
+          ? returnFromStep
+          : 3
+        : nextStep;
       if (isOfficerCreatedRequest) {
         return await this.finalizeOfficerCreatedRequest(
           requestId,
@@ -1879,7 +1902,13 @@ export class RequestCommandService {
         requestId,
         {
           status: RequestStatus.PENDING,
-          current_step: nextStep,
+          current_step: submitNextStep,
+          return_target:
+            isApplicantReturn && !resumesAtOriginalScope
+              ? "PTS_OFFICER"
+              : null,
+          return_to_step:
+            isApplicantReturn && !resumesAtOriginalScope ? 3 : null,
           step_started_at: new Date(),
           submission_data: submissionData,
         },
@@ -1895,6 +1924,7 @@ export class RequestCommandService {
           action: ActionType.SUBMIT,
           comment: null,
           signature_snapshot: signatureSnapshot,
+          actor_role: userRole,
         },
         connection,
       );
@@ -1903,9 +1933,9 @@ export class RequestCommandService {
 
       // Notification (After commit)
       const nextRole =
-        nextStep === 1 || nextStep === 2
+        submitNextStep === 1 || submitNextStep === 2
           ? "HEAD_SCOPE"
-          : STEP_ROLE_MAP[nextStep] || "HEAD_SCOPE";
+          : STEP_ROLE_MAP[submitNextStep] || "HEAD_SCOPE";
       await NotificationService.notifyRole(
         nextRole,
         "มีคำขอใหม่รออนุมัติ",
@@ -1970,6 +2000,15 @@ export class RequestCommandService {
         requestEntity.status,
         requestEntity.submission_data,
       );
+      if (
+        isOwner &&
+        requestEntity.status === RequestStatus.RETURNED &&
+        requestEntity.return_target === null
+      ) {
+        // Legacy RETURNED rows had no route marker; normalize them before
+        // the status changes to DRAFT so resubmission still enters PTS.
+        updateData.return_target = "APPLICANT";
+      }
 
       // [REFACTOR] Use Repo Update
       if (Object.keys(updateData).length > 0) {
@@ -2146,6 +2185,10 @@ export class RequestCommandService {
       );
 
       // [REFACTOR] Record Action
+      const cancelActorRole =
+        this.getOfficerCreatorId(requestEntity) === userId
+          ? "PTS_OFFICER"
+          : "USER";
       await requestRepository.insertApproval(
         {
           request_id: requestId,
@@ -2154,6 +2197,7 @@ export class RequestCommandService {
           action: ActionType.CANCEL,
           comment: reason || "ผู้ยื่นขอยกเลิกคำขอ",
           signature_snapshot: null,
+          actor_role: cancelActorRole,
         },
         connection,
       );

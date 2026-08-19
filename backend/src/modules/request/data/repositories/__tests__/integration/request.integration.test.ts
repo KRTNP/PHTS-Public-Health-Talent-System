@@ -5,6 +5,27 @@ jest.setTimeout(30000);
 describe("RequestRepository (integration)", () => {
   let RequestRepository: typeof import("../../request.repository.js").RequestRepository;
 
+  const ensureRoutingColumns = async (): Promise<void> => {
+    const conn = await getTestConnection();
+    try {
+      for (const sql of [
+        "ALTER TABLE req_submissions ADD COLUMN return_target VARCHAR(20) NULL",
+        "ALTER TABLE req_submissions ADD COLUMN return_from_step INT NULL",
+        "ALTER TABLE req_submissions ADD COLUMN return_to_step INT NULL",
+      ]) {
+        try {
+          await conn.execute(sql);
+        } catch (error: any) {
+          if (!String(error?.message ?? "").includes("Duplicate column name")) {
+            throw error;
+          }
+        }
+      }
+    } finally {
+      await conn.end();
+    }
+  };
+
   beforeAll(async () => {
     process.env.NODE_ENV = "test";
     jest.resetModules();
@@ -13,6 +34,7 @@ describe("RequestRepository (integration)", () => {
 
   beforeEach(async () => {
     await resetRequestSchema();
+    await ensureRoutingColumns();
   });
 
   test("findById returns request with employee department", async () => {
@@ -131,6 +153,38 @@ describe("RequestRepository (integration)", () => {
     const repo = new RequestRepository();
     const rows = await repo.findPendingByStep(3, officerId, "", []);
     expect(rows.length).toBe(2);
+  });
+
+  test("findPendingByStep includes only PTS-targeted returned requests in step 3", async () => {
+    const conn = await getTestConnection();
+    let officerId: number;
+    try {
+      const [userRes] = await conn.execute<any>(
+        `INSERT INTO users (citizen_id, password_hash, role, is_active)
+         VALUES (?, ?, ?, ?)`,
+        ["502", "hash", "PTS_OFFICER", 1],
+      );
+      officerId = Number(userRes.insertId);
+      await conn.execute(
+        `INSERT INTO req_submissions
+         (user_id, citizen_id, status, current_step, return_target, created_at, updated_at)
+         VALUES (?, '502', 'RETURNED', 3, 'PTS_OFFICER', NOW(), NOW())`,
+        [officerId],
+      );
+      await conn.execute(
+        `INSERT INTO req_submissions
+         (user_id, citizen_id, status, current_step, return_target, created_at, updated_at)
+         VALUES (?, '502', 'RETURNED', 1, 'APPLICANT', NOW(), NOW())`,
+        [officerId],
+      );
+    } finally {
+      await conn.end();
+    }
+
+    const repo = new RequestRepository();
+    const rows = await repo.findPendingByStep(3, officerId, "", []);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].return_target).toBe("PTS_OFFICER");
   });
 
   test("findApprovalsWithActor joins actor profile data", async () => {
