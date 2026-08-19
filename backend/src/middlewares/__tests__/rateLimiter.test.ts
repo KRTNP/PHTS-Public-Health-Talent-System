@@ -213,6 +213,27 @@ describe("rateLimiter", () => {
     expect(typeof authProbeConfig.handler).toBe("function");
   });
 
+  it("scopes auth probe limiting by credential before falling back to client", async () => {
+    const { authProbeConfig } = await getConfigs();
+    const requestFromUserA = {
+      headers: { authorization: "Bearer token-user-a" },
+      ip: "127.0.0.1",
+    } as any;
+    const requestFromUserB = {
+      headers: { authorization: "Bearer token-user-b" },
+      ip: "127.0.0.1",
+    } as any;
+    const anonymousRequest = { headers: {}, ip: "127.0.0.1" } as any;
+
+    const userAKey = authProbeConfig.keyGenerator(requestFromUserA);
+    const userBKey = authProbeConfig.keyGenerator(requestFromUserB);
+
+    expect(userAKey).not.toBe(userBKey);
+    expect(userAKey).not.toContain("token-user-a");
+    expect(userBKey).not.toContain("token-user-b");
+    expect(authProbeConfig.keyGenerator(anonymousRequest)).toBe("ip:127.0.0.1");
+  });
+
   it("does not skip auth probe limiter in development", async () => {
     process.env.NODE_ENV = "development";
     delete process.env.DEV_ENABLE_RATE_LIMIT;
