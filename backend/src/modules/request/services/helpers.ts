@@ -45,6 +45,9 @@ export const mapRequestRow = (row: any): PTSRequest | RequestWithDetails => {
     effective_date: row.effective_date,
     status: row.status as RequestStatus,
     current_step: row.current_step,
+    return_target: row.return_target ?? null,
+    return_from_step: row.return_from_step ?? null,
+    return_to_step: row.return_to_step ?? null,
     submission_data:
       typeof row.submission_data === "string"
         ? JSON.parse(row.submission_data)

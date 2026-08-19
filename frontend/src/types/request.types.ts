@@ -46,6 +46,11 @@ export interface ApprovalAction {
   comment: string | null;
   action_date: string;
   step_no: number | null;
+  from_step?: number | null;
+  to_step?: number | null;
+  return_target?: 'APPLICANT' | 'PTS_OFFICER' | null;
+  return_from_step?: number | null;
+  return_to_step?: number | null;
 }
 
 export interface PTSRequest {
@@ -68,6 +73,9 @@ export interface PTSRequest {
   step_started_at: string | null;
   has_verification_snapshot?: boolean;
   submission_data?: Record<string, unknown> | string | null;
+  return_target?: 'APPLICANT' | 'PTS_OFFICER' | null;
+  return_from_step?: number | null;
+  return_to_step?: number | null;
 }
 
 export interface RequestWithDetails extends PTSRequest {
