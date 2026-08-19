@@ -98,11 +98,42 @@ describe("PayrollWorkflowService.updatePeriodStatus", () => {
       77,
       conn,
     );
+    expect(PayrollRepository.updatePeriodSnapshotStatus).toHaveBeenCalledWith(
+      38,
+      "PENDING",
+      conn,
+      { readyAt: null },
+    );
     expect(PayrollRepository.updatePeriodStatus).toHaveBeenCalledWith(
       38,
       PeriodStatus.WAITING_HR,
       conn,
     );
     expect(result).toEqual({ success: true, status: PeriodStatus.WAITING_HR });
+  });
+
+  it("queues a frozen report snapshot after submitting to HR", async () => {
+    const conn = {
+      beginTransaction: jest.fn(),
+      commit: jest.fn(),
+      rollback: jest.fn(),
+      release: jest.fn(),
+    };
+    (PayrollRepository.getConnection as jest.Mock).mockResolvedValue(conn);
+    (PayrollRepository.findPeriodByIdForUpdate as jest.Mock).mockResolvedValue({
+      period_id: 38,
+      period_month: 1,
+      period_year: 2026,
+      status: PeriodStatus.OPEN,
+    });
+    (PayrollReviewService.getRequiredProfessionCodes as jest.Mock).mockResolvedValue(["NURSE"]);
+    (PayrollReviewService.getReviewedProfessionCodes as jest.Mock).mockResolvedValue(["NURSE"]);
+
+    await PayrollWorkflowService.updatePeriodStatus(38, "SUBMIT", 77);
+
+    const { enqueuePeriodSnapshotGeneration } = await import(
+      "@/modules/snapshot/services/snapshot.service.js"
+    );
+    expect(enqueuePeriodSnapshotGeneration).toHaveBeenCalledWith(38, 77);
   });
 });

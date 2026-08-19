@@ -150,6 +150,12 @@ export class PayrollWorkflowService {
           actorId,
           conn,
         );
+        await PayrollRepository.updatePeriodSnapshotStatus(
+          periodId,
+          SnapshotStatus.PENDING,
+          conn,
+          { readyAt: null },
+        );
       }
       if (action === "REJECT") {
         await PayrollRepository.updatePeriodLock(periodId, false, conn);
@@ -217,7 +223,7 @@ export class PayrollWorkflowService {
         });
       }
 
-      if (nextStatus === PeriodStatus.CLOSED) {
+      if (action === "SUBMIT" || nextStatus === PeriodStatus.CLOSED) {
         await enqueuePeriodSnapshotGeneration(periodId, actorId);
       }
 

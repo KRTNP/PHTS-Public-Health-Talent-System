@@ -49,6 +49,11 @@ const formatPeriodLabel = (month: number, year: number) => {
 const isSnapshotReady = (period: PayPeriod) =>
   String(period.snapshot_status ?? "").toUpperCase() === "READY";
 
+const isReportEligible = (period: PayPeriod) =>
+  ["WAITING_HR", "WAITING_HEAD_FINANCE", "WAITING_DIRECTOR", "CLOSED"].includes(
+    String(period.status ?? "").toUpperCase(),
+  ) && isSnapshotReady(period);
+
 const saveBlob = (blob: Blob, filename: string) => {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -76,7 +81,7 @@ export function ReportDownloadPage({
   const periodOptions = useMemo<PeriodOption[]>(() => {
     const periods = (periodsQuery.data ?? []) as PayPeriod[];
     return [...periods]
-      .filter((period) => period.status === 'CLOSED' && isSnapshotReady(period))
+      .filter(isReportEligible)
       .sort((a, b) => {
         if (b.period_year !== a.period_year) return b.period_year - a.period_year;
         return b.period_month - a.period_month;
