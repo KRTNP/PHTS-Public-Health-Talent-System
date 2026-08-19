@@ -207,6 +207,14 @@ export function ApprovalTimelineCard({ request }: { request: RequestWithDetails 
                 const actorName = action?.actor
                   ? `${action.actor.first_name} ${action.actor.last_name}`
                   : null;
+                const actionDescription =
+                  action?.action === 'RETURN'
+                    ? action.return_target === 'PTS_OFFICER'
+                      ? 'ส่งกลับให้เจ้าหน้าที่ พ.ต.ส. ตรวจทานก่อนดำเนินการต่อ'
+                      : action.return_target === 'APPLICANT'
+                        ? 'ส่งกลับให้ผู้ยื่นแก้ไขเอกสาร'
+                        : null
+                    : null;
 
                 return (
                   <TimelineStepItem
@@ -222,6 +230,7 @@ export function ApprovalTimelineCard({ request }: { request: RequestWithDetails 
                         : null
                     }
                     comment={action?.comment ?? null}
+                    description={actionDescription}
                     isLast={isLast}
                   />
                 );

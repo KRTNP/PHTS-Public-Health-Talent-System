@@ -116,11 +116,15 @@ export class RequestQueryService {
     const isCreatorOfficer =
       createdByOfficerId !== null && createdByOfficerId === userId;
     const isAdmin = userRole === "ADMIN";
+    const mappedStep = ROLE_STEP_MAP[userRole as keyof typeof ROLE_STEP_MAP];
     let isApprover =
-      ROLE_STEP_MAP[userRole as keyof typeof ROLE_STEP_MAP] !== undefined &&
-      request.status === RequestStatus.PENDING &&
-      request.current_step ===
-        ROLE_STEP_MAP[userRole as keyof typeof ROLE_STEP_MAP];
+      mappedStep !== undefined &&
+      ((request.status === RequestStatus.PENDING &&
+        request.current_step === mappedStep) ||
+        (userRole === "PTS_OFFICER" &&
+          request.status === RequestStatus.RETURNED &&
+          request.current_step === ROLE_STEP_MAP.PTS_OFFICER &&
+          request.return_target === "PTS_OFFICER"));
 
     if (userRole === "HEAD_SCOPE") {
       const activeRoles = await getActiveHeadScopeRoles(userId, userRole);
@@ -619,8 +623,8 @@ export class RequestQueryService {
       actor_id: action.actor_id,
       action: action.action,
       step_no: action.step_no,
-      from_step: action.step_no,
-      to_step: action.step_no,
+      from_step: action.return_from_step ?? action.step_no,
+      to_step: action.return_to_step ?? action.step_no,
       comment: action.comment,
       action_date: action.created_at,
       created_at: action.created_at,
@@ -630,6 +634,10 @@ export class RequestQueryService {
         first_name: action.actor_first_name,
         last_name: action.actor_last_name,
       },
+      actor_role: action.actor_role,
+      return_target: action.return_target ?? null,
+      return_from_step: action.return_from_step ?? null,
+      return_to_step: action.return_to_step ?? null,
     };
   }
 
@@ -738,8 +746,8 @@ export class RequestQueryService {
         actor_id: action.actor_id,
         action: action.action,
         step_no: action.step_no,
-        from_step: action.step_no,
-        to_step: action.step_no,
+        from_step: action.return_from_step ?? action.step_no,
+        to_step: action.return_to_step ?? action.step_no,
         comment: action.comment,
         action_date: action.created_at,
         created_at: action.created_at,
@@ -749,6 +757,10 @@ export class RequestQueryService {
           first_name: action.actor_first_name,
           last_name: action.actor_last_name,
         },
+        actor_role: action.actor_role,
+        return_target: action.return_target ?? null,
+        return_from_step: action.return_from_step ?? null,
+        return_to_step: action.return_to_step ?? null,
       }),
     );
 

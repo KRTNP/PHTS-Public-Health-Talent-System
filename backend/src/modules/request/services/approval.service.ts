@@ -160,6 +160,7 @@ export class RequestApprovalService {
     requestId: number,
     connection: PoolConnection,
     actionVerb: "approve" | "reject" | "return",
+    actorRole: string,
   ): Promise<{
     request: PTSRequest;
     empDepartment: unknown;
@@ -175,7 +176,12 @@ export class RequestApprovalService {
     }
 
     const request = mapRequestRow(requestEntity);
-    if (request.status !== RequestStatus.PENDING) {
+    const isInternalPtsReturn =
+      request.status === RequestStatus.RETURNED &&
+      request.return_target === "PTS_OFFICER" &&
+      request.current_step === 3 &&
+      actorRole === "PTS_OFFICER";
+    if (request.status !== RequestStatus.PENDING && !isInternalPtsReturn) {
       throw new Error(`Cannot ${actionVerb} request with status: ${request.status}`);
     }
 
@@ -262,7 +268,12 @@ export class RequestApprovalService {
       await connection.beginTransaction();
 
       const { request, empDepartment, empSubDepartment } =
-        await this.loadPendingRequestForAction(requestId, connection, "approve");
+        await this.loadPendingRequestForAction(
+          requestId,
+          connection,
+          "approve",
+          actorRole,
+        );
 
       const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
         request.current_step,
@@ -314,6 +325,7 @@ export class RequestApprovalService {
         request,
         requestId,
         actorId,
+        effectiveActorRole,
         comment || null,
         signatureFromStore,
       );
@@ -365,7 +377,12 @@ export class RequestApprovalService {
       await connection.beginTransaction();
 
       const { request, empDepartment, empSubDepartment } =
-        await this.loadPendingRequestForAction(requestId, connection, "reject");
+        await this.loadPendingRequestForAction(
+          requestId,
+          connection,
+          "reject",
+          actorRole,
+        );
 
       const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
         request.current_step,
@@ -468,13 +485,21 @@ export class RequestApprovalService {
       await connection.beginTransaction();
 
       const { request, empDepartment, empSubDepartment } =
-        await this.loadPendingRequestForAction(requestId, connection, "return");
+        await this.loadPendingRequestForAction(
+          requestId,
+          connection,
+          "return",
+          actorRole,
+        );
 
       const effectiveActorRole = await this.resolveEffectiveActorRoleForStep(
         request.current_step,
         actorId,
         actorRole,
       );
+      if (!comment || comment.trim() === "") {
+        throw new Error("Return reason is required");
+      }
       if (
         effectiveActorRole === "WARD_SCOPE" ||
         effectiveActorRole === "DEPT_SCOPE"
@@ -490,14 +515,26 @@ export class RequestApprovalService {
         }
       }
 
+      const returnTarget =
+        request.current_step >= 4 &&
+        ["HEAD_HR", "HEAD_FINANCE", "DIRECTOR"].includes(effectiveActorRole)
+          ? "PTS_OFFICER"
+          : "APPLICANT";
+      const returnFromStep = request.current_step;
+      const returnToStep = returnTarget === "PTS_OFFICER" ? 3 : 1;
+
       await requestRepository.insertApproval(
         {
           request_id: requestId,
           actor_id: actorId,
           step_no: request.current_step,
           action: ActionType.RETURN,
-          comment: comment || null,
+          comment: comment.trim(),
           signature_snapshot: null,
+          actor_role: effectiveActorRole,
+          return_target: returnTarget,
+          return_from_step: returnFromStep,
+          return_to_step: returnToStep,
         },
         connection,
       );
@@ -506,20 +543,34 @@ export class RequestApprovalService {
         requestId,
         {
           status: RequestStatus.RETURNED,
-          current_step: 1,
+          current_step: returnToStep,
+          return_target: returnTarget,
+          return_from_step: returnFromStep,
+          return_to_step: returnToStep,
           step_started_at: null,
         },
         connection,
       );
 
-      await NotificationService.notifyUser(
-        request.user_id,
-        "คำขอถูกส่งคืน",
-        `คำขอเลขที่ ${request.request_no} ถูกส่งคืนแก้ไข: ${comment}`,
-        `/dashboard/user/requests/${requestId}`,
-        "APPROVAL",
-        connection,
-      );
+      if (returnTarget === "PTS_OFFICER") {
+        await NotificationService.notifyRole(
+          "PTS_OFFICER",
+          "คำขอถูกส่งกลับให้ PTS ตรวจซ้ำ",
+          `คำขอเลขที่ ${request.request_no} ถูกส่งกลับให้ PTS ตรวจซ้ำ: ${comment.trim()}`,
+          getRequestLinkForRole("PTS_OFFICER", requestId),
+          undefined,
+          connection,
+        );
+      } else {
+        await NotificationService.notifyUser(
+          request.user_id,
+          "คำขอถูกส่งคืน",
+          `คำขอเลขที่ ${request.request_no} ถูกส่งคืนแก้ไข: ${comment.trim()}`,
+          `/dashboard/user/requests/${requestId}`,
+          "APPROVAL",
+          connection,
+        );
+      }
 
       await emitAuditEvent(
         {
@@ -530,8 +581,10 @@ export class RequestApprovalService {
           actorRole: effectiveActorRole,
           actionDetail: {
             request_no: request.request_no,
-            step: request.current_step,
-            comment: comment,
+            step: returnFromStep,
+            return_target: returnTarget,
+            return_to_step: returnToStep,
+            comment: comment.trim(),
           },
         },
         connection,
@@ -561,11 +614,17 @@ export class RequestApprovalService {
     request: PTSRequest,
     requestId: number,
     actorId: number,
+    actorRole: string,
     comment: string | null,
     signatureSnapshot: Buffer,
   ): Promise<void> {
     const currentStep = request.current_step;
-    const nextStep = currentStep + 1;
+    const isInternalPtsReturn = request.return_target === "PTS_OFFICER";
+    const nextStep = isInternalPtsReturn
+      ? (request.return_from_step && request.return_from_step > currentStep
+          ? request.return_from_step
+          : currentStep + 1)
+      : currentStep + 1;
 
     await requestRepository.insertApproval(
       {
@@ -575,9 +634,23 @@ export class RequestApprovalService {
         action: ActionType.APPROVE,
         comment: comment,
         signature_snapshot: signatureSnapshot,
+        actor_role: actorRole,
       },
       connection,
     );
+
+    if (isInternalPtsReturn) {
+      await requestRepository.update(
+        requestId,
+        {
+          status: RequestStatus.PENDING,
+          return_target: null,
+          return_from_step: null,
+          return_to_step: null,
+        },
+        connection,
+      );
+    }
 
     if (nextStep > 6) {
       await this.finalizeApprovedRequest(

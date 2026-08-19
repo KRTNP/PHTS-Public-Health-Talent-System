@@ -48,6 +48,14 @@ export enum ActionType {
   CANCEL = "CANCEL",
 }
 
+export type ReturnTarget = "APPLICANT" | "PTS_OFFICER";
+
+export interface ReturnRouting {
+  return_target: ReturnTarget | null;
+  return_from_step: number | null;
+  return_to_step: number | null;
+}
+
 /**
  * File attachment types for request documentation
  */
@@ -101,6 +109,9 @@ export interface PTSRequest {
   status: RequestStatus;
   current_step: number;
   submission_data: any; // JSON data specific to request type
+  return_target?: ReturnTarget | null;
+  return_from_step?: number | null;
+  return_to_step?: number | null;
 
   // Timestamps
   created_at: Date;
@@ -123,6 +134,10 @@ export interface RequestAction {
   action: ActionType;
   step_no: number;
   comment: string | null;
+  actor_role?: string | null;
+  return_target?: ReturnTarget | null;
+  return_from_step?: number | null;
+  return_to_step?: number | null;
   action_date: Date;
   // API-friendly aliases for frontend compatibility
   action_type?: ActionType;

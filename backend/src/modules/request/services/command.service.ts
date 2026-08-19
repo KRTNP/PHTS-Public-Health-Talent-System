@@ -1852,6 +1852,15 @@ export class RequestCommandService {
         userRole,
         activeHeadRoles,
       );
+      const isApplicantReturn = requestRow.return_target === "APPLICANT";
+      const returnFromStep = Number(requestRow.return_from_step) || null;
+      const resumesAtOriginalScope =
+        isApplicantReturn && returnFromStep !== null && returnFromStep <= 2;
+      const submitNextStep = isApplicantReturn
+        ? resumesAtOriginalScope
+          ? returnFromStep
+          : 3
+        : nextStep;
       if (isOfficerCreatedRequest) {
         return await this.finalizeOfficerCreatedRequest(
           requestId,
@@ -1879,7 +1888,13 @@ export class RequestCommandService {
         requestId,
         {
           status: RequestStatus.PENDING,
-          current_step: nextStep,
+          current_step: submitNextStep,
+          return_target:
+            isApplicantReturn && !resumesAtOriginalScope
+              ? "PTS_OFFICER"
+              : null,
+          return_to_step:
+            isApplicantReturn && !resumesAtOriginalScope ? 3 : null,
           step_started_at: new Date(),
           submission_data: submissionData,
         },
@@ -1895,6 +1910,7 @@ export class RequestCommandService {
           action: ActionType.SUBMIT,
           comment: null,
           signature_snapshot: signatureSnapshot,
+          actor_role: userRole,
         },
         connection,
       );
@@ -1903,9 +1919,9 @@ export class RequestCommandService {
 
       // Notification (After commit)
       const nextRole =
-        nextStep === 1 || nextStep === 2
+        submitNextStep === 1 || submitNextStep === 2
           ? "HEAD_SCOPE"
-          : STEP_ROLE_MAP[nextStep] || "HEAD_SCOPE";
+          : STEP_ROLE_MAP[submitNextStep] || "HEAD_SCOPE";
       await NotificationService.notifyRole(
         nextRole,
         "มีคำขอใหม่รออนุมัติ",
