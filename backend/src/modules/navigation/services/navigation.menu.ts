@@ -203,6 +203,11 @@ export const buildMenu = (
         ],
         secondaryMenu: [
           {
+            label: "ดาวน์โหลดรายงาน",
+            href: `${basePath}/reports`,
+            iconKey: "FileBarChart",
+          },
+          {
             label: "จัดการวันหยุด",
             href: `${basePath}/holidays`,
             iconKey: "Calendar",
@@ -213,7 +218,7 @@ export const buildMenu = (
             iconKey: "FileText",
           },
         ],
-        secondaryLabel: "ข้อมูลหลัก",
+        secondaryLabel: "รายงานและข้อมูลหลัก",
       };
     case UserRole.FINANCE_OFFICER:
       return {
