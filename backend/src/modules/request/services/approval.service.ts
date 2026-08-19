@@ -497,8 +497,12 @@ export class RequestApprovalService {
         actorId,
         actorRole,
       );
-      if (!comment || comment.trim() === "") {
+      const trimmedComment = comment?.trim() ?? "";
+      if (!trimmedComment) {
         throw new Error("Return reason is required");
+      }
+      if (trimmedComment.length > 1000) {
+        throw new Error("Return reason must be 1000 characters or fewer");
       }
       if (
         effectiveActorRole === "WARD_SCOPE" ||
@@ -529,7 +533,7 @@ export class RequestApprovalService {
           actor_id: actorId,
           step_no: request.current_step,
           action: ActionType.RETURN,
-          comment: comment.trim(),
+          comment: trimmedComment,
           signature_snapshot: null,
           actor_role: effectiveActorRole,
           return_target: returnTarget,
@@ -556,7 +560,7 @@ export class RequestApprovalService {
         await NotificationService.notifyRole(
           "PTS_OFFICER",
           "คำขอถูกส่งกลับให้ PTS ตรวจซ้ำ",
-          `คำขอเลขที่ ${request.request_no} ถูกส่งกลับให้ PTS ตรวจซ้ำ: ${comment.trim()}`,
+          `คำขอเลขที่ ${request.request_no} ถูกส่งกลับให้ PTS ตรวจซ้ำ: ${trimmedComment}`,
           getRequestLinkForRole("PTS_OFFICER", requestId),
           undefined,
           connection,
@@ -565,7 +569,7 @@ export class RequestApprovalService {
         await NotificationService.notifyUser(
           request.user_id,
           "คำขอถูกส่งคืน",
-          `คำขอเลขที่ ${request.request_no} ถูกส่งคืนแก้ไข: ${comment.trim()}`,
+          `คำขอเลขที่ ${request.request_no} ถูกส่งคืนแก้ไข: ${trimmedComment}`,
           `/dashboard/user/requests/${requestId}`,
           "APPROVAL",
           connection,
@@ -584,7 +588,7 @@ export class RequestApprovalService {
             step: returnFromStep,
             return_target: returnTarget,
             return_to_step: returnToStep,
-            comment: comment.trim(),
+            comment: trimmedComment,
           },
         },
         connection,

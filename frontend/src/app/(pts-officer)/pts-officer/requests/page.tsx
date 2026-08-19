@@ -68,6 +68,7 @@ interface Request {
   position: string;
   department: string;
   status: RequestStatus;
+  returnTarget: 'APPLICANT' | 'PTS_OFFICER' | null;
   rateGroup: string;
   rateItem: string;
   rateSubItem?: string;
@@ -277,6 +278,7 @@ export default function RequestsPage() {
           (pickSubmissionValue(submission, 'department') as string | undefined) ||
           '-',
         status: mapStatus(req.status),
+        returnTarget: req.return_target ?? null,
         rateGroup,
         rateItem,
         rateSubItem: rateSubItem === '-' ? undefined : rateSubItem,
@@ -464,6 +466,14 @@ export default function RequestsPage() {
                                 เจ้าหน้าที่สร้างแทน
                               </Badge>
                             ) : null}
+                            {request.returnTarget === 'PTS_OFFICER' ? (
+                              <Badge
+                                variant="outline"
+                                className="border-orange-200 bg-orange-50 text-orange-700"
+                              >
+                                ส่งกลับให้ PTS ตรวจซ้ำ
+                              </Badge>
+                            ) : null}
                           </div>
                           <span
                             className="text-xs text-muted-foreground truncate max-w-[200px]"
@@ -555,6 +565,11 @@ export default function RequestsPage() {
                     </span>{' '}
                     บาท/เดือน
                   </span>
+                  {selectedRequest.returnTarget === 'PTS_OFFICER' && (
+                    <span className="block font-medium text-orange-700">
+                      งานนี้ถูกส่งกลับจากขั้นตอนถัดไป กรุณาตรวจทานก่อนส่งต่อขั้นเดิม
+                    </span>
+                  )}
                 </span>
               )}
             </DialogDescription>

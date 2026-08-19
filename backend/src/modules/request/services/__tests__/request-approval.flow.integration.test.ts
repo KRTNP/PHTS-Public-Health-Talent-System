@@ -1,5 +1,6 @@
 import { getTestConnection, resetRequestSchema } from "@/test/test-db.js";
 import { requestApprovalService } from "@/modules/request/services/approval.service.js";
+import { requestCommandService } from "@/modules/request/services/command.service.js";
 
 jest.mock("@/modules/notification/services/notification.service.js", () => ({
   NotificationService: {
@@ -165,14 +166,18 @@ const seedRequest = async (data: {
   status: "PENDING" | "RETURNED" | "REJECTED" | "DRAFT";
   currentStep: number;
   requestNo?: string;
+  returnTarget?: "APPLICANT" | "PTS_OFFICER" | null;
+  returnFromStep?: number | null;
+  returnToStep?: number | null;
 }): Promise<number> => {
   const conn = await getTestConnection();
   try {
     const [result] = await conn.execute<any>(
       `INSERT INTO req_submissions (
         user_id, citizen_id, request_no, personnel_type, status, current_step,
-        requested_amount, effective_date, submission_data, step_started_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        requested_amount, effective_date, submission_data, step_started_at,
+        return_target, return_from_step, return_to_step
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?)`,
       [
         data.userId,
         data.citizenId,
@@ -183,6 +188,9 @@ const seedRequest = async (data: {
         1000,
         "2026-01-01",
         JSON.stringify({}),
+        data.returnTarget ?? null,
+        data.returnFromStep ?? null,
+        data.returnToStep ?? null,
       ],
     );
     return Number(result.insertId);
@@ -429,6 +437,43 @@ describe("Request & Approval flow integration", () => {
         headHrId,
         "HEAD_HR",
         "   ",
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      requestApprovalService.returnRequest(
+        requestId,
+        headHrId,
+        "HEAD_HR",
+        "x".repeat(1001),
+      ),
+    ).rejects.toThrow("1000 characters or fewer");
+  });
+
+  test("treats legacy null-target returns as applicant returns and blocks owner edits of PTS returns", async () => {
+    expect(
+      (requestCommandService as any).isApplicantTargetedReturn({
+        status: "RETURNED",
+        return_target: null,
+      }),
+    ).toBe(true);
+
+    const internalReturnId = await seedRequest({
+      userId: requesterId,
+      citizenId: "1000000000001",
+      status: "RETURNED",
+      currentStep: 3,
+      requestNo: "REQ-INTERNAL-RETURN-001",
+      returnTarget: "PTS_OFFICER",
+      returnFromStep: 4,
+      returnToStep: 3,
+    });
+    await expect(
+      requestCommandService.updateRequest(
+        internalReturnId,
+        requesterId,
+        "USER",
+        { submission_data: { correction_note: "ไม่ควรแก้ได้" } },
       ),
     ).rejects.toThrow();
   });

@@ -778,7 +778,7 @@ export class RequestCommandService {
     }
     if (
       requestEntity.status !== RequestStatus.DRAFT &&
-      requestEntity.status !== RequestStatus.RETURNED
+      !this.isApplicantTargetedReturn(requestEntity)
     ) {
       throw new ValidationError(
         "สามารถลบไฟล์แนบได้เฉพาะคำขอสถานะ DRAFT หรือ RETURNED",
@@ -845,6 +845,16 @@ export class RequestCommandService {
     return Number.isInteger(createdByOfficerId) && createdByOfficerId > 0
       ? createdByOfficerId
       : null;
+  }
+
+  private isApplicantTargetedReturn(
+    requestEntity: NonNullable<Awaited<ReturnType<typeof requestRepository.findById>>>,
+  ): boolean {
+    return (
+      requestEntity.status === RequestStatus.RETURNED &&
+      (requestEntity.return_target === "APPLICANT" ||
+        requestEntity.return_target === null)
+    );
   }
 
   private async getOfficerCreatorIdWithFallback(
@@ -990,7 +1000,7 @@ export class RequestCommandService {
     if (isOwner || isOfficerCreator) {
       const canOwnerEdit =
         request.status === RequestStatus.DRAFT ||
-        request.status === RequestStatus.RETURNED;
+        this.isApplicantTargetedReturn(request);
       if (!canOwnerEdit) {
         throw new Error(
           "Rate mapping can only be updated in draft or returned status",
@@ -1001,7 +1011,7 @@ export class RequestCommandService {
     if (
       isOfficerCreator &&
       (request.status === RequestStatus.DRAFT ||
-        request.status === RequestStatus.RETURNED)
+        this.isApplicantTargetedReturn(request))
     ) {
       return;
     }
@@ -1318,7 +1328,7 @@ export class RequestCommandService {
     if (isOwner || isOfficerCreator) {
       const canOwnerEdit =
         requestEntity.status === RequestStatus.DRAFT ||
-        requestEntity.status === RequestStatus.RETURNED;
+        this.isApplicantTargetedReturn(requestEntity);
       if (!canOwnerEdit) {
         throw new Error(
           `ไม่สามารถแก้ไขคำขอที่มีสถานะ ${requestEntity.status} ได้ (ต้องเป็น DRAFT หรือ RETURNED เท่านั้น)`,
@@ -1330,7 +1340,7 @@ export class RequestCommandService {
       if (
         isOfficerCreator &&
         (requestEntity.status === RequestStatus.DRAFT ||
-          requestEntity.status === RequestStatus.RETURNED)
+          this.isApplicantTargetedReturn(requestEntity))
       ) {
         return { isOwner: true, isOfficer };
       }
@@ -1398,7 +1408,10 @@ export class RequestCommandService {
       throw new AuthorizationError("ไม่มีสิทธิ์ยืนยันไฟล์แนบของคำขอนี้");
     }
     const status = request.status as RequestStatus;
-    if (![RequestStatus.DRAFT, RequestStatus.RETURNED].includes(status)) {
+    if (
+      status !== RequestStatus.DRAFT &&
+      !this.isApplicantTargetedReturn(request)
+    ) {
       throw new ValidationError("ไม่สามารถยืนยันไฟล์แนบในสถานะนี้ได้");
     }
 
@@ -1852,7 +1865,10 @@ export class RequestCommandService {
         userRole,
         activeHeadRoles,
       );
-      const isApplicantReturn = requestRow.return_target === "APPLICANT";
+      const isApplicantReturn =
+        requestRow.status === RequestStatus.RETURNED &&
+        (requestRow.return_target === "APPLICANT" ||
+          requestRow.return_target === null);
       const returnFromStep = Number(requestRow.return_from_step) || null;
       const resumesAtOriginalScope =
         isApplicantReturn && returnFromStep !== null && returnFromStep <= 2;
