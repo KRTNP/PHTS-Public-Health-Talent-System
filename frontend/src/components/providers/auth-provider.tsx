@@ -118,6 +118,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 1. Check User on Mount
   React.useEffect(() => {
     const initAuth = async () => {
+      if (pathname === "/login" && !hasAuthSessionHint()) {
+        setIsLoading(false)
+        return
+      }
+
       try {
         await refreshCurrentUser()
       } catch (error) {
@@ -131,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     void initAuth()
-  }, [finalizeLogout, isExpectedAuthRefreshError, refreshCurrentUser])
+  }, [finalizeLogout, isExpectedAuthRefreshError, pathname, refreshCurrentUser])
 
   // 2. Refresh user on tab focus / visibility to detect role changes from backend.
   React.useEffect(() => {
