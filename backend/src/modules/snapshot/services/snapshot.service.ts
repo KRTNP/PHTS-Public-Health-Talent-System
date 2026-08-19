@@ -127,8 +127,14 @@ export async function enqueuePeriodSnapshotGeneration(
     if (!period) {
       throw new Error("Period not found");
     }
-    if (String(period.status ?? "").toUpperCase() !== "CLOSED") {
-      throw new Error("Can only enqueue snapshot for closed periods");
+    const snapshotEligibleStatuses = new Set([
+      "WAITING_HR",
+      "WAITING_HEAD_FINANCE",
+      "WAITING_DIRECTOR",
+      "CLOSED",
+    ]);
+    if (!snapshotEligibleStatuses.has(String(period.status ?? "").toUpperCase())) {
+      throw new Error("Can only enqueue snapshot after submission");
     }
     await SnapshotRepository.setPeriodSnapshotPending(periodId, connection);
     await SnapshotRepository.insertSnapshotOutbox(
@@ -263,8 +269,14 @@ async function generateSnapshotForPeriod(
     connection,
   );
   if (!period) throw new Error("Period not found");
-  if (String(period.status ?? "").toUpperCase() !== "CLOSED") {
-    throw new Error("Can only freeze closed periods");
+  const snapshotEligibleStatuses = new Set([
+    "WAITING_HR",
+    "WAITING_HEAD_FINANCE",
+    "WAITING_DIRECTOR",
+    "CLOSED",
+  ]);
+  if (!snapshotEligibleStatuses.has(String(period.status ?? "").toUpperCase())) {
+    throw new Error("Can only freeze periods after submission");
   }
 
   await SnapshotRepository.setPeriodSnapshotProcessing(periodId, connection);
@@ -353,8 +365,10 @@ export async function getPayoutDataForReport(periodId: number): Promise<{
   if (!period) {
     throw new Error("Period not found");
   }
-  if (period.status !== "CLOSED") {
-    throw new Error("Report is available only for closed periods");
+  if (!["WAITING_HR", "WAITING_HEAD_FINANCE", "WAITING_DIRECTOR", "CLOSED"].includes(
+    String(period.status).toUpperCase(),
+  )) {
+    throw new Error("Report is available only after submission to HR");
   }
   if (!isSnapshotReady(period)) {
     throw new Error("SNAPSHOT_NOT_READY");
@@ -385,8 +399,10 @@ export async function getSummaryDataForReport(periodId: number): Promise<{
   if (!period) {
     throw new Error("Period not found");
   }
-  if (period.status !== "CLOSED") {
-    throw new Error("Report is available only for closed periods");
+  if (!["WAITING_HR", "WAITING_HEAD_FINANCE", "WAITING_DIRECTOR", "CLOSED"].includes(
+    String(period.status).toUpperCase(),
+  )) {
+    throw new Error("Report is available only after submission to HR");
   }
   if (!isSnapshotReady(period)) {
     throw new Error("SNAPSHOT_NOT_READY");
