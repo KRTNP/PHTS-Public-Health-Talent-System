@@ -26,6 +26,7 @@ export function ApprovalTimelineCard({ request }: { request: RequestWithDetails 
     cycleStartTs === null
       ? sortedActions
       : sortedActions.filter((action) => toActionTs(action.action_date) >= cycleStartTs);
+  const returnActions = sortedActions.filter((action) => action.action === 'RETURN');
 
   const submitAction = latestSubmitAction;
   const cancelAction = timelineActions
@@ -238,6 +239,31 @@ export function ApprovalTimelineCard({ request }: { request: RequestWithDetails 
             </div>
           </>
         ) : null}
+
+        {returnActions.length > 0 && (
+          <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50/50 p-4">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-orange-800">
+              ประวัติเส้นทางการส่งกลับ
+            </p>
+            <div className="space-y-2">
+              {returnActions.map((action, index) => {
+                const targetLabel =
+                  action.return_target === 'PTS_OFFICER'
+                    ? 'เจ้าหน้าที่ พ.ต.ส.'
+                    : 'ผู้ยื่น';
+                const fromStep = action.return_from_step ?? action.step_no ?? '-';
+                const actorRole = action.actor?.role ? ` (${action.actor.role})` : '';
+                return (
+                  <div key={action.action_date + index} className="text-xs text-orange-900">
+                    <span className="font-semibold">ครั้งที่ {index + 1}:</span>{' '}
+                    ขั้นตอน {fromStep} → {targetLabel}{actorRole}
+                    {action.comment ? ` — ${action.comment}` : ''}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

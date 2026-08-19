@@ -1146,6 +1146,7 @@ export class RequestCommandService {
         action: ActionType.SUBMIT,
         comment: "เจ้าหน้าที่ พ.ต.ส. สร้างคำขอแทนบุคลากร",
         signature_snapshot: signatureSnapshot,
+        actor_role: actorRole,
       },
       connection,
     );
@@ -1865,10 +1866,7 @@ export class RequestCommandService {
         userRole,
         activeHeadRoles,
       );
-      const isApplicantReturn =
-        requestRow.status === RequestStatus.RETURNED &&
-        (requestRow.return_target === "APPLICANT" ||
-          requestRow.return_target === null);
+      const isApplicantReturn = requestRow.return_target === "APPLICANT";
       const returnFromStep = Number(requestRow.return_from_step) || null;
       const resumesAtOriginalScope =
         isApplicantReturn && returnFromStep !== null && returnFromStep <= 2;
@@ -2002,6 +2000,15 @@ export class RequestCommandService {
         requestEntity.status,
         requestEntity.submission_data,
       );
+      if (
+        isOwner &&
+        requestEntity.status === RequestStatus.RETURNED &&
+        requestEntity.return_target === null
+      ) {
+        // Legacy RETURNED rows had no route marker; normalize them before
+        // the status changes to DRAFT so resubmission still enters PTS.
+        updateData.return_target = "APPLICANT";
+      }
 
       // [REFACTOR] Use Repo Update
       if (Object.keys(updateData).length > 0) {
@@ -2178,6 +2185,10 @@ export class RequestCommandService {
       );
 
       // [REFACTOR] Record Action
+      const cancelActorRole =
+        this.getOfficerCreatorId(requestEntity) === userId
+          ? "PTS_OFFICER"
+          : "USER";
       await requestRepository.insertApproval(
         {
           request_id: requestId,
@@ -2186,6 +2197,7 @@ export class RequestCommandService {
           action: ActionType.CANCEL,
           comment: reason || "ผู้ยื่นขอยกเลิกคำขอ",
           signature_snapshot: null,
+          actor_role: cancelActorRole,
         },
         connection,
       );

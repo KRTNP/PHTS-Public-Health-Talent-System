@@ -416,6 +416,7 @@ export class RequestApprovalService {
           action: ActionType.REJECT,
           comment: comment,
           signature_snapshot: null,
+          actor_role: effectiveActorRole,
         },
         connection,
       );
