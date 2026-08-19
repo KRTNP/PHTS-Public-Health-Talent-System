@@ -1,9 +1,12 @@
+import { createHash } from "node:crypto";
 import rateLimit from "express-rate-limit";
+import type { Request } from "express";
 import {
   getNodeEnv,
   getRateLimitConfig,
   isTestEnv,
 } from "@config/runtime-config.js";
+import { extractAuthToken } from "@shared/utils/authToken.js";
 
 const isDevelopment = () => getNodeEnv() === "development";
 
@@ -34,6 +37,17 @@ const getClientKey = (req: {
 
   const ip = (req.ip || "").trim();
   return `ip:${ip || "unknown"}`;
+};
+
+const getAuthProbeKey = (req: Request): string => {
+  const token = extractAuthToken(req);
+  if (!token) return getClientKey(req);
+
+  const fingerprint = createHash("sha256")
+    .update(token)
+    .digest("hex")
+    .slice(0, 32);
+  return `credential:${fingerprint}`;
 };
 
 const shouldSkipRateLimitInDevelopment = () =>
@@ -111,7 +125,7 @@ export const authProbeRateLimiter = rateLimit({
   max: getRateLimitConfig().authProbeMax,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => getClientKey(req),
+  keyGenerator: (req) => getAuthProbeKey(req),
   skip: () => isTestEnv(),
   handler: (req, res) => {
     const requestWithRateLimit = req as typeof req & RateLimitedRequest;
