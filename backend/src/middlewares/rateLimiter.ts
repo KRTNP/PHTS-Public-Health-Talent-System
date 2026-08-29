@@ -103,6 +103,34 @@ export const authRateLimiter = rateLimit({
   },
 });
 
+// Logout is intentionally callable without a valid session so the client can
+// clear stale cookies. Keep it on an IP-based limiter and never key the limit
+// by an attacker-controlled token value.
+export const authLogoutRateLimiter = rateLimit({
+  windowMs: getRateLimitConfig().authProbeWindowMs,
+  max: getRateLimitConfig().authProbeMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientKey(req),
+  skip: () => isTestEnv(),
+  handler: (req, res) => {
+    const requestWithRateLimit = req as typeof req & RateLimitedRequest;
+    const now = Date.now();
+    const resetTime =
+      requestWithRateLimit.rateLimit?.resetTime instanceof Date
+        ? requestWithRateLimit.rateLimit.resetTime.getTime()
+        : now + getRateLimitConfig().authProbeWindowMs;
+    const retryAfterSeconds = Math.max(1, Math.ceil((resetTime - now) / 1000));
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    res.status(429).json({
+      success: false,
+      code: "AUTH_LOGOUT_RATE_LIMIT_EXCEEDED",
+      error: "Too many logout requests, please try again later.",
+      retry_after_seconds: retryAfterSeconds,
+    });
+  },
+});
+
 export const securityRateLimiter = rateLimit({
   windowMs: getRateLimitConfig().securityWindowMs,
   max: getRateLimitConfig().securityMax,

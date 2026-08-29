@@ -2,12 +2,17 @@ import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, waitFor, cleanup } from "@testing-library/react";
 import { AuthProvider } from "@/components/providers/auth-provider";
-import { AUTH_SESSION_HINT_STORAGE_NAME } from "@/shared/auth/storage";
+import {
+  AUTH_SESSION_HINT_STORAGE_NAME,
+  AUTH_USER_STORAGE_NAME,
+} from "@/shared/auth/storage";
 
 const mocked = vi.hoisted(() => ({
   replace: vi.fn(),
   push: vi.fn(),
+  router: {} as { replace: typeof vi.fn; push: typeof vi.fn },
   apiGet: vi.fn(),
+  apiPost: vi.fn(),
   pathname: "/login",
   responseUser: {
     id: 999,
@@ -19,17 +24,14 @@ const mocked = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    replace: mocked.replace,
-    push: mocked.push,
-  }),
+  useRouter: () => mocked.router,
   usePathname: () => mocked.pathname,
 }));
 
 vi.mock("@/shared/api/axios", () => ({
   default: {
     get: mocked.apiGet,
-    post: vi.fn(),
+    post: mocked.apiPost,
   },
 }));
 
@@ -37,6 +39,7 @@ describe("AuthProvider role access guard", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    mocked.router = { replace: mocked.replace, push: mocked.push };
     localStorage.clear();
     sessionStorage.clear();
     mocked.responseUser = {
@@ -135,5 +138,66 @@ describe("AuthProvider role access guard", () => {
       expect(mocked.apiGet).toHaveBeenCalledWith("/auth/me");
     });
     expect(mocked.replace).not.toHaveBeenCalled();
+  });
+
+  it("retains the session hint when initial auth refresh is rate-limited", async () => {
+    mocked.pathname = "/user";
+    sessionStorage.setItem(AUTH_SESSION_HINT_STORAGE_NAME, "1");
+    const error = Object.assign(new Error("Too many requests"), {
+      isAxiosError: true,
+      response: { status: 429 },
+    });
+    mocked.apiGet.mockRejectedValueOnce(error);
+
+    render(
+      <AuthProvider>
+        <div>test</div>
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mocked.apiGet).toHaveBeenCalledWith("/auth/me");
+    });
+
+    expect(mocked.replace).not.toHaveBeenCalled();
+    expect(mocked.apiPost).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(AUTH_SESSION_HINT_STORAGE_NAME)).toBe("1");
+  });
+
+  it("does not logout on a transient focus refresh failure", async () => {
+    mocked.pathname = "/user";
+    sessionStorage.setItem(AUTH_SESSION_HINT_STORAGE_NAME, "1");
+    mocked.apiGet
+      .mockResolvedValueOnce({
+        data: { success: true, data: mocked.responseUser },
+      })
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Temporary server error"), {
+          isAxiosError: true,
+          response: { status: 500 },
+        }),
+      );
+
+    render(
+      <AuthProvider>
+        <div>test</div>
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mocked.apiGet).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(sessionStorage.getItem(AUTH_USER_STORAGE_NAME)).not.toBeNull();
+    });
+    window.dispatchEvent(new Event("focus"));
+
+    await waitFor(() => {
+      expect(mocked.apiGet.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    expect(mocked.apiPost).not.toHaveBeenCalled();
+    expect(mocked.replace).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(AUTH_SESSION_HINT_STORAGE_NAME)).toBe("1");
   });
 });

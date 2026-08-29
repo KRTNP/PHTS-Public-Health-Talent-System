@@ -1,4 +1,5 @@
 import { describe, expect, test, jest } from "@jest/globals";
+import path from "node:path";
 
 const addDaysUtc = (date: Date, days: number): Date => {
   const next = new Date(date);
@@ -9,6 +10,7 @@ const addDaysUtc = (date: Date, days: number): Date => {
 const toIsoDate = (date: Date): string => date.toISOString().slice(0, 10);
 
 const insertLeaveManagementMock = jest.fn().mockResolvedValue(99);
+const insertDocumentMock = jest.fn().mockResolvedValue(100);
 const upsertExtensionMock = jest.fn().mockResolvedValue(undefined);
 const replaceLeaveReturnReportEventsMock = jest
   .fn()
@@ -33,6 +35,7 @@ const calculateLeaveQuotaStatusMock = jest.fn();
 jest.mock("../repositories/leave-management.repository", () => ({
   LeaveManagementRepository: jest.fn().mockImplementation(() => ({
     insertLeaveManagement: insertLeaveManagementMock,
+    insertDocument: insertDocumentMock,
     upsertExtension: upsertExtensionMock,
     replaceLeaveReturnReportEvents: replaceLeaveReturnReportEventsMock,
     findExtensionReturnMeta: findExtensionReturnMetaMock,
@@ -58,11 +61,35 @@ import {
   getLeaveManagementQuotaStatus,
   upsertLeaveManagementExtension,
   replaceLeaveReturnReportEvents,
+  addLeaveManagementDocuments,
 } from "../services/leave-management.service";
 
 describe("leave-management service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  test("stores leave-document paths relative to the backend upload root", async () => {
+    await addLeaveManagementDocuments(10, [
+      {
+        path: path.join(
+          process.cwd(),
+          "uploads/documents/session/document.pdf",
+        ),
+        originalname: "document.pdf",
+        mimetype: "application/pdf",
+        size: 128,
+      } as Express.Multer.File,
+    ], 7);
+
+    expect(insertDocumentMock).toHaveBeenCalledWith({
+      leave_management_id: 10,
+      file_name: "document.pdf",
+      file_type: "application/pdf",
+      file_size: 128,
+      file_path: "uploads/documents/session/document.pdf",
+      uploaded_by: 7,
+    });
   });
 
   test("getLeaveManagementQuotaStatus returns all quotas with current leave highlighted", async () => {

@@ -68,6 +68,24 @@ export async function authorizeUploadAccess(
       return;
     }
 
+    const leaveDocuments = await query<Array<{ document_id: number }>>(
+      `SELECT d.document_id
+       FROM leave_record_documents d
+       JOIN leave_records lr ON lr.id = d.leave_record_id
+       WHERE d.file_path IN (?, ?)
+       LIMIT 1`,
+      [normalizedPath, path.resolve(process.cwd(), normalizedPath)],
+    ).catch(() => []);
+
+    if (leaveDocuments.length > 0) {
+      if (req.user.role !== "PTS_OFFICER") {
+        res.status(403).json({ success: false, error: "Forbidden" });
+        return;
+      }
+      next();
+      return;
+    }
+
     const eligibilityAttachments = await query<
       Array<{ eligibility_id: number }>
     >(

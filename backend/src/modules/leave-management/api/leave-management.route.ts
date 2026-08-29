@@ -5,7 +5,8 @@
 import { Router } from "express";
 import { protect, restrictTo } from "@middlewares/authMiddleware.js";
 import { validate } from "@shared/validate.middleware.js";
-import { upload } from "@config/upload-storage.js";
+import { requestUpload } from "@config/upload-storage.js";
+import { enforceUploadedFilesAreSafe } from "@config/upload-guard.js";
 import { UserRole } from "@/types/auth.js";
 import { apiRateLimiter } from "@middlewares/rateLimiter.js";
 import {
@@ -89,7 +90,8 @@ router.get(
 router.post(
   "/:leaveManagementId/documents",
   validate(leaveManagementIdParamSchema),
-  upload.array("files", 10),
+  requestUpload.array("files", 10),
+  enforceUploadedFilesAreSafe,
   addLeaveManagementDocuments,
 );
 

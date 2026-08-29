@@ -208,7 +208,10 @@ export const logout = asyncHandler(
   async (req: Request, res: Response<ApiResponse>): Promise<void> => {
     const token = extractAuthToken(req);
 
-    if (token) {
+    // An anonymous/invalid token must only clear the cookie.  Blacklisting is
+    // reserved for a token that the JWT middleware has already authenticated.
+    // Otherwise an attacker can force Redis writes with arbitrary Bearer values.
+    if (token && req.user) {
       const decoded = jwt.decode(token) as { exp?: number } | null;
       const nowSec = Math.floor(Date.now() / 1000);
       const expiresIn = Math.max(

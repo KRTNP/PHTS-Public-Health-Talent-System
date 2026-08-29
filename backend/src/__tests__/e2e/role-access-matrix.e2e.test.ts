@@ -39,6 +39,7 @@ jest.mock("@middlewares/idempotency.js", () => ({
 jest.mock("@config/upload-storage.js", () => ({
   requestUpload: {
     fields: () => (_req: any, _res: any, next: any) => next(),
+    array: () => (_req: any, _res: any, next: any) => next(),
   },
   upload: {
     array: () => (_req: any, _res: any, next: any) => next(),

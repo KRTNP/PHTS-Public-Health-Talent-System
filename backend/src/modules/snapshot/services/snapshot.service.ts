@@ -12,6 +12,7 @@ import {
 } from "@/modules/audit/services/audit.service.js";
 import { SnapshotRepository } from "@/modules/snapshot/repositories/snapshot.repository.js";
 import { getSnapshotOutboxConfig } from "@config/runtime-config.js";
+import { ConflictError, NotFoundError } from "@shared/utils/errors.js";
 
 /**
  * Snapshot type
@@ -363,21 +364,21 @@ export async function getPayoutDataForReport(periodId: number): Promise<{
 }> {
   const period = await getPeriodWithSnapshot(periodId);
   if (!period) {
-    throw new Error("Period not found");
+    throw new NotFoundError("period", periodId);
   }
   if (!["WAITING_HR", "WAITING_HEAD_FINANCE", "WAITING_DIRECTOR", "CLOSED"].includes(
     String(period.status).toUpperCase(),
   )) {
-    throw new Error("Report is available only after submission to HR");
+    throw new ConflictError("รายงานพร้อมใช้งานหลังจากส่งคำขอให้ HR แล้ว");
   }
   if (!isSnapshotReady(period)) {
-    throw new Error("SNAPSHOT_NOT_READY");
+    throw new ConflictError("Snapshot ยังไม่พร้อมสำหรับรอบนี้");
   }
 
   const snapshot = await getSnapshot(periodId, SnapshotType.PAYOUT);
 
   if (!snapshot) {
-    throw new Error("SNAPSHOT_NOT_READY");
+    throw new ConflictError("Snapshot ยังไม่พร้อมสำหรับรอบนี้");
   }
 
   return {
@@ -397,21 +398,21 @@ export async function getSummaryDataForReport(periodId: number): Promise<{
 }> {
   const period = await getPeriodWithSnapshot(periodId);
   if (!period) {
-    throw new Error("Period not found");
+    throw new NotFoundError("period", periodId);
   }
   if (!["WAITING_HR", "WAITING_HEAD_FINANCE", "WAITING_DIRECTOR", "CLOSED"].includes(
     String(period.status).toUpperCase(),
   )) {
-    throw new Error("Report is available only after submission to HR");
+    throw new ConflictError("รายงานพร้อมใช้งานหลังจากส่งคำขอให้ HR แล้ว");
   }
   if (!isSnapshotReady(period)) {
-    throw new Error("SNAPSHOT_NOT_READY");
+    throw new ConflictError("Snapshot ยังไม่พร้อมสำหรับรอบนี้");
   }
 
   const snapshot = await getSnapshot(periodId, SnapshotType.SUMMARY);
 
   if (!snapshot) {
-    throw new Error("SNAPSHOT_NOT_READY");
+    throw new ConflictError("Snapshot ยังไม่พร้อมสำหรับรอบนี้");
   }
 
   return {

@@ -41,7 +41,13 @@ export const errorHandler = (
   const sanitizedPath = sanitizeUrlForLogs(req.originalUrl);
   let normalizedError: Error | AppError = err;
 
-  if (err instanceof multer.MulterError) {
+  const isMalformedJsonError =
+    err instanceof SyntaxError &&
+    (err as SyntaxError & { type?: string }).type === "entity.parse.failed";
+
+  if (isMalformedJsonError) {
+    normalizedError = new ValidationError("รูปแบบ JSON ไม่ถูกต้อง");
+  } else if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
       normalizedError = new AppError(
         "ขนาดไฟล์เกิน 5MB ต่อไฟล์",

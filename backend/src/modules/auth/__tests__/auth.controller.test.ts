@@ -215,4 +215,27 @@ describe("auth controller", () => {
     );
     expect(res.status).toHaveBeenCalledWith(200);
   });
+
+  test("does not blacklist an invalid bearer token during anonymous logout", async () => {
+    const { tokenBlacklist } = jest.requireMock(
+      "@shared/services/tokenBlacklist.js",
+    ) as { tokenBlacklist: { blacklistToken: jest.Mock } };
+    tokenBlacklist.blacklistToken.mockClear();
+
+    const req: any = {
+      headers: { authorization: "Bearer synthetic-invalid-token" },
+    };
+    const res: any = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      clearCookie: jest.fn(),
+    };
+    const next = jest.fn();
+
+    await logout(req, res, next);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(tokenBlacklist.blacklistToken).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
 });

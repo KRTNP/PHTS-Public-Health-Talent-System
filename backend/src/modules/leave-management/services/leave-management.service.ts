@@ -1,5 +1,6 @@
 import { LeaveManagementRepository } from "../repositories/leave-management.repository.js";
 import fs from "node:fs/promises";
+import path from "node:path";
 import type {
   LeaveManagementListQuery,
   LeavePersonnelListQuery,
@@ -428,7 +429,10 @@ export async function addLeaveManagementDocuments(
       file_name: file.originalname,
       file_type: file.mimetype,
       file_size: file.size,
-      file_path: file.path,
+      file_path: (path.isAbsolute(file.path)
+        ? path.relative(process.cwd(), file.path)
+        : file.path
+      ).split(path.sep).join("/"),
       uploaded_by: actorId ?? null,
     });
     results.push(id);

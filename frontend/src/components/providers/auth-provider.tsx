@@ -126,10 +126,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await refreshCurrentUser()
       } catch (error) {
-        if (!isExpectedAuthRefreshError(error)) {
+        if (isExpectedAuthRefreshError(error)) {
+          finalizeLogout()
+        } else {
           console.error("Failed to initialize auth:", error)
         }
-        finalizeLogout()
       } finally {
         setIsLoading(false)
       }
@@ -146,8 +147,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const syncUser = async () => {
       try {
         await refreshCurrentUser()
-      } catch {
-        logout()
+      } catch (error) {
+        if (isExpectedAuthRefreshError(error)) {
+          finalizeLogout()
+          return
+        }
+        console.error("Failed to refresh auth on focus:", error)
       }
     }
 
@@ -166,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [isLoading, logout, refreshCurrentUser, user])
+  }, [finalizeLogout, isLoading, isExpectedAuthRefreshError, refreshCurrentUser, user])
 
   // 3. Enforce route by current role so layout/sidebar always match active user.
   React.useEffect(() => {

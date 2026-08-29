@@ -11,6 +11,7 @@ import * as authController from "@/modules/auth/api/auth.controller.js";
 import { optionalAuth, protect } from "@middlewares/authMiddleware.js";
 import {
   authProbeRateLimiter,
+  authLogoutRateLimiter,
   authRateLimiter,
 } from "@middlewares/rateLimiter.js";
 import { validate } from "@shared/validate.middleware.js";
@@ -64,6 +65,11 @@ router.patch(
  * @access  Optional auth
  * @returns { success: boolean, message: string }
  */
-router.post("/logout", optionalAuth, authController.logout);
+router.post(
+  "/logout",
+  authLogoutRateLimiter,
+  optionalAuth,
+  authController.logout,
+);
 
 export default router;

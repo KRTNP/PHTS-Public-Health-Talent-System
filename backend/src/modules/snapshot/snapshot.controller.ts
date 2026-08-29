@@ -8,12 +8,49 @@ import { Request, Response } from "express";
 import { asyncHandler } from "@middlewares/errorHandler.js";
 import {
   AuthenticationError,
+  ConflictError,
   NotFoundError,
   ValidationError,
 } from "@shared/utils/errors.js";
 import { ApiResponse } from "@/types/auth.js";
 import * as snapshotService from "@/modules/snapshot/services/snapshot.service.js";
 import { SnapshotType } from "@/modules/snapshot/services/snapshot.service.js";
+
+function respondToReportStateError(
+  error: unknown,
+  periodId: number,
+  res: Response<ApiResponse>,
+): boolean {
+  const message = String((error as Error)?.message ?? "");
+
+  if (error instanceof NotFoundError || message === "Period not found") {
+    throw error instanceof NotFoundError
+      ? error
+      : new NotFoundError("period", periodId);
+  }
+
+  if (
+    error instanceof ConflictError ||
+    message === "SNAPSHOT_NOT_READY" ||
+    message === "Report is available only after submission to HR"
+  ) {
+    const isSnapshotNotReady =
+      message === "SNAPSHOT_NOT_READY" ||
+      message.toLowerCase().includes("snapshot");
+    res.status(409).json({
+      success: false,
+      error: isSnapshotNotReady
+        ? "Snapshot is not ready for this period"
+        : "Report is not available for this period state",
+      data: {
+        code: isSnapshotNotReady ? "SNAPSHOT_NOT_READY" : "REPORT_NOT_AVAILABLE",
+      },
+    });
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Get period with snapshot info
@@ -123,14 +160,7 @@ export const getReportData = asyncHandler(
       const data = await snapshotService.getPayoutDataForReport(periodId);
       res.json({ success: true, data });
     } catch (error) {
-      if (String((error as Error)?.message) === "SNAPSHOT_NOT_READY") {
-        res.status(409).json({
-          success: false,
-          error: "Snapshot is not ready for this period",
-          data: { code: "SNAPSHOT_NOT_READY" },
-        });
-        return;
-      }
+      if (respondToReportStateError(error, periodId, res)) return;
       throw error;
     }
   },
@@ -147,14 +177,7 @@ export const getSummaryData = asyncHandler(
       const data = await snapshotService.getSummaryDataForReport(periodId);
       res.json({ success: true, data });
     } catch (error) {
-      if (String((error as Error)?.message) === "SNAPSHOT_NOT_READY") {
-        res.status(409).json({
-          success: false,
-          error: "Snapshot is not ready for this period",
-          data: { code: "SNAPSHOT_NOT_READY" },
-        });
-        return;
-      }
+      if (respondToReportStateError(error, periodId, res)) return;
       throw error;
     }
   },

@@ -1,5 +1,8 @@
 import { describe, expect, jest, test } from "@jest/globals";
-import { AuthenticationError, NotFoundError } from "@/shared/utils/errors.js";
+import {
+  AuthenticationError,
+  NotFoundError,
+} from "@/shared/utils/errors.js";
 
 jest.mock("@/modules/snapshot/services/snapshot.service.js", () => ({
   getPeriodWithSnapshot: jest.fn(),
@@ -19,6 +22,7 @@ import {
   freezePeriod,
   getPeriodWithSnapshot,
   getReportData,
+  getSummaryData,
 } from "@/modules/snapshot/snapshot.controller.js";
 
 describe("snapshot controller", () => {
@@ -67,6 +71,64 @@ describe("snapshot controller", () => {
       expect.objectContaining({
         success: false,
         error: "Snapshot is not ready for this period",
+      }),
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test("maps a missing report period to NotFoundError", async () => {
+    const req: any = { params: { id: "999" } };
+    const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const next = jest.fn();
+
+    (snapshotService.getPayoutDataForReport as jest.Mock).mockRejectedValue(
+      new Error("Period not found"),
+    );
+
+    await getReportData(req, res, next);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(next).toHaveBeenCalledWith(expect.any(NotFoundError));
+  });
+
+  test("maps an unavailable report state to ConflictError", async () => {
+    const req: any = { params: { id: "46" } };
+    const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const next = jest.fn();
+
+    (snapshotService.getPayoutDataForReport as jest.Mock).mockRejectedValue(
+      new Error("Report is available only after submission to HR"),
+    );
+
+    await getReportData(req, res, next);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        data: { code: "REPORT_NOT_AVAILABLE" },
+      }),
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test("maps an unavailable summary state to a controlled 409", async () => {
+    const req: any = { params: { id: "46" } };
+    const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const next = jest.fn();
+
+    (snapshotService.getSummaryDataForReport as jest.Mock).mockRejectedValue(
+      new Error("Report is available only after submission to HR"),
+    );
+
+    await getSummaryData(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        data: { code: "REPORT_NOT_AVAILABLE" },
       }),
     );
     expect(next).not.toHaveBeenCalled();

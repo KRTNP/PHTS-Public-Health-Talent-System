@@ -21,8 +21,9 @@ describe("rateLimiter", () => {
       mod,
       apiConfig: calls[0]?.[0] as any,
       authConfig: calls[1]?.[0] as any,
-      securityConfig: calls[2]?.[0] as any,
-      authProbeConfig: calls[3]?.[0] as any,
+      logoutConfig: calls[2]?.[0] as any,
+      securityConfig: calls[3]?.[0] as any,
+      authProbeConfig: calls[4]?.[0] as any,
     };
   };
 
