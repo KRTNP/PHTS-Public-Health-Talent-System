@@ -145,7 +145,7 @@ jobs:
           zip -r "../phts-${{ steps.release_meta.outputs.release_id }}.zip" backend frontend
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phts-release
           path: phts-${{ steps.release_meta.outputs.release_id }}.zip
